@@ -1,5 +1,3 @@
-import { Readable } from 'stream';
-import { Buffer } from 'buffer';
 import formidable from 'formidable';
 import { OpenAI } from 'openai';
 import fs from 'fs/promises';
@@ -25,24 +23,24 @@ export default async function handler(req, res) {
   form.parse(req, async (err, fields, files) => {
     if (err) {
       console.error('Error al parsear el formulario:', err);
-      res.status(500).send('Form parsing error');
-      return;
-    }
-
-    const file = files.image;
-
-    // Validación adicional por si no se recibe el archivo correctamente
-    if (!file || !file[0]) {
-      res.status(400).json({ error: 'No se recibió ninguna imagen.' });
+      res.status(500).json({ error: 'Form parsing error' });
       return;
     }
 
     try {
-      const fileBuffer = await fs.readFile(file[0].filepath);
-      console.log('Archivo recibido, tamaño:', fileBuffer.length);
+      const file = files.image?.[0];
+      if (!file) {
+        res.status(400).json({ error: 'No se recibió ninguna imagen' });
+        return;
+      }
 
-      const result = await openai.chat.completions.create({
-        model: 'gpt-4-vision-preview',
+      const fileBuffer = await fs.readFile(file.filepath);
+      const base64Image = fileBuffer.toString('base64');
+      console.log('Imagen comprimida correctamente');
+      console.log('Imagen convertida a base64 correctamente');
+
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4-turbo', // Asegúrate de tener este modelo con capacidad visual
         messages: [
           {
             role: 'user',
@@ -57,7 +55,7 @@ Tipo de plantilla: (indica qué tipo de plantilla se recomienda para este tipo d
               {
                 type: 'image_url',
                 image_url: {
-                  url: `data:image/jpeg;base64,${fileBuffer.toString('base64')}`,
+                  url: `data:image/jpeg;base64,${base64Image}`,
                 },
               },
             ],
@@ -66,11 +64,12 @@ Tipo de plantilla: (indica qué tipo de plantilla se recomienda para este tipo d
         max_tokens: 500,
       });
 
-      const responseText = result.choices[0].message.content;
-      res.status(200).json({ result: responseText });
-    } catch (e) {
-      console.error('Error en la llamada a OpenAI:', e);
-      res.status(500).json({ error: e.message });
+      const result = response.choices[0]?.message?.content || 'No se recibió respuesta.';
+      res.status(200).json({ result });
+
+    } catch (error) {
+      console.error('Error al procesar la imagen con OpenAI:', error.message);
+      res.status(500).json({ error: error.message || 'Error desconocido' });
     }
   });
 }
