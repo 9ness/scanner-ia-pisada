@@ -90,7 +90,7 @@
       result.innerText = '';
 
       try {
-        const res = await fetch('/api/upload', {  // Aquí usamos la ruta relativa de Vercel
+        const res = await fetch('https://scanner-ia-pisada.vercel.app/api/upload', {  // Aquí usamos la ruta relativa de Vercel
           method: 'POST',
           body: formData,
         });
