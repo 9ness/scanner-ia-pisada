@@ -6,12 +6,12 @@ import fs from 'fs/promises';
 
 export const config = {
   api: {
-    bodyParser: false,
+    bodyParser: false,  // Importante para trabajar con datos binarios
   },
 };
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY, // Asegúrate de que la clave de OpenAI esté configurada correctamente en Vercel
 });
 
 export default async function handler(req, res) {

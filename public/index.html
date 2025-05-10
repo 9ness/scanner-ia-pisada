@@ -90,8 +90,7 @@
       result.innerText = '';
 
       try {
-        //const res = await fetch('https://TU_SERVIDOR_INTERMEDIO.vercel.app/api/upload', {
-        const res = await fetch('/api/upload', {
+        const res = await fetch('/api/upload', {  // Aquí usamos la ruta relativa de Vercel
           method: 'POST',
           body: formData,
         });
