@@ -1,0 +1,11 @@
+# Ignora el archivo de claves
+.env
+
+# Node modules
+node_modules/
+
+# Archivos temporales de Vercel
+.vercel/
+
+# Logs
+*.log
