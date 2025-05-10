@@ -6,12 +6,12 @@ import fs from 'fs/promises';
 
 export const config = {
   api: {
-    bodyParser: false,  // Importante para trabajar con datos binarios
+    bodyParser: false,
   },
 };
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY, // Asegúrate de que la clave de OpenAI esté configurada correctamente en Vercel
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
 export default async function handler(req, res) {
@@ -24,14 +24,23 @@ export default async function handler(req, res) {
 
   form.parse(req, async (err, fields, files) => {
     if (err) {
+      console.error('Error al parsear el formulario:', err);
       res.status(500).send('Form parsing error');
       return;
     }
 
     const file = files.image;
-    const fileBuffer = await fs.readFile(file[0].filepath);
+
+    // Validación adicional por si no se recibe el archivo correctamente
+    if (!file || !file[0]) {
+      res.status(400).json({ error: 'No se recibió ninguna imagen.' });
+      return;
+    }
 
     try {
+      const fileBuffer = await fs.readFile(file[0].filepath);
+      console.log('Archivo recibido, tamaño:', fileBuffer.length);
+
       const result = await openai.chat.completions.create({
         model: 'gpt-4-vision-preview',
         messages: [
@@ -60,6 +69,7 @@ Tipo de plantilla: (indica qué tipo de plantilla se recomienda para este tipo d
       const responseText = result.choices[0].message.content;
       res.status(200).json({ result: responseText });
     } catch (e) {
+      console.error('Error en la llamada a OpenAI:', e);
       res.status(500).json({ error: e.message });
     }
   });
