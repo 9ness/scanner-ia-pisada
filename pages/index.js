@@ -2,10 +2,10 @@ import { useState, useRef } from 'react';
 
 export default function Home() {
   const [loading, setLoading] = useState(false);
+  const [buttonText, setButtonText] = useState('Analizar Imagen');
   const [result, setResult] = useState('');
   const [preview, setPreview] = useState(null);
-  const [intermediateMessages, setIntermediateMessages] = useState([]);
-  const [disableAfterResult, setDisableAfterResult] = useState(false);
+  const [buttonDisabled, setButtonDisabled] = useState(false);
   const fileInputRef = useRef(null);
 
   const handleFileChange = (e) => {
@@ -13,8 +13,8 @@ export default function Home() {
     if (file) {
       setPreview(URL.createObjectURL(file));
       setResult('');
-      setIntermediateMessages([]);
-      setDisableAfterResult(false);
+      setButtonText('Analizar pisada con IA');
+      setButtonDisabled(false);
     } else {
       setPreview(null);
     }
@@ -30,26 +30,26 @@ export default function Home() {
 
     setLoading(true);
     setResult('');
-    setIntermediateMessages([]);
+    setButtonDisabled(true);
 
-    const loadingSteps = [
-      '🔍 Analizando imagen...',
-      '📊 Detectando zonas de presión...',
-      '👣 Identificando tipo de pisada...',
-      '🦶 Generando recomendación personalizada...'
+    const steps = [
+      'Analizando imagen...',
+      'Detectando zonas de presión...',
+      'Identificando tipo de pisada...',
+      'Generando recomendación personalizada...',
     ];
 
-    // Mostrar mensajes uno a uno cada segundo
-    for (let i = 0; i < loadingSteps.length; i++) {
-      await new Promise((resolve) =>
-        setTimeout(() => {
-          setIntermediateMessages((prev) => [...prev, loadingSteps[i]]);
-          resolve();
-        }, 1500)
-      );
-    }
+    let stepIndex = 0;
+    const interval = setInterval(() => {
+      setButtonText(steps[stepIndex]);
+      stepIndex++;
+      if (stepIndex === steps.length) clearInterval(interval);
+    }, 2000);
 
     try {
+      // Esperamos los 8 segundos antes de la llamada a la API
+      await new Promise((resolve) => setTimeout(resolve, 8000));
+
       const res = await fetch('/api/upload', {
         method: 'POST',
         body: formData,
@@ -58,14 +58,15 @@ export default function Home() {
 
       if (data.result) {
         setResult(data.result);
-        setDisableAfterResult(true);
       } else {
-        setResult('❌ Error al analizar la imagen.');
+        setResult('Error al analizar la imagen.');
       }
     } catch (err) {
-      setResult('❌ Error en la conexión con el servidor.');
+      setResult('Error en la conexión con el servidor.');
     } finally {
       setLoading(false);
+      setButtonText('Analizar Imagen');
+      setButtonDisabled(true); // queda deshabilitado tras el análisis
     }
   };
 
@@ -165,11 +166,6 @@ export default function Home() {
           text-align: left;
           white-space: pre-wrap;
         }
-        .intermediate {
-          margin-top: 1rem;
-          font-size: 0.95rem;
-          color: #333;
-        }
       `}</style>
 
       <div className="container">
@@ -193,19 +189,15 @@ export default function Home() {
           {preview && <img src={preview} alt="preview" className="preview" />}
 
           {preview && (
-            <button type="submit" disabled={loading || disableAfterResult}>
-              {loading ? 'Analizando...' : 'Analizar Imagen'}
+            <button type="submit" disabled={buttonDisabled}>
+              {buttonText}
             </button>
           )}
         </form>
 
         {loading && <div className="loading-bar"></div>}
 
-        {intermediateMessages.map((msg, index) => (
-          <div key={index} className="intermediate">{msg}</div>
-        ))}
-
-        {result && !loading && (
+        {result && (
           <div
             className="result"
             dangerouslySetInnerHTML={renderResultWithBold(result)}
