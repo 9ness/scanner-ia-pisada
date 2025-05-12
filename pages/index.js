@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 
 export default function Home() {
   const [loading, setLoading] = useState(false);
-  const [buttonText, setButtonText] = useState('Analizar Imagen');
+  const [buttonText, setButtonText] = useState('Analizar pisada con IA');
   const [result, setResult] = useState('');
   const [preview, setPreview] = useState(null);
   const [buttonDisabled, setButtonDisabled] = useState(false);
