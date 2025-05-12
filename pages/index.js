@@ -78,18 +78,24 @@ export default function Home() {
           background-color: #3498db;
           color: white;
           border-radius: 5px;
-          margin-bottom: 1rem;
+          margin-bottom: 0.5rem;
           transition: background 0.3s ease;
         }
         .custom-file-upload:hover {
           background-color: #2980b9;
         }
+        .info-text {
+          font-size: 0.9rem;
+          color: #555;
+          margin-bottom: 1rem;
+        }
         .preview {
-          margin-top: 1rem;
-          max-width: 100px;
-          max-height: 100px;
+          margin: 1rem auto;
+          max-width: 150px;
+          max-height: 150px;
           border: 1px solid #ccc;
           border-radius: 5px;
+          display: block;
         }
         button {
           background: #2ecc71;
@@ -100,6 +106,7 @@ export default function Home() {
           border-radius: 0.5rem;
           cursor: pointer;
           transition: background 0.3s ease;
+          margin-top: 1rem;
         }
         button:hover {
           background: #27ae60;
@@ -126,17 +133,30 @@ export default function Home() {
       `}</style>
 
       <div className="container">
-        <h1>Analizador de Pisada</h1>
+        <h1>Analizador de Pisada IA</h1>
         <form onSubmit={handleSubmit}>
           <label htmlFor="file-upload" className="custom-file-upload">
             Seleccionar imagen
           </label>
-          <input id="file-upload" type="file" name="image" accept="image/*" onChange={handleFileChange} required />
+          <input
+            id="file-upload"
+            type="file"
+            name="image"
+            accept="image/*"
+            onChange={handleFileChange}
+            required
+          />
+          <p className="info-text">
+            * La imagen debe ser de una plantilla del pie usada (con marca de pisada visible).
+          </p>
+
           {preview && <img src={preview} alt="preview" className="preview" />}
-          <br />
-          <button type="submit" disabled={loading}>
-            {loading ? 'Analizando...' : 'Analizar Imagen'}
-          </button>
+
+          {preview && (
+            <button type="submit" disabled={loading}>
+              {loading ? 'Analizando...' : 'Analizar Imagen'}
+            </button>
+          )}
         </form>
 
         {loading && <div className="loading-bar"></div>}
