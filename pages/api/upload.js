@@ -1,6 +1,7 @@
 import formidable from 'formidable';
 import { OpenAI } from 'openai';
 import fs from 'fs/promises';
+import sharp from 'sharp';
 
 export const config = {
   api: {
@@ -34,24 +35,30 @@ export default async function handler(req, res) {
         return;
       }
 
-      const fileBuffer = await fs.readFile(file.filepath);
-      const base64Image = fileBuffer.toString('base64');
-      console.log('Imagen comprimida correctamente');
-      console.log('Imagen convertida a base64 correctamente');
+      const originalBuffer = await fs.readFile(file.filepath);
+
+      // Comprimir imagen para optimizar tokens
+      const resizedBuffer = await sharp(originalBuffer)
+        .resize({ width: 512 }) // tamaño reducido
+        .jpeg({ quality: 70 }) // compresión
+        .toBuffer();
+
+      const base64Image = resizedBuffer.toString('base64');
+
+      const prompt = `
+Analiza esta imagen y responde con la siguiente estructura clara y breve:
+- Tipo de Pisada: (pronadora, supinadora o neutra)
+- Zonas donde se hace más carga: (solo menciona las zonas específicas del pie donde se nota mayor presión, mostrando un listado)
+- Plantilla recomendada: (describe exactamente el tipo de plantilla que se recomienda para esta pisada, en una respuesta de una linea).
+`;
 
       const response = await openai.chat.completions.create({
-        model: 'gpt-4-turbo', // Asegúrate de tener este modelo con capacidad visual
+        model: 'gpt-4-turbo',
         messages: [
           {
             role: 'user',
             content: [
-              {
-                type: 'text',
-                text: `Analiza esta imagen y responde con la siguiente estructura clara:
-Tipo de Pisada: (elige entre pronadora, supinadora o neutra)
-Zonas donde se hace más carga: (explica las partes donde se nota más presión)
-Tipo de plantilla: (indica qué tipo de plantilla se recomienda para este tipo de pisada).`,
-              },
+              { type: 'text', text: prompt },
               {
                 type: 'image_url',
                 image_url: {
