@@ -1,21 +1,28 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 
 export default function Home() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState('');
   const [preview, setPreview] = useState(null);
+  const [intermediateMessages, setIntermediateMessages] = useState([]);
+  const [disableAfterResult, setDisableAfterResult] = useState(false);
+  const fileInputRef = useRef(null);
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
       setPreview(URL.createObjectURL(file));
+      setResult('');
+      setIntermediateMessages([]);
+      setDisableAfterResult(false);
+    } else {
+      setPreview(null);
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const fileInput = e.target.image;
-    const file = fileInput.files[0];
+    const file = fileInputRef.current?.files[0];
     if (!file) return;
 
     const formData = new FormData();
@@ -23,6 +30,24 @@ export default function Home() {
 
     setLoading(true);
     setResult('');
+    setIntermediateMessages([]);
+
+    const loadingSteps = [
+      '🔍 Analizando imagen...',
+      '📊 Detectando zonas de presión...',
+      '👣 Identificando tipo de pisada...',
+      '🦶 Generando recomendación personalizada...'
+    ];
+
+    // Mostrar mensajes uno a uno cada segundo
+    for (let i = 0; i < loadingSteps.length; i++) {
+      await new Promise((resolve) =>
+        setTimeout(() => {
+          setIntermediateMessages((prev) => [...prev, loadingSteps[i]]);
+          resolve();
+        }, 1500)
+      );
+    }
 
     try {
       const res = await fetch('/api/upload', {
@@ -33,14 +58,20 @@ export default function Home() {
 
       if (data.result) {
         setResult(data.result);
+        setDisableAfterResult(true);
       } else {
-        setResult('Error al analizar la imagen.');
+        setResult('❌ Error al analizar la imagen.');
       }
     } catch (err) {
-      setResult('Error en la conexión con el servidor.');
+      setResult('❌ Error en la conexión con el servidor.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const renderResultWithBold = (text) => {
+    const html = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    return { __html: html };
   };
 
   return (
@@ -111,6 +142,10 @@ export default function Home() {
         button:hover {
           background: #27ae60;
         }
+        button:disabled {
+          background: #bdc3c7;
+          cursor: not-allowed;
+        }
         .loading-bar {
           height: 4px;
           background: #3498db;
@@ -130,6 +165,11 @@ export default function Home() {
           text-align: left;
           white-space: pre-wrap;
         }
+        .intermediate {
+          margin-top: 1rem;
+          font-size: 0.95rem;
+          color: #333;
+        }
       `}</style>
 
       <div className="container">
@@ -143,8 +183,8 @@ export default function Home() {
             type="file"
             name="image"
             accept="image/*"
+            ref={fileInputRef}
             onChange={handleFileChange}
-            required
           />
           <p className="info-text">
             * La imagen debe ser de una plantilla del pie usada (con marca de pisada visible).
@@ -153,14 +193,24 @@ export default function Home() {
           {preview && <img src={preview} alt="preview" className="preview" />}
 
           {preview && (
-            <button type="submit" disabled={loading}>
+            <button type="submit" disabled={loading || disableAfterResult}>
               {loading ? 'Analizando...' : 'Analizar Imagen'}
             </button>
           )}
         </form>
 
         {loading && <div className="loading-bar"></div>}
-        {result && <div className="result">{result}</div>}
+
+        {intermediateMessages.map((msg, index) => (
+          <div key={index} className="intermediate">{msg}</div>
+        ))}
+
+        {result && !loading && (
+          <div
+            className="result"
+            dangerouslySetInnerHTML={renderResultWithBold(result)}
+          />
+        )}
       </div>
     </>
   );

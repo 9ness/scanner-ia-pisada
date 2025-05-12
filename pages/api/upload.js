@@ -1,3 +1,4 @@
+// upload.js
 import formidable from 'formidable';
 import { OpenAI } from 'openai';
 import fs from 'fs/promises';
@@ -37,19 +38,23 @@ export default async function handler(req, res) {
 
       const originalBuffer = await fs.readFile(file.filepath);
 
-      // Comprimir imagen para optimizar tokens
       const resizedBuffer = await sharp(originalBuffer)
-        .resize({ width: 512 }) // tamaño reducido
-        .jpeg({ quality: 70 }) // compresión
+        .resize({ width: 512 })
+        .jpeg({ quality: 70 })
         .toBuffer();
 
       const base64Image = resizedBuffer.toString('base64');
 
       const prompt = `
-Analiza esta imagen y responde con la siguiente estructura clara y breve:
-- Tipo de Pisada: (pronadora, supinadora o neutra)
-- Zonas donde se hace más carga: (solo menciona las zonas específicas del pie donde se nota mayor presión, mostrando un listado)
-- Plantilla recomendada: (describe exactamente el tipo de plantilla que se recomienda para esta pisada, en una respuesta de una linea).
+Analiza la imagen de la pisada y responde de forma clara, profesional y atractiva con emojis. Usa la siguiente estructura:
+
+👣 **Tipo de pisada:** (pronadora, supinadora o neutra)
+
+📌 **Zonas de mayor carga:** 
+- (solo menciona las zonas específicas del pie donde se nota mayor presión)
+
+🦶 **Plantilla recomendada:** 
+(describe brevemente y en una línea el tipo de plantilla que se recomienda para esta pisada)
 `;
 
       const response = await openai.chat.completions.create({
@@ -73,18 +78,20 @@ Analiza esta imagen y responde con la siguiente estructura clara y breve:
 
       let result = response.choices[0]?.message?.content || '';
 
-    const pisadaValida = ['pronadora', 'supinadora', 'neutra'];
-    const contienePisadaValida = pisadaValida.some(pisada =>
-    result.toLowerCase().includes(pisada)
-  );
+      const pisadaValida = ['pronadora', 'supinadora', 'neutra'];
+      const contienePisadaValida = pisadaValida.some((pisada) =>
+        result.toLowerCase().includes(pisada)
+      );
 
-if (!contienePisadaValida) {
-  result = 'La imagen no corresponde con una plantilla de pie usada o no tiene la suficiente calidad para su correcto análisis.';
-}
+      if (!contienePisadaValida) {
+        result =
+          '❌ La imagen no corresponde con una plantilla de pie usada o no tiene la calidad suficiente para analizarla correctamente.';
+      }
 
-res.status(200).json({ result });
-
-
+      res.status(200).json({
+        result,
+        preview: `data:image/jpeg;base64,${base64Image}`,
+      });
     } catch (error) {
       console.error('Error al procesar la imagen con OpenAI:', error.message);
       res.status(500).json({ error: error.message || 'Error desconocido' });
