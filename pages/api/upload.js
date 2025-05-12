@@ -71,8 +71,19 @@ Analiza esta imagen y responde con la siguiente estructura clara y breve:
         max_tokens: 500,
       });
 
-      const result = response.choices[0]?.message?.content || 'No se recibió respuesta.';
-      res.status(200).json({ result });
+      let result = response.choices[0]?.message?.content || '';
+
+    const pisadaValida = ['pronadora', 'supinadora', 'neutra'];
+    const contienePisadaValida = pisadaValida.some(pisada =>
+    result.toLowerCase().includes(pisada)
+  );
+
+if (!contienePisadaValida) {
+  result = 'La imagen no corresponde con una plantilla de pie usada o no tiene la suficiente calidad para su correcto análisis.';
+}
+
+res.status(200).json({ result });
+
 
     } catch (error) {
       console.error('Error al procesar la imagen con OpenAI:', error.message);
