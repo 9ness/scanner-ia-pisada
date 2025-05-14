@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 export default function Home() {
   const [loading, setLoading] = useState(false);
@@ -6,7 +6,29 @@ export default function Home() {
   const [result, setResult] = useState('');
   const [preview, setPreview] = useState(null);
   const [buttonDisabled, setButtonDisabled] = useState(false);
+  const [progressStep, setProgressStep] = useState(0);
+  const [imageAnalyzed, setImageAnalyzed] = useState(false); // NUEVO
   const fileInputRef = useRef(null);
+
+  const steps = [
+    'Analizando imagen...',
+    'Detectando zonas de presión...',
+    'Identificando tipo de pisada...',
+    'Generando recomendación personalizada...',
+  ];
+
+  useEffect(() => {
+    if (loading) {
+      let stepIndex = 0;
+      const interval = setInterval(() => {
+        setButtonText(steps[stepIndex]);
+        setProgressStep(stepIndex + 1);
+        stepIndex++;
+        if (stepIndex === steps.length) clearInterval(interval);
+      }, 2000);
+      return () => clearInterval(interval);
+    }
+  }, [loading]);
 
   const compressImage = async (file) => {
     return new Promise((resolve) => {
@@ -42,6 +64,8 @@ export default function Home() {
       setResult('');
       setButtonText('Analizar pisada con IA');
       setButtonDisabled(false);
+      setProgressStep(0);
+      setImageAnalyzed(false); // Reiniciar estado
     } else {
       setPreview(null);
     }
@@ -55,25 +79,12 @@ export default function Home() {
     setLoading(true);
     setResult('');
     setButtonDisabled(true);
+    setProgressStep(0);
 
     try {
       const compressedFile = await compressImage(originalFile);
       const formData = new FormData();
       formData.append('image', compressedFile);
-
-      const steps = [
-        'Analizando imagen...',
-        'Detectando zonas de presión...',
-        'Identificando tipo de pisada...',
-        'Generando recomendación personalizada...',
-      ];
-
-      let stepIndex = 0;
-      const interval = setInterval(() => {
-        setButtonText(steps[stepIndex]);
-        stepIndex++;
-        if (stepIndex === steps.length) clearInterval(interval);
-      }, 2000);
 
       await new Promise((resolve) => setTimeout(resolve, 8000));
 
@@ -86,7 +97,8 @@ export default function Home() {
 
       if (data.result) {
         setResult(data.result);
-        setButtonText('Analizar pisada con IA');
+        setButtonText('Análisis completado');
+        setImageAnalyzed(true); // Marcar imagen como analizada
       } else {
         setResult('Error al analizar la imagen.');
         setButtonText('Error en el análisis');
@@ -97,7 +109,8 @@ export default function Home() {
       setButtonText('Error en la conexión');
     } finally {
       setLoading(false);
-      setButtonDisabled(true);
+      setButtonDisabled(true); // Desactivar botón después del análisis
+      setProgressStep(steps.length);
     }
   };
 
@@ -130,6 +143,7 @@ export default function Home() {
         }
         h1 {
           color: #2c3e50;
+          margin-bottom: 1rem;
         }
         input[type='file'] {
           display: none;
@@ -160,6 +174,22 @@ export default function Home() {
           border-radius: 5px;
           display: block;
         }
+        .steps {
+          display: flex;
+          justify-content: space-between;
+          margin: 1rem 0;
+        }
+        .step {
+          flex: 1;
+          height: 6px;
+          margin: 0 3px;
+          background: #ccc;
+          border-radius: 3px;
+          transition: background 0.3s ease;
+        }
+        .step.active {
+          background: #2ecc71;
+        }
         button {
           background: #2ecc71;
           color: white;
@@ -178,23 +208,6 @@ export default function Home() {
           background: #bdc3c7;
           cursor: not-allowed;
         }
-        .loading-bar {
-          height: 4px;
-          background: #3498db;
-          animation: loading 1.5s infinite;
-          margin-top: 1rem;
-        }
-        @keyframes loading {
-          0% {
-            width: 0%;
-          }
-          50% {
-            width: 50%;
-          }
-          100% {
-            width: 100%;
-          }
-        }
         .result {
           margin-top: 1.5rem;
           background: #ecf0f1;
@@ -209,7 +222,7 @@ export default function Home() {
         <h1>Analizador de Pisada IA</h1>
         <form onSubmit={handleSubmit}>
           <label htmlFor="file-upload" className="custom-file-upload">
-            Seleccionar imagen
+            {imageAnalyzed ? 'Seleccionar nueva imagen' : 'Seleccionar imagen'}
           </label>
           <input
             id="file-upload"
@@ -226,13 +239,24 @@ export default function Home() {
           {preview && <img src={preview} alt="preview" className="preview" />}
 
           {preview && (
-            <button type="submit" disabled={buttonDisabled}>
-              {buttonText}
-            </button>
+            <>
+              <button type="submit" disabled={buttonDisabled}>
+                {buttonText}
+              </button>
+
+              {loading && (
+                <div className="steps">
+                  {steps.map((_, index) => (
+                    <div
+                      key={index}
+                      className={`step ${index < progressStep ? 'active' : ''}`}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </form>
-
-        {loading && <div className="loading-bar"></div>}
 
         {result && (
           <div
