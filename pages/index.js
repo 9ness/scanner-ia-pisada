@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import PieSVG from '../components/PieSVG';
+import { Camera } from 'lucide-react';
+import { WandSparkles } from 'lucide-react';
 
 export default function Home() {
   const [loading, setLoading] = useState(false);
@@ -137,7 +139,8 @@ export default function Home() {
     <>
       <style jsx>{`
         body {
-          font-family: 'Segoe UI', sans-serif;
+        
+          font-family: 'Poppins', sans-serif;
           background: #f1f4f9;
           margin: 0;
           padding: 0;
@@ -146,6 +149,43 @@ export default function Home() {
           align-items: center;
           height: 100vh;
         }
+
+        .header-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem; 
+  margin-bottom: 1rem;
+}
+
+        .logo-izquierda {
+  width: 70px;
+  height: 70px;
+  object-fit: contain;
+  display: inline-block;
+}
+
+.encabezado-logo-texto {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+  .titulo-logo {
+  font-family: 'Poppins', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color:#007442;
+  margin: 0;
+  margin-right:1.5rem;
+}
+
+@media (max-width: 480px) {
+  .titulo-logo {
+    font-size: 1.2rem;
+  }
+}
         .container {
           background: white;
           padding: 2rem;
@@ -163,23 +203,38 @@ export default function Home() {
           display: none;
         }
         .custom-file-upload {
-          display: inline-block;
-          padding: 10px 20px;
-          cursor: pointer;
-          background-color: #3498db;
-          color: white;
-          border-radius: 5px;
-          margin-bottom: 0.5rem;
-          transition: background 0.3s ease;
-        }
-        .custom-file-upload:hover {
-          background-color: #2980b9;
-        }
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 10px 20px;
+  cursor: pointer;
+  background-color: #2196f3;
+  color: white;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 1rem;
+  border: none;
+  transition: background 0.3s ease;
+}
+
+.custom-file-upload:hover {
+  background-color: #1976d2;
+}
+
         .info-text {
-          font-size: 0.9rem;
+          font-size: 1.1rem;
           color: #555;
           margin-bottom: 1rem;
+          margin-left: 2rem;
+          margin-right: 2rem;
         }
+          .info-tip {
+  font-size: 0.95rem;
+  color: #4a4a4a;
+  margin-top: 0.5rem;
+  margin-bottom: 1rem;
+  text-align: center;
+}
         .preview {
           margin: 1rem auto;
           max-width: 150px;
@@ -226,13 +281,16 @@ export default function Home() {
           display: grid;
           grid-template-columns: 1fr 1fr;
           gap: 2rem;
-          margin-top: 2rem;
+          margin-top: 0rem;
           align-items: start;
         }
         .resultado-texto ul {
           text-align: left;
           padding-left: 1.2rem;
         }
+          .resultado-texto {
+  margin-top: 1.5rem; 
+  margin-left: 1rem; 
         .resultado-grafico {
           display: flex;
           justify-content: center;
@@ -256,19 +314,41 @@ export default function Home() {
         list-style-type: disc;
       }
         .titulo-analisis {
-        width: 100%;
-        text-align: center;
-        font-size: 1.5rem;
-        margin-bottom: 1rem;
-        color: #1b1b1b;
-      }
+  width: 100%;
+  text-align: center;
+  font-size: 1.5rem;
+  margin-top: 2rem;   
+  color: #1b1b1b;
+}
+
+.encabezado-upload {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.texto-upload {
+  font-size: 1rem;
+  color: #2c3e50;
+  font-weight: 600;
+}
+
+
 
       `}</style>
 
       <div className="container">
-        <h1>Analizador de Pisada IA</h1>
+               <div className="encabezado-logo-texto">
+  <img src="/logo.png" alt="Logo Pisada Viva" className="logo-izquierda" />
+  <h1 className="titulo-logo">Analizador de <br /> Pisada con IA</h1>
+</div>
+
         <form onSubmit={handleSubmit}>
           <label htmlFor="file-upload" className="custom-file-upload">
+            <Camera size={18} style={{ marginRight: '8px' }} />
             {imageAnalyzed ? 'Seleccionar nueva imagen' : 'Seleccionar imagen'}
           </label>
           <input
@@ -280,7 +360,7 @@ export default function Home() {
             onChange={handleFileChange}
           />
           <p className="info-text">
-            * La imagen debe ser de una plantilla del pie usada (con marca de pisada visible).
+            💡 La imagen debe mostrar una plantilla usada con marca de pisada visible.
           </p>
 
           {preview && <img src={preview} alt="preview" className="preview" />}
@@ -288,8 +368,14 @@ export default function Home() {
           {preview && (
             <>
               <button type="submit" disabled={buttonDisabled}>
-                {buttonText}
-              </button>
+  {!loading && (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+      <WandSparkles size={18} />
+      {buttonText}
+    </span>
+  )}
+  {loading && buttonText}
+</button>
 
               {loading && (
                 <div className="steps">
