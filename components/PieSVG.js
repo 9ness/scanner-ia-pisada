@@ -16,6 +16,7 @@ const PieSVG = ({ zonasActivadas = [] }) => {
   });
 }, [zonasActivadas]);
 
+if (!zonasActivadas || zonasActivadas.length === 0) return null;
 
   return (
     <svg

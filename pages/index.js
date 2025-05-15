@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import PieSVG from '../components/PieSVG'; // Asegurate de crear este archivo
+import PieSVG from '../components/PieSVG';
 
 export default function Home() {
   const [loading, setLoading] = useState(false);
@@ -9,14 +9,14 @@ export default function Home() {
   const [buttonDisabled, setButtonDisabled] = useState(false);
   const [progressStep, setProgressStep] = useState(0);
   const [imageAnalyzed, setImageAnalyzed] = useState(false);
-  const [zonasDetectadas, setZonasDetectadas] = useState([]); // NUEVO
+  const [zonasDetectadas, setZonasDetectadas] = useState([]);
   const fileInputRef = useRef(null);
 
   const steps = [
     'Analizando imagen...',
     'Detectando zonas de presión...',
     'Identificando tipo de pisada...',
-    'Generando recomendación personalizada...',
+    'Generando recomendación personalizada...'
   ];
 
   useEffect(() => {
@@ -75,25 +75,20 @@ export default function Home() {
   };
 
   const normalizarTexto = (texto) =>
-  texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    texto.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
-const extraerZonas = (texto) => {
-  const zonas = [
-    'dedos',
-    'metatarso-interno',
-    'metatarso-externo',
-    'arco-interno',
-    'borde-lateral',
-    'talon',
-  ];
-
-  const textoPlano = normalizarTexto(texto);
-
-  return zonas.filter((zona) =>
-    textoPlano.includes(zona.replace('-', ' '))
-  );
-};
-
+  const extraerZonas = (texto) => {
+    const zonas = [
+      'dedos',
+      'metatarso-interno',
+      'metatarso-externo',
+      'arco-interno',
+      'borde-lateral',
+      'talon'
+    ];
+    const textoPlano = normalizarTexto(texto);
+    return zonas.filter((zona) => textoPlano.includes(zona.replace('-', ' ')));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -115,14 +110,14 @@ const extraerZonas = (texto) => {
 
       const res = await fetch('/api/upload', {
         method: 'POST',
-        body: formData,
+        body: formData
       });
 
       const data = await res.json();
 
       if (data.result) {
         setResult(data.result);
-        setZonasDetectadas(extraerZonas(data.result)); // detectar zonas automáticamente
+        setZonasDetectadas(extraerZonas(data.result));
         setButtonText('Análisis completado');
         setImageAnalyzed(true);
       } else {
@@ -165,7 +160,7 @@ const extraerZonas = (texto) => {
           box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
           text-align: center;
           width: 100%;
-          max-width: 500px;
+          max-width: 800px;
         }
         h1 {
           color: #2c3e50;
@@ -234,13 +229,22 @@ const extraerZonas = (texto) => {
           background: #bdc3c7;
           cursor: not-allowed;
         }
-        .result {
-          margin-top: 1.5rem;
-          background: #ecf0f1;
-          padding: 1rem;
-          border-radius: 0.5rem;
-          text-align: left;
-          white-space: pre-wrap;
+        .resultado-container {
+          display: flex;
+          justify-content: space-between;
+          gap: 2rem;
+          margin-top: 2rem;
+          align-items: flex-start;
+          flex-direction: row;
+          flex-wrap: nowrap;
+        }
+        .resultado-texto,
+        .resultado-grafico {
+          flex: 1 1 48%;
+        }
+        .resultado-grafico {
+          display: flex;
+          justify-content: center;
         }
       `}</style>
 
@@ -285,13 +289,18 @@ const extraerZonas = (texto) => {
         </form>
 
         {result && (
-          <>
-            <div
-              className="result"
-              dangerouslySetInnerHTML={renderResultWithBold(result)}
-            />
-            <PieSVG zonasActivadas={zonasDetectadas} />
-          </>
+          <div className="resultado-container">
+            <div className="resultado-texto">
+              <h2>🧠 Resultado del análisis</h2>
+              <div
+                className="result"
+                dangerouslySetInnerHTML={renderResultWithBold(result)}
+              />
+            </div>
+            <div className="resultado-grafico">
+              <PieSVG zonasActivadas={zonasDetectadas} />
+            </div>
+          </div>
         )}
       </div>
     </>
