@@ -306,23 +306,26 @@ export default function Home() {
         </form>
 
         {result && (
-  <div className="resultado-container">
-    <div className="resultado-texto">
-      <h2>🧠 Resultado del análisis</h2>
-      <div className="bloque-zonas">
-        <p><strong>📌 Zonas de presión detectadas:</strong></p>
-        <ul className="lista-zonas">
-          {zonasDetectadas.map((zona) => (
-            <li key={zona}>{zona.replace('-', ' ')}</li>
-          ))}
-        </ul>
+  <>
+    <h2 className="titulo-analisis">🧠 Resultado del análisis</h2>
+    <div className="resultado-container">
+      <div className="resultado-texto">
+        <div className="bloque-zonas">
+          <p><strong>📌 Zonas de presión detectadas:</strong></p>
+          <ul className="lista-zonas">
+            {zonasDetectadas.map((zona) => (
+              <li key={zona}>{zona.replace('-', ' ')}</li>
+            ))}
+          </ul>
+        </div>
+      </div>
+      <div className="resultado-grafico">
+        <PieSVG zonasActivadas={zonasDetectadas} />
       </div>
     </div>
-    <div className="resultado-grafico">
-      <PieSVG zonasActivadas={zonasDetectadas} />
-    </div>
-  </div>
+  </>
 )}
+
       </div>
     </>
   );
