@@ -246,15 +246,23 @@ export default function Home() {
         }
 
         .bloque-zonas {
-  padding-left: 1.2rem;
-  text-align: left;
-}
+        padding-left: 1.2rem;
+        text-align: left;
+      }
 
-.bloque-zonas ul {
-  margin: 0.5rem 0 0 0;
-  padding-left: 1rem;
-  list-style-type: disc;
-}
+      .bloque-zonas ul {
+        margin: 0.5rem 0 0 0;
+        padding-left: 1rem;
+        list-style-type: disc;
+      }
+        .titulo-analisis {
+        width: 100%;
+        text-align: center;
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+        color: #1b1b1b;
+      }
+
       `}</style>
 
       <div className="container">
@@ -298,23 +306,23 @@ export default function Home() {
         </form>
 
         {result && (
-          <div className="resultado-container">
-            <div className="resultado-texto">
-              <h2>🧠 Resultado del análisis</h2>
-              <div className="bloque-zonas">
-              <p><strong>📌 Zonas de presión detectadas:</strong></p>
-              <ul className="lista-zonas">
-                {zonasDetectadas.map((zona) => (
-                  <li key={zona}>{zona.replace('-', ' ')}</li>
-                ))}
-              </ul>
-              </div>
-            </div>
-            <div className="resultado-grafico">
-              <PieSVG zonasActivadas={zonasDetectadas} />
-            </div>
-          </div>
-        )}
+  <div className="resultado-container">
+    <div className="resultado-texto">
+      <h2>🧠 Resultado del análisis</h2>
+      <div className="bloque-zonas">
+        <p><strong>📌 Zonas de presión detectadas:</strong></p>
+        <ul className="lista-zonas">
+          {zonasDetectadas.map((zona) => (
+            <li key={zona}>{zona.replace('-', ' ')}</li>
+          ))}
+        </ul>
+      </div>
+    </div>
+    <div className="resultado-grafico">
+      <PieSVG zonasActivadas={zonasDetectadas} />
+    </div>
+  </div>
+)}
       </div>
     </>
   );
