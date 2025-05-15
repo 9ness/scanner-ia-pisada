@@ -78,14 +78,7 @@ export default function Home() {
     texto.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
   const extraerZonas = (texto) => {
-    const zonas = [
-      'dedos',
-      'metatarso-interno',
-      'metatarso-externo',
-      'arco-interno',
-      'borde-lateral',
-      'talon'
-    ];
+    const zonas = ['dedos', 'metatarsos', 'arco', 'talon'];
     const textoPlano = normalizarTexto(texto);
     return zonas.filter((zona) => textoPlano.includes(zona.replace('-', ' ')));
   };
@@ -230,22 +223,38 @@ export default function Home() {
           cursor: not-allowed;
         }
         .resultado-container {
-          display: flex;
-          justify-content: space-between;
+          display: grid;
+          grid-template-columns: 1fr 1fr;
           gap: 2rem;
           margin-top: 2rem;
-          align-items: flex-start;
-          flex-direction: row;
-          flex-wrap: nowrap;
+          align-items: start;
         }
-        .resultado-texto,
-        .resultado-grafico {
-          flex: 1 1 48%;
+        .resultado-texto ul {
+          text-align: left;
+          padding-left: 1.2rem;
         }
         .resultado-grafico {
           display: flex;
           justify-content: center;
         }
+
+        .lista-zonas {
+        margin: 0.5rem 0 0 0;
+        padding-left: 0;         
+        list-style-position: inside;
+        text-align: left;
+        }
+
+        .bloque-zonas {
+  padding-left: 1.2rem;
+  text-align: left;
+}
+
+.bloque-zonas ul {
+  margin: 0.5rem 0 0 0;
+  padding-left: 1rem;
+  list-style-type: disc;
+}
       `}</style>
 
       <div className="container">
@@ -292,10 +301,14 @@ export default function Home() {
           <div className="resultado-container">
             <div className="resultado-texto">
               <h2>🧠 Resultado del análisis</h2>
-              <div
-                className="result"
-                dangerouslySetInnerHTML={renderResultWithBold(result)}
-              />
+              <div className="bloque-zonas">
+              <p><strong>📌 Zonas de presión detectadas:</strong></p>
+              <ul className="lista-zonas">
+                {zonasDetectadas.map((zona) => (
+                  <li key={zona}>{zona.replace('-', ' ')}</li>
+                ))}
+              </ul>
+              </div>
             </div>
             <div className="resultado-grafico">
               <PieSVG zonasActivadas={zonasDetectadas} />

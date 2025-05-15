@@ -46,12 +46,16 @@ export default async function handler(req, res) {
       const base64Image = resizedBuffer.toString('base64');
 
       const prompt = `
-Analiza la imagen de la pisada y responde con las zonas de mayor carga **en este formato exacto**:
-Tipo de Pisada: (pronadora, supinadora o neutra)
+Analiza la imagen de la pisada y responde solo con las zonas de mayor presión, una por línea.
 
-Zonas de presión detectadas:
+Formato de salida:
+📌 **Zonas de presión detectadas:**
+- (zona 1)
+- (zona 2)
+- (zona 3, si hay más)
 
-(Solo menciona las zonas reales detectadas en esta imagen. Usa exactamente los siguientes nombres para cada zona posible: Dedos, Metatarso interno, Metatarso externo, Arco plantar interno, Borde lateral del pie, Talón).
+Solo responde esta sección, sin más texto ni encabezados.
+Zonas posibles: dedos, metatarsos, arco, talón.
 `;
 
       const response = await openai.chat.completions.create({
@@ -75,12 +79,12 @@ Zonas de presión detectadas:
 
       let result = response.choices[0]?.message?.content || '';
 
-      const pisadaValida = ['pronadora', 'supinadora', 'neutra'];
-      const contienePisadaValida = pisadaValida.some((pisada) =>
-        result.toLowerCase().includes(pisada)
+      const zonasValidas = ['dedos', 'metatarsos', 'arco', 'talon'];
+      const contieneZonas = zonasValidas.some((zona) =>
+      result.toLowerCase().includes(zona)
       );
 
-      if (!contienePisadaValida) {
+      if (!contieneZonas) {
         result =
           '❌ La imagen no corresponde con una plantilla de pie usada o no tiene la calidad suficiente para analizarla correctamente.';
       }
