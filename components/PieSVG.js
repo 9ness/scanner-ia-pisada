@@ -2,11 +2,20 @@ import React, { useEffect } from 'react';
 
 const PieSVG = ({ zonasActivadas = [] }) => {
   useEffect(() => {
-    zonasActivadas.forEach((id) => {
-      const zona = document.getElementById(id);
-      if (zona) zona.setAttribute('fill', 'url(#gradRojo)');
-    });
-  }, [zonasActivadas]);
+  zonasActivadas.forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) {
+      if (id === 'dedos') {
+        // Aplicar a cada path dentro del grupo
+        const paths = el.querySelectorAll('path');
+        paths.forEach((p) => p.setAttribute('fill', 'url(#gradRojo)'));
+      } else {
+        el.setAttribute('fill', 'url(#gradRojo)');
+      }
+    }
+  });
+}, [zonasActivadas]);
+
 
   return (
     <svg
