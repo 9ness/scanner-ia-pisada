@@ -46,15 +46,12 @@ export default async function handler(req, res) {
       const base64Image = resizedBuffer.toString('base64');
 
       const prompt = `
-Analiza la imagen de la pisada y responde de forma clara, profesional y atractiva con emojis. Usa la siguiente estructura:
+Analiza la imagen de la pisada y responde con las zonas de mayor carga **en este formato exacto**:
+Tipo de Pisada: (pronadora, supinadora o neutra)
 
-👣 **Tipo de pisada:** (pronadora, supinadora o neutra)
+Zonas de presión detectadas:
 
-📌 **Zonas de mayor carga:** 
-- (solo menciona las zonas específicas del pie donde se nota mayor presión)
-
-🦶 **Plantilla recomendada:** 
-(describe brevemente y en una línea el tipo de plantilla que se recomienda para esta pisada)
+(Solo menciona las zonas reales detectadas en esta imagen. Usa exactamente los siguientes nombres para cada zona posible: Dedos, Metatarso interno, Metatarso externo, Arco plantar interno, Borde lateral del pie, Talón).
 `;
 
       const response = await openai.chat.completions.create({

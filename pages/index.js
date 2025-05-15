@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import PieSVG from '../components/PieSVG'; // Asegurate de crear este archivo
 
 export default function Home() {
   const [loading, setLoading] = useState(false);
@@ -7,7 +8,8 @@ export default function Home() {
   const [preview, setPreview] = useState(null);
   const [buttonDisabled, setButtonDisabled] = useState(false);
   const [progressStep, setProgressStep] = useState(0);
-  const [imageAnalyzed, setImageAnalyzed] = useState(false); // NUEVO
+  const [imageAnalyzed, setImageAnalyzed] = useState(false);
+  const [zonasDetectadas, setZonasDetectadas] = useState([]); // NUEVO
   const fileInputRef = useRef(null);
 
   const steps = [
@@ -65,11 +67,33 @@ export default function Home() {
       setButtonText('Analizar pisada con IA');
       setButtonDisabled(false);
       setProgressStep(0);
-      setImageAnalyzed(false); // Reiniciar estado
+      setImageAnalyzed(false);
+      setZonasDetectadas([]);
     } else {
       setPreview(null);
     }
   };
+
+  const normalizarTexto = (texto) =>
+  texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+const extraerZonas = (texto) => {
+  const zonas = [
+    'dedos',
+    'metatarso-interno',
+    'metatarso-externo',
+    'arco-interno',
+    'borde-lateral',
+    'talon',
+  ];
+
+  const textoPlano = normalizarTexto(texto);
+
+  return zonas.filter((zona) =>
+    textoPlano.includes(zona.replace('-', ' '))
+  );
+};
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -80,6 +104,7 @@ export default function Home() {
     setResult('');
     setButtonDisabled(true);
     setProgressStep(0);
+    setZonasDetectadas([]);
 
     try {
       const compressedFile = await compressImage(originalFile);
@@ -97,8 +122,9 @@ export default function Home() {
 
       if (data.result) {
         setResult(data.result);
+        setZonasDetectadas(extraerZonas(data.result)); // detectar zonas automáticamente
         setButtonText('Análisis completado');
-        setImageAnalyzed(true); // Marcar imagen como analizada
+        setImageAnalyzed(true);
       } else {
         setResult('Error al analizar la imagen.');
         setButtonText('Error en el análisis');
@@ -109,7 +135,7 @@ export default function Home() {
       setButtonText('Error en la conexión');
     } finally {
       setLoading(false);
-      setButtonDisabled(true); // Desactivar botón después del análisis
+      setButtonDisabled(true);
       setProgressStep(steps.length);
     }
   };
@@ -259,10 +285,13 @@ export default function Home() {
         </form>
 
         {result && (
-          <div
-            className="result"
-            dangerouslySetInnerHTML={renderResultWithBold(result)}
-          />
+          <>
+            <div
+              className="result"
+              dangerouslySetInnerHTML={renderResultWithBold(result)}
+            />
+            <PieSVG zonasActivadas={zonasDetectadas} />
+          </>
         )}
       </div>
     </>
