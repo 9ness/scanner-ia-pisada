@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import PieSVG from '../components/PieSVG';
-import { Camera } from 'lucide-react';
-import { WandSparkles } from 'lucide-react';
+import { Camera, Plus, WandSparkles } from 'lucide-react';
+import { Lightbulb, CheckCircle } from 'lucide-react';
+import { Pin } from 'lucide-react';
+import { ArrowDown } from 'lucide-react';
 
 export default function Home() {
   const [loading, setLoading] = useState(false);
@@ -162,6 +164,8 @@ export default function Home() {
           height: 100vh;
         }
 
+
+
         .header-logo {
   display: flex;
   align-items: center;
@@ -169,6 +173,29 @@ export default function Home() {
   gap: 0.1rem; 
   margin-bottom: 1rem;
 }
+
+.linea-separadora {
+  border: none;
+  height: 1px;
+  background-color: #e5e7eb;
+  margin: 2rem auto 1rem auto;
+  width: 90%;
+}
+
+.recomendacion-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.recomendacion-texto {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
 
         .logo-izquierda {
   width: 70px;
@@ -364,7 +391,7 @@ export default function Home() {
   width: 100%;
   text-align: center;
   font-size: 1.5rem;
-  margin-top: 2rem;   
+  margin-top: 2.5rem;  
   color: #1b1b1b;
 }
 
@@ -382,6 +409,7 @@ export default function Home() {
   color: #2c3e50;
   font-weight: 600;
 }
+
       `}</style>
 
       <div className="container">
@@ -392,7 +420,11 @@ export default function Home() {
 
         <form onSubmit={handleSubmit}>
           <label htmlFor="file-upload" className="custom-file-upload">
-            <Camera size={18} style={{ marginRight: '8px' }} />
+            {imageAnalyzed ? (
+              <Plus size={18} style={{ marginRight: '8px' }} />
+            ) : (
+              <Camera size={18} style={{ marginRight: '8px' }} />
+            )}
             {imageAnalyzed ? 'Seleccionar nueva imagen' : 'Seleccionar imagen'}
           </label>
           <input
@@ -404,12 +436,13 @@ export default function Home() {
             onChange={handleFileChange}
           />
           <p className="info-text">
-            💡 La imagen debe mostrar una plantilla usada con marca de pisada visible.
+            <Lightbulb size={18} color="#f5c518" style={{ verticalAlign: 'middle', marginRight: '0.4rem' }} />
+            La imagen debe mostrar una plantilla usada con marca de pisada visible.
           </p>
 
           {preview && <img src={preview} alt="preview" className="preview" />}
 
-          {preview && (
+          {preview && !result && (
             <>
               <button type="submit" disabled={buttonDisabled}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -441,23 +474,33 @@ export default function Home() {
 
         {result && zonasDetectadas.length > 0 ? (
           <>
-            <h2 className="titulo-analisis">🧠 Resultado del análisis</h2>
-            <div className="resultado-container">
-              <div className="resultado-texto">
-                <div className="bloque-zonas">
-                  <p><strong>📌 Zonas de presión detectadas:</strong></p>
-                  <ul className="lista-zonas">
-                    {zonasDetectadas.map((zona) => (
-                      <li key={zona}>
-                        {zona === 'talon' ? 'talón' : zona.replace('-', ' ')}
-                      </li>
-                    ))}
+            <div className="resultado-wrapper">
+              <h2 className="titulo-analisis" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                <CheckCircle size={30} color="#28a745" />
+                Resultado del análisis
+              </h2>
+              <div className="resultado-container">
+                <div className="resultado-texto">
+                  <div className="bloque-zonas">
+                    <p>
+                      <strong>
+                        <Pin size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
+                        Zonas de presión detectadas:
+                      </strong>
+                    </p>
+                    <ul className="lista-zonas">
+                      {zonasDetectadas.map((zona) => (
+                        <li key={zona}>
+                          {zona === 'talon' ? 'talón' : zona.replace('-', ' ')}
+                        </li>
+                      ))}
 
-                  </ul>
+                    </ul>
+                  </div>
                 </div>
-              </div>
-              <div className="resultado-grafico">
-                <PieSVG zonasActivadas={zonasDetectadas} />
+                <div className="resultado-grafico">
+                  <PieSVG zonasActivadas={zonasDetectadas} />
+                </div>
               </div>
             </div>
           </>
@@ -468,6 +511,14 @@ export default function Home() {
             </p>
           )
         )}
+
+        <hr className="linea-separadora" />
+
+        <div className="recomendacion-container">
+          <ArrowDown color="#1f2937" size={18} />
+          <span className="recomendacion-texto">Producto recomendado</span>
+          <ArrowDown color="#1f2937" size={18} />
+        </div>
 
       </div>
     </>
