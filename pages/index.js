@@ -12,6 +12,7 @@ export default function Home() {
   const [progressStep, setProgressStep] = useState(0);
   const [imageAnalyzed, setImageAnalyzed] = useState(false);
   const [zonasDetectadas, setZonasDetectadas] = useState([]);
+  const [estadoAnalisis, setEstadoAnalisis] = useState('');
   const fileInputRef = useRef(null);
 
   const steps = [
@@ -24,15 +25,28 @@ export default function Home() {
   useEffect(() => {
     if (loading) {
       let stepIndex = 0;
+      setEstadoAnalisis(steps[stepIndex]);
+
       const interval = setInterval(() => {
-        setButtonText(steps[stepIndex]);
-        setProgressStep(stepIndex + 1);
         stepIndex++;
-        if (stepIndex === steps.length) clearInterval(interval);
-      }, 2000);
+        if (stepIndex < steps.length) {
+          setProgressStep(stepIndex + 1);
+          setEstadoAnalisis(steps[stepIndex]);
+        } else {
+          setProgressStep(steps.length); // barras completas
+          clearInterval(interval);
+          // NO limpiamos estadoAnalisis aún, se limpia en finally
+        }
+      }, 1500);
+
       return () => clearInterval(interval);
+    } else {
+      // Esto se activa cuando loading pasa a false → oculta el texto
+      setEstadoAnalisis('');
     }
   }, [loading]);
+
+
 
   const compressImage = async (file) => {
     return new Promise((resolve) => {
@@ -101,7 +115,7 @@ export default function Home() {
       const formData = new FormData();
       formData.append('image', compressedFile);
 
-      await new Promise((resolve) => setTimeout(resolve, 8000));
+      await new Promise((resolve) => setTimeout(resolve, 6000));
 
       const res = await fetch('/api/upload', {
         method: 'POST',
@@ -138,9 +152,7 @@ export default function Home() {
   return (
     <>
       <style jsx>{`
-        body {
-        
-          font-family: 'Poppins', sans-serif;
+        body {      
           background: #f1f4f9;
           margin: 0;
           padding: 0;
@@ -181,12 +193,47 @@ export default function Home() {
   margin-right:1.5rem;
 }
 
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #2ecc71;
+  border-top: 2px solid transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.estado-progreso {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #333;
+  font-family: 'Poppins', sans-serif;
+      }
+
+      .estado-analisis {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #333;
+  font-family: 'Poppins', sans-serif;
+}
+
 @media (max-width: 480px) {
   .titulo-logo {
     font-size: 1.2rem;
   }
 }
         .container {
+        font-family: inherit;
           background: white;
           padding: 2rem;
           border-radius: 1rem;
@@ -304,8 +351,8 @@ export default function Home() {
         }
 
         .bloque-zonas {
-        padding-left: 1.2rem;
-        text-align: left;
+        padding-left: 0.5rem;
+        text-align: center;
       }
 
       .bloque-zonas ul {
@@ -335,16 +382,13 @@ export default function Home() {
   color: #2c3e50;
   font-weight: 600;
 }
-
-
-
       `}</style>
 
       <div className="container">
-               <div className="encabezado-logo-texto">
-  <img src="/logo.png" alt="Logo Pisada Viva" className="logo-izquierda" />
-  <h1 className="titulo-logo">Analizador de <br /> Pisada con IA</h1>
-</div>
+        <div className="encabezado-logo-texto">
+          <img src="/logo.png" alt="Logo Pisada Viva" className="logo-izquierda" />
+          <h1 className="titulo-logo">Analizador de <br /> Pisada con IA</h1>
+        </div>
 
         <form onSubmit={handleSubmit}>
           <label htmlFor="file-upload" className="custom-file-upload">
@@ -368,14 +412,18 @@ export default function Home() {
           {preview && (
             <>
               <button type="submit" disabled={buttonDisabled}>
-  {!loading && (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
-      <WandSparkles size={18} />
-      {buttonText}
-    </span>
-  )}
-  {loading && buttonText}
-</button>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <WandSparkles size={18} />
+                  {buttonText}
+                </span>
+              </button>
+              {loading && (
+                <div className="estado-progreso">
+                  <span className="spinner" />
+                  <span className="estado-analisis">{estadoAnalisis}</span>
+                </div>
+              )}
+
 
               {loading && (
                 <div className="steps">
@@ -391,26 +439,32 @@ export default function Home() {
           )}
         </form>
 
-        {result && (
-  <>
-    <h2 className="titulo-analisis">🧠 Resultado del análisis</h2>
-    <div className="resultado-container">
-      <div className="resultado-texto">
-        <div className="bloque-zonas">
-          <p><strong>📌 Zonas de presión detectadas:</strong></p>
-          <ul className="lista-zonas">
-            {zonasDetectadas.map((zona) => (
-              <li key={zona}>{zona.replace('-', ' ')}</li>
-            ))}
-          </ul>
-        </div>
-      </div>
-      <div className="resultado-grafico">
-        <PieSVG zonasActivadas={zonasDetectadas} />
-      </div>
-    </div>
-  </>
-)}
+        {result && zonasDetectadas.length > 0 ? (
+          <>
+            <h2 className="titulo-analisis">🧠 Resultado del análisis</h2>
+            <div className="resultado-container">
+              <div className="resultado-texto">
+                <div className="bloque-zonas">
+                  <p><strong>📌 Zonas de presión detectadas:</strong></p>
+                  <ul className="lista-zonas">
+                    {zonasDetectadas.map((zona) => (
+                      <li key={zona}>{zona.replace('-', ' ')}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+              <div className="resultado-grafico">
+                <PieSVG zonasActivadas={zonasDetectadas} />
+              </div>
+            </div>
+          </>
+        ) : (
+          result && (
+            <p style={{ marginTop: '1.5rem', fontWeight: '500', fontSize: '1rem', textAlign: 'center' }}>
+              {result}
+            </p>
+          )
+        )}
 
       </div>
     </>

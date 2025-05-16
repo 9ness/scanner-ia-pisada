@@ -46,7 +46,9 @@ export default async function handler(req, res) {
       const base64Image = resizedBuffer.toString('base64');
 
       const prompt = `
-Analiza la imagen de la pisada y responde solo con las zonas de mayor presión, una por línea.
+Analiza la imagen de la pisada y responde solo con las zonas de mayor presión, una por línea. Debes identificar si la imagen se trata
+de una foto real de una plantilla de pie, si la imagen no tiene que ver con una foto real ni eres capaz de detectar zonas de presión
+no las nombres. En caso de que si que seas capaz de detectar zonas de presión reales haz lo siguiente:
 
 Formato de salida:
 📌 **Zonas de presión detectadas:**
@@ -56,6 +58,7 @@ Formato de salida:
 
 Solo responde esta sección, sin más texto ni encabezados.
 Zonas posibles: dedos, metatarsos, arco, talón.
+No nombres zonas si no son visibles.
 `;
 
       const response = await openai.chat.completions.create({
@@ -79,9 +82,9 @@ Zonas posibles: dedos, metatarsos, arco, talón.
 
       let result = response.choices[0]?.message?.content || '';
 
-      const zonasValidas = ['dedos', 'metatarsos', 'arco', 'talon'];
+      const zonasValidas = ['dedos', 'metatarsos', 'arco', 'talón'];
       const contieneZonas = zonasValidas.some((zona) =>
-      result.toLowerCase().includes(zona)
+        result.toLowerCase().includes(zona)
       );
 
       if (!contieneZonas) {
