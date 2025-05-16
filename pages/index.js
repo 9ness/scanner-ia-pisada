@@ -448,8 +448,11 @@ export default function Home() {
                   <p><strong>📌 Zonas de presión detectadas:</strong></p>
                   <ul className="lista-zonas">
                     {zonasDetectadas.map((zona) => (
-                      <li key={zona}>{zona.replace('-', ' ')}</li>
+                      <li key={zona}>
+                        {zona === 'talon' ? 'talón' : zona.replace('-', ' ')}
+                      </li>
                     ))}
+
                   </ul>
                 </div>
               </div>
