@@ -512,13 +512,17 @@ export default function Home() {
           )
         )}
 
-        <hr className="linea-separadora" />
+        {result && zonasDetectadas.length > 0 && (
+  <>
+    <hr className="linea-separadora" />
 
-        <div className="recomendacion-container">
-          <ArrowDown color="#1f2937" size={18} />
-          <span className="recomendacion-texto">Producto recomendado</span>
-          <ArrowDown color="#1f2937" size={18} />
-        </div>
+    <div className="recomendacion-container">
+      <ArrowDown color="#1f2937" size={18} />
+      <span className="recomendacion-texto">Nuestro Producto recomendado</span>
+      <ArrowDown color="#1f2937" size={18} />
+    </div>
+  </>
+)}
 
       </div>
     </>
