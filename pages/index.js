@@ -197,24 +197,46 @@ export default function Home() {
 }
 
 .ejemplos-subida {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 1.5rem;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
   margin-top: 1rem;
+  padding-bottom: 2rem;
 }
 
+@media (max-width: 480px) {
+  .ejemplos-subida {
+    padding-bottom: 3rem;
+  }
+}
+
+
 .ejemplo {
+  background: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
   text-align: center;
-  max-width: 140px;
+  border: 1px solid #eee;
 }
 
 .ejemplo img {
   width: 100%;
-  border-radius: 0.5rem;
-  border: 2px solid #ccc;
+  display: block;
   object-fit: cover;
+  border-bottom: 1px solid #eee;
+}
+
+.etiqueta {
+  padding: 0.5rem 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  font-family: 'Poppins', sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.4rem;
+  background: white;
 }
 
 .texto-ejemplo {
@@ -255,6 +277,43 @@ export default function Home() {
   display: inline-block;
 }
 
+.recomendaciones-titulo {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #1f2937;
+  font-family: 'Poppins', sans-serif;
+  text-align: center;
+  margin-top: 1.2rem;
+  margin-bottom: 0.5rem;
+}
+
+.recomendaciones-grid {
+  display: grid;
+  row-gap: 0.5rem;
+  justify-content: center;
+  padding: 0;
+  margin: 0 auto 1.5rem auto;
+  font-family: 'Poppins', sans-serif;
+  counter-reset: item;
+}
+
+.recomendaciones-grid li {
+  display: flex;
+  align-items: center;
+  font-size: 1rem;
+  color: #1f2937;
+}
+
+.recomendaciones-grid li::before {
+  counter-increment: item;
+  content: counter(item) ".";
+  font-weight: 600;
+  width: 1.2rem;
+  margin-right: 0.75rem;
+  text-align: right;
+  color: #1f2937;
+}
+
 .encabezado-logo-texto {
   display: flex;
   align-items: center;
@@ -266,7 +325,7 @@ export default function Home() {
   font-family: 'Poppins', sans-serif;
   font-size: 1.5rem;
   font-weight: 700;
-  color:#007442;
+  color: #007442;
   margin: 0;
   margin-right:1.5rem;
 }
@@ -274,7 +333,7 @@ export default function Home() {
 .spinner {
   width: 16px;
   height: 16px;
-  border: 2px solid #2ecc71;
+  border: 2px solid #6a994e;
   border-top: 2px solid transparent;
   border-radius: 50%;
   animation: spin 1s linear infinite;
@@ -331,11 +390,11 @@ export default function Home() {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 10px 20px;
+  padding: 0.75rem 1.5rem;
   cursor: pointer;
-  background-color: #2196f3;
+  background-color: #007442;
   color: white;
-  border-radius: 8px;
+  border-radius: 12px;
   font-weight: 500;
   font-size: 1rem;
   border: none;
@@ -343,7 +402,7 @@ export default function Home() {
 }
 
 .custom-file-upload:hover {
-  background-color: #1976d2;
+  background-color: #007442;
 }
 
         .info-text {
@@ -383,10 +442,10 @@ export default function Home() {
           transition: background 0.3s ease;
         }
         .step.active {
-          background: #2ecc71;
+          background: #6a994e;
         }
         button {
-          background: #2ecc71;
+          background: #6a994e;
           color: white;
           border: none;
           padding: 0.75rem 1.5rem;
@@ -397,7 +456,7 @@ export default function Home() {
           margin-top: 1rem;
         }
         button:hover {
-          background: #27ae60;
+          background: #6a994e;
         }
         button:disabled {
           background: #bdc3c7;
@@ -511,51 +570,51 @@ export default function Home() {
   onChange={handleFileChange}
 />
           {!(result && zonasDetectadas.length > 0) && (
-  <p className="info-text">
-    <Lightbulb
-      size={18}
-      color="#f5c518"
-      style={{ verticalAlign: 'middle', marginRight: '0.4rem' }}
-    />
+  <div className="info-text">
+  <h3 className="recomendaciones-titulo">
+    <Lightbulb size={18} color="#f5c518" style={{ verticalAlign: 'middle', marginRight: '0.4rem' }} />
     Recomendaciones de subida:
-    <br />
-    1. Plantilla usada<br />
-    2. Marca de pisada visible<br />
-    3. Sacar foto a favor de luz
-  </p>
+  </h3>
+  <ol className="recomendaciones-grid">
+    <li><span>Plantilla usada</span></li>
+    <li><span>Marca de pisada visible</span></li>
+    <li><span>Sacar foto a favor de luz</span></li>
+  </ol>
+</div>
+
 )}
 
 
           {!preview && (
   <div className="ejemplos-subida">
     <div className="ejemplo">
-      <img src="/plantillanovalida1.png" alt="Ejemplo incorrecto 1" />
-      <p className="texto-ejemplo incorrecto">
-        <XCircle size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
-        No válido
-      </p>
-    </div>
-    <div className="ejemplo">
-      <img src="/plantillanovalida2.png" alt="Ejemplo incorrecto 2" />
-      <p className="texto-ejemplo incorrecto">
-        <XCircle size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
-        No válido
-      </p>
-    </div>
-    <div className="ejemplo">
-      <img src="/plantillavalida1.png" alt="Ejemplo correcto 1" />
+      <img src="/plantillavalida2.png" alt="Ejemplo correcto 1" />
       <p className="texto-ejemplo correcto">
         <CheckCircle size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
-        Correcto
+        <strong>Correcto</strong>
       </p>
     </div>
     <div className="ejemplo">
-      <img src="/plantillavalida2.png" alt="Ejemplo correcto 2" />
-      <p className="texto-ejemplo correcto">
-        <CheckCircle size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
-        Correcto
+      <img src="/plantillanovalida2.png" alt="Ejemplo incorrecto 1" />
+      <p className="texto-ejemplo incorrecto">
+        <XCircle size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
+        <strong>No válido</strong>
       </p>
     </div>
+    <div className="ejemplo">
+      <img src="/plantillavalida1.png" alt="Ejemplo correcto 2" />
+      <p className="texto-ejemplo correcto">
+        <CheckCircle size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
+        <strong>Correcto</strong>
+      </p>
+    </div>
+    <div className="ejemplo">
+      <img src="/plantillanovalida1.png" alt="Ejemplo incorrecto 2" />
+      <p className="texto-ejemplo incorrecto">
+        <XCircle size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
+        <strong>No válido</strong>
+      </p>
+    </div> 
   </div>
 )}
 
@@ -583,7 +642,7 @@ export default function Home() {
                   {steps.map((_, index) => (
                     <div
                       key={index}
-                      className={`step ${index < progressStep ? 'active' : ''}`}
+                      className={`step ${(index < progressStep || (index === 0 && loading)) ? 'active' : ''}`}
                     />
                   ))}
                 </div>
