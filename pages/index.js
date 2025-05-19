@@ -96,7 +96,7 @@ export default function Home() {
     texto.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
   const extraerZonas = (texto) => {
-    const zonas = ['dedos', 'metatarsos', 'arco', 'talon'];
+    const zonas = ['dedos', 'metatarsos', 'arco', 'exterior', 'talon'];
     const textoPlano = normalizarTexto(texto);
     return zonas.filter((zona) => textoPlano.includes(zona.replace('-', ' ')));
   };

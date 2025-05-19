@@ -57,7 +57,7 @@ Formato de salida:
 - (zona 3, si hay más)
 
 Solo responde esta sección, sin más texto ni encabezados.
-Zonas posibles: dedos, metatarsos, arco, talón.
+Zonas posibles: dedos, metatarsos, arco, exterior, talón.
 No nombres zonas si no son visibles.
 `;
 
@@ -82,7 +82,7 @@ No nombres zonas si no son visibles.
 
       let result = response.choices[0]?.message?.content || '';
 
-      const zonasValidas = ['dedos', 'metatarsos', 'arco', 'talón'];
+      const zonasValidas = ['dedos', 'metatarsos', 'exterior', 'arco', 'talón'];
       const contieneZonas = zonasValidas.some((zona) =>
         result.toLowerCase().includes(zona)
       );
