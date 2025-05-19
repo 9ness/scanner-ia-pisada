@@ -46,19 +46,15 @@ export default async function handler(req, res) {
       const base64Image = resizedBuffer.toString('base64');
 
       const prompt = `
-Analiza la imagen de la pisada y responde solo con las zonas de mayor presión, una por línea. Debes identificar si la imagen se trata
-de una foto real de una plantilla de pie, si la imagen no tiene que ver con una foto real ni eres capaz de detectar zonas de presión
-no las nombres. En caso de que si que seas capaz de detectar zonas de presión reales haz lo siguiente:
-
-Formato de salida:
-📌 **Zonas de presión detectadas:**
-- (zona 1)
-- (zona 2)
-- (zona 3, si hay más)
-
-Solo responde esta sección, sin más texto ni encabezados.
-Zonas posibles: dedos, metatarsos, arco, exterior, talón.
-No nombres zonas si no son visibles.
+Analiza la imagen de una pisada y responde únicamente si se trata de una fotografía real de una plantilla de pisada con evidencia clara de uso y desgaste. Si la imagen es un dibujo, una ilustración digital, una simulación generada por IA, o no muestra señales físicas claras de presión, no nombres ninguna zona.
+En caso de que sí detectes una imagen real con evidencia visible de uso (como marcas, suciedad o hundimientos), responde solo con las zonas de mayor presión, una por línea.
+Formato de salida obligatorio:
+📌 Zonas de presión detectadas:
+(zona 1)
+(zona 2)
+(zona 3, si hay más)
+Zonas posibles (no inventar ni deducir): dedos, metatarsos, arco, exterior, talón.
+❌ No respondas nada si no estás completamente seguro de que la imagen representa una pisada real con desgaste visible. No supongas. No rellenes. No interpretes imágenes abstractas o esquemáticas como pisadas reales.
 `;
 
       const response = await openai.chat.completions.create({

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import PieSVG from '../components/PieSVG';
 import { Camera, Plus, WandSparkles } from 'lucide-react';
-import { Lightbulb, CheckCircle } from 'lucide-react';
+import { Lightbulb, CheckCircle, XCircle } from 'lucide-react';
 import { Pin } from 'lucide-react';
 import { ArrowDown } from 'lucide-react';
 
@@ -130,11 +130,22 @@ export default function Home() {
       const data = await res.json();
 
       if (data.result) {
-        setResult(data.result);
-        setZonasDetectadas(extraerZonas(data.result));
-        setButtonText('Análisis completado');
-        setImageAnalyzed(true);
-      } else {
+  setResult(data.result);
+  const zonas = extraerZonas(data.result);
+  setZonasDetectadas(zonas);
+
+  if (zonas.length > 0) {
+    // Resultado correcto: mantener botón deshabilitado y texto original
+    setButtonText('Seleccionar imagen');
+    setButtonDisabled(true);
+  } else {
+    // Resultado incorrecto: permitir reintento
+    setButtonText('Analizar pisada con IA');
+    setButtonDisabled(false);
+  }
+
+  setImageAnalyzed(true);
+} else {
         setResult('Error al analizar la imagen.');
         setButtonText('Error en el análisis');
       }
@@ -184,6 +195,43 @@ export default function Home() {
   margin: 2rem auto 1rem auto;
   width: 90%;
 }
+
+.ejemplos-subida {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+.ejemplo {
+  text-align: center;
+  max-width: 140px;
+}
+
+.ejemplo img {
+  width: 100%;
+  border-radius: 0.5rem;
+  border: 2px solid #ccc;
+  object-fit: cover;
+}
+
+.texto-ejemplo {
+  margin-top: 0.3rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  font-family: 'Poppins', sans-serif;
+}
+
+.incorrecto {
+  color: #e74c3c;
+}
+
+.correcto {
+  color: #2ecc71;
+}
+
 
 .recomendacion-container {
   display: flex;
@@ -304,6 +352,7 @@ export default function Home() {
           margin-bottom: 1rem;
           margin-left: 2rem;
           margin-right: 2rem;
+          text-align: center;
         }
           .info-tip {
   font-size: 0.95rem;
@@ -422,26 +471,79 @@ export default function Home() {
         </div>
 
         <form onSubmit={handleSubmit}>
-          <label htmlFor="file-upload" className="custom-file-upload">
-            {imageAnalyzed ? (
-              <Plus size={18} style={{ marginRight: '8px' }} />
-            ) : (
-              <Camera size={18} style={{ marginRight: '8px' }} />
-            )}
-            {imageAnalyzed ? 'Seleccionar nueva imagen' : 'Seleccionar imagen'}
-          </label>
+          {!(result && zonasDetectadas.length > 0) && (
+  <label
+  htmlFor="file-upload"
+  className="custom-file-upload"
+  style={{
+    opacity: result && zonasDetectadas.length > 0 ? 0.5 : 1,
+    cursor: result && zonasDetectadas.length > 0 ? 'not-allowed' : 'pointer',
+  }}
+  onClick={(e) => {
+    if (result && zonasDetectadas.length > 0) {
+      e.preventDefault(); // Bloquea el clic
+    }
+  }}
+>
+  {imageAnalyzed && zonasDetectadas.length === 0 ? (
+    <>
+      <Plus size={18} style={{ marginRight: '8px' }} />
+      Seleccionar nueva imagen
+    </>
+  ) : (
+    <>
+      <Camera size={18} style={{ marginRight: '8px' }} />
+      Seleccionar imagen
+    </>
+  )}
+</label>
+
+)}
+
+
+
           <input
-            id="file-upload"
-            type="file"
-            name="image"
-            accept="image/*"
-            ref={fileInputRef}
-            onChange={handleFileChange}
-          />
-          <p className="info-text">
-            <Lightbulb size={18} color="#f5c518" style={{ verticalAlign: 'middle', marginRight: '0.4rem' }} />
-            La imagen debe mostrar una plantilla usada con marca de pisada visible.
-          </p>
+  id="file-upload"
+  type="file"
+  name="image"
+  accept="image/*"
+  ref={fileInputRef}
+  onChange={handleFileChange}
+/>
+          {!(result && zonasDetectadas.length > 0) && (
+  <p className="info-text">
+    <Lightbulb
+      size={18}
+      color="#f5c518"
+      style={{ verticalAlign: 'middle', marginRight: '0.4rem' }}
+    />
+    Recomendaciones de subida:
+    <br />
+    1. Plantilla usada<br />
+    2. Marca de pisada visible<br />
+    3. Sacar foto a favor de luz
+  </p>
+)}
+
+
+          {!preview && (
+  <div className="ejemplos-subida">
+    <div className="ejemplo">
+      <img src="/plantillanovalida2.png" alt="Ejemplo incorrecto" />
+      <p className="texto-ejemplo incorrecto">
+        <XCircle size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
+        No válido
+      </p>
+    </div>
+    <div className="ejemplo">
+      <img src="/plantillavalida2.png" alt="Ejemplo correcto" />
+      <p className="texto-ejemplo correcto">
+        <CheckCircle size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
+        Correcto
+      </p>
+    </div>
+  </div>
+)}
 
           {preview && <img src={preview} alt="preview" className="preview" />}
 
