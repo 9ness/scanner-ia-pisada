@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import PieSVG from '../components/PieSVG';
 import { Camera, Plus, WandSparkles } from 'lucide-react';
 import { Lightbulb, CheckCircle, XCircle } from 'lucide-react';
-import { Pin } from 'lucide-react';
+import { MapPin  } from 'lucide-react';
 import { ArrowDown } from 'lucide-react';
 
 export default function Home() {
@@ -202,7 +202,11 @@ export default function Home() {
   gap: 1rem;
   margin-top: 1rem;
   padding-bottom: 2rem;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
 }
+
 
 @media (max-width: 480px) {
   .ejemplos-subida {
@@ -220,6 +224,7 @@ export default function Home() {
   border: 1px solid #eee;
 }
 
+
 .ejemplo img {
   width: 100%;
   display: block;
@@ -231,7 +236,6 @@ export default function Home() {
   padding: 0.5rem 0;
   font-size: 0.9rem;
   font-weight: 600;
-  font-family: 'Poppins', sans-serif;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -240,10 +244,9 @@ export default function Home() {
 }
 
 .texto-ejemplo {
-  margin-top: 0.3rem;
+  margin-top: 0.6rem;
   font-size: 0.85rem;
   font-weight: 500;
-  font-family: 'Poppins', sans-serif;
 }
 
 .incorrecto {
@@ -251,7 +254,7 @@ export default function Home() {
 }
 
 .correcto {
-  color: #2ecc71;
+  color: #007442;
 }
 
 
@@ -314,21 +317,18 @@ export default function Home() {
   color: #1f2937;
 }
 
-.encabezado-logo-texto {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  margin-bottom: 1.5rem;
-}
+
   .titulo-logo {
-  font-family: 'Poppins', sans-serif;
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #007442;
-  margin: 0;
-  margin-right:1.5rem;
+  font-size: 1.7rem;
+  text-align: center;
 }
+
+@media (min-width: 640px) {
+  .titulo-logo {
+    font-size: 2.7rem;
+  }
+}
+
 
 .spinner {
   width: 16px;
@@ -363,25 +363,17 @@ export default function Home() {
   color: #333;
   font-family: 'Poppins', sans-serif;
 }
-
-@media (max-width: 480px) {
-  .titulo-logo {
-    font-size: 1.2rem;
-  }
-}
         .container {
-        font-family: inherit;
           background: white;
           padding: 2rem;
           border-radius: 1rem;
           box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
           text-align: center;
           width: 100%;
-          max-width: 800px;
         }
         h1 {
           color: #2c3e50;
-          margin-bottom: 1rem;
+          margin-bottom: 2rem;
         }
         input[type='file'] {
           display: none;
@@ -476,7 +468,9 @@ export default function Home() {
           .resultado-texto {
   margin-top: 1.5rem; 
   margin-left: 1rem; 
+      }
         .resultado-grafico {
+        margin-top: 1.5rem; 
           display: flex;
           justify-content: center;
         }
@@ -487,6 +481,27 @@ export default function Home() {
         list-style-position: inside;
         text-align: left;
         }
+
+        .steps-container {
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.resultado-center {
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.error-texto {
+  font-weight: 500;
+  font-size: 1rem;
+  text-align: center;
+  max-width: 600px;
+  margin: 1.5rem auto 0 auto;
+  padding: 0 1rem;
+}
+
+
 
         .bloque-zonas {
         padding-left: 0.5rem;
@@ -522,13 +537,9 @@ export default function Home() {
 }
 
       `}</style>
-
-      <div className="container">
-        <div className="encabezado-logo-texto">
-          <img src="/logo.png" alt="Logo Pisada Viva" className="logo-izquierda" />
-          <h1 className="titulo-logo">Analizador de <br /> Pisada con IA</h1>
-        </div>
-
+      <div className="container">       
+              
+  <h1 className="titulo-logo">Analizador de Pisada con IA  </h1>
         <form onSubmit={handleSubmit}>
           {!(result && zonasDetectadas.length > 0) && (
   <label
@@ -638,6 +649,7 @@ export default function Home() {
 
 
               {loading && (
+                <div className="steps-container">
                 <div className="steps">
                   {steps.map((_, index) => (
                     <div
@@ -645,6 +657,7 @@ export default function Home() {
                       className={`step ${(index < progressStep || (index === 0 && loading)) ? 'active' : ''}`}
                     />
                   ))}
+                </div>
                 </div>
               )}
             </>
@@ -658,12 +671,13 @@ export default function Home() {
                 <CheckCircle size={30} color="#28a745" />
                 Resultado del análisis
               </h2>
+               <div className="resultado-center">
               <div className="resultado-container">
                 <div className="resultado-texto">
                   <div className="bloque-zonas">
                     <p>
                       <strong>
-                        <Pin size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
+                        <MapPin  size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
                         Zonas de presión detectadas:
                       </strong>
                     </p>
@@ -681,13 +695,14 @@ export default function Home() {
                   <PieSVG zonasActivadas={zonasDetectadas} />
                 </div>
               </div>
+              </div>
             </div>
           </>
         ) : (
-          result && (
-            <p style={{ marginTop: '1.5rem', fontWeight: '500', fontSize: '1rem', textAlign: 'center' }}>
-              {result}
-            </p>
+          result && zonasDetectadas.length === 0 && (
+            <div className="error-texto">
+    {result}
+  </div>
           )
         )}
 
