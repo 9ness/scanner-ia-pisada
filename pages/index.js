@@ -529,14 +529,28 @@ export default function Home() {
           {!preview && (
   <div className="ejemplos-subida">
     <div className="ejemplo">
-      <img src="/plantillanovalida2.png" alt="Ejemplo incorrecto" />
+      <img src="/plantillanovalida1.png" alt="Ejemplo incorrecto 1" />
       <p className="texto-ejemplo incorrecto">
         <XCircle size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
         No válido
       </p>
     </div>
     <div className="ejemplo">
-      <img src="/plantillavalida2.png" alt="Ejemplo correcto" />
+      <img src="/plantillanovalida2.png" alt="Ejemplo incorrecto 2" />
+      <p className="texto-ejemplo incorrecto">
+        <XCircle size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
+        No válido
+      </p>
+    </div>
+    <div className="ejemplo">
+      <img src="/plantillavalida1.png" alt="Ejemplo correcto 1" />
+      <p className="texto-ejemplo correcto">
+        <CheckCircle size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
+        Correcto
+      </p>
+    </div>
+    <div className="ejemplo">
+      <img src="/plantillavalida2.png" alt="Ejemplo correcto 2" />
       <p className="texto-ejemplo correcto">
         <CheckCircle size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
         Correcto
@@ -544,6 +558,7 @@ export default function Home() {
     </div>
   </div>
 )}
+
 
           {preview && <img src={preview} alt="preview" className="preview" />}
 
