@@ -6,10 +6,12 @@ import { Pin } from 'lucide-react';
 import { ArrowDown } from 'lucide-react';
 
 export default function Home() {
+  const imagenTest = false;
   const [loading, setLoading] = useState(false);
   const [buttonText, setButtonText] = useState('Analizar pisada con IA');
   const [result, setResult] = useState('');
   const [preview, setPreview] = useState(null);
+  const [compressedPreview, setCompressedPreview] = useState(null);
   const [buttonDisabled, setButtonDisabled] = useState(false);
   const [progressStep, setProgressStep] = useState(0);
   const [imageAnalyzed, setImageAnalyzed] = useState(false);
@@ -114,6 +116,7 @@ export default function Home() {
 
     try {
       const compressedFile = await compressImage(originalFile);
+      setCompressedPreview(URL.createObjectURL(compressedFile));
       const formData = new FormData();
       formData.append('image', compressedFile);
 
@@ -525,6 +528,34 @@ export default function Home() {
 )}
 
       </div>
+
+      {imagenTest && compressedPreview && (
+  <div style={{ marginTop: '2rem' }}>
+    <button
+      onClick={() => {
+        const link = document.createElement('a');
+        link.href = compressedPreview;
+        link.download = 'imagen_comprimida.jpg';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }}
+      style={{
+        backgroundColor: '#6c757d',
+        color: 'white',
+        border: 'none',
+        padding: '0.5rem 1rem',
+        borderRadius: '5px',
+        cursor: 'pointer',
+        fontSize: '0.95rem'
+      }}
+    >
+      Descargar imagen comprimida (test)
+    </button>
+  </div>
+)}
+
+
     </>
   );
 }
