@@ -6,7 +6,7 @@ import { MapPin  } from 'lucide-react';
 import { ArrowDown } from 'lucide-react';
 
 export default function Home() {
-  const imagenTest = false;
+  const imagenTest = true;
   const [loading, setLoading] = useState(false);
   const [buttonText, setButtonText] = useState('Analizar pisada con IA');
   const [result, setResult] = useState('');
@@ -726,7 +726,7 @@ export default function Home() {
       onClick={() => {
         const link = document.createElement('a');
         link.href = compressedPreview;
-        link.download = 'imagen_comprimida.jpg';
+        link.download = 'imagen_comprimida.png';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
