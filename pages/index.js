@@ -6,7 +6,7 @@ import { MapPin  } from 'lucide-react';
 import { ArrowDown } from 'lucide-react';
 
 export default function Home() {
-  const imagenTest = true;
+  const imagenTest = false;
   const [loading, setLoading] = useState(false);
   const [buttonText, setButtonText] = useState('Analizar pisada con IA');
   const [result, setResult] = useState('');
