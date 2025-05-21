@@ -35,6 +35,17 @@ export default async function handler(req, res) {
         res.status(400).json({ error: 'No se recibió ninguna imagen' });
         return;
       }
+      // Validación de tipo y tamaño de imagen
+if (!file.mimetype.startsWith('image/')) {
+  res.status(400).json({ error: 'El archivo debe ser una imagen válida (jpeg, png, etc).' });
+  return;
+}
+
+const maxSizeMB = 10;
+if (file.size > maxSizeMB * 1024 * 1024) {
+  res.status(400).json({ error: `La imagen no puede superar los ${maxSizeMB}MB.` });
+  return;
+}
 
       const originalBuffer = await fs.readFile(file.filepath);
 

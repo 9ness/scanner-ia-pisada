@@ -4,9 +4,12 @@ import { Camera, Plus, WandSparkles } from 'lucide-react';
 import { Lightbulb, CheckCircle, XCircle } from 'lucide-react';
 import { MapPin  } from 'lucide-react';
 import { ArrowDown } from 'lucide-react';
+import { AlarmClock  } from 'lucide-react';
 
 export default function Home() {
   const imagenTest = false;
+  const persistenciaActiva = false; // ← cambiar a false si quiero desactivar persistencia de cuenta atrás
+  const mostrarBotonReset = false; // Cambiar a false para ocultarlo
   const [loading, setLoading] = useState(false);
   const [buttonText, setButtonText] = useState('Analizar pisada con IA');
   const [result, setResult] = useState('');
@@ -18,6 +21,7 @@ export default function Home() {
   const [zonasDetectadas, setZonasDetectadas] = useState([]);
   const [estadoAnalisis, setEstadoAnalisis] = useState('');
   const fileInputRef = useRef(null);
+  const [tiempoRestante, setTiempoRestante] = useState(null);
 
   const steps = [
     'Analizando imagen...',
@@ -26,30 +30,72 @@ export default function Home() {
     'Generando recomendación personalizada...'
   ];
 
-  useEffect(() => {
-    if (loading) {
-      let stepIndex = 0;
-      setEstadoAnalisis(steps[stepIndex]);
+useEffect(() => {
+  if (!persistenciaActiva) {
+    console.log('[Persistencia] Desactivada por configuración.');
+  } else if (!loading) {
+    const saved = localStorage.getItem('analisisPisada');
+    if (saved) {
+      try {
+        const { result, zonasDetectadas, expiry, compressedPreview } = JSON.parse(saved);
+        if (Date.now() < expiry) {
+          console.log('[Persistencia] Restaurando estado completo...');
 
-      const interval = setInterval(() => {
-        stepIndex++;
-        if (stepIndex < steps.length) {
-          setProgressStep(stepIndex + 1);
-          setEstadoAnalisis(steps[stepIndex]);
+          // Restaurar estado visual
+          setResult(result);
+          setZonasDetectadas(zonasDetectadas);
+          setImageAnalyzed(true);
+          setCompressedPreview(compressedPreview || null);
+          setButtonText('Seleccionar imagen');
+          setButtonDisabled(true);
+          setProgressStep(steps.length);
+
+          // Contador activo
+          const actualizarTiempo = () => {
+            const diff = expiry - Date.now();
+            if (diff <= 0) {
+              setTiempoRestante(null);
+              localStorage.removeItem('analisisPisada');
+              return;
+            }
+            const h = Math.floor(diff / 3600000);
+            const m = Math.floor((diff % 3600000) / 60000);
+            const s = Math.floor((diff % 60000) / 1000);
+            setTiempoRestante(`${h}h ${m}m ${s}s`);
+          };
+
+          actualizarTiempo();
+          const interval = setInterval(actualizarTiempo, 1000);
+          return () => clearInterval(interval);
         } else {
-          setProgressStep(steps.length); // barras completas
-          clearInterval(interval);
-          // NO limpiamos estadoAnalisis aún, se limpia en finally
+          localStorage.removeItem('analisisPisada');
+          console.log('[Persistencia] Expirada, eliminada.');
         }
-      }, 1500);
-
-      return () => clearInterval(interval);
-    } else {
-      // Esto se activa cuando loading pasa a false → oculta el texto
-      setEstadoAnalisis('');
+      } catch (e) {
+        console.error('[Persistencia] Error:', e);
+        localStorage.removeItem('analisisPisada');
+      }
     }
-  }, [loading]);
+  }
 
+  if (loading) {
+    let stepIndex = 0;
+    setEstadoAnalisis(steps[stepIndex]);
+    const interval = setInterval(() => {
+      stepIndex++;
+      if (stepIndex < steps.length) {
+        setProgressStep(stepIndex + 1);
+        setEstadoAnalisis(steps[stepIndex]);
+      } else {
+        setProgressStep(steps.length);
+        clearInterval(interval);
+      }
+    }, 1500);
+    return () => clearInterval(interval);
+  } else {
+    setEstadoAnalisis('');
+  }
+}, [loading]);
 
 
   const compressImage = async (file) => {
@@ -135,6 +181,23 @@ export default function Home() {
   setZonasDetectadas(zonas);
 
   if (zonas.length > 0) {
+    if (persistenciaActiva) {
+  const existing = localStorage.getItem('analisisPisada');
+  if (!existing) {
+    const expiry = Date.now() + 2 * 60 * 60 * 1000; // 2 horas
+    localStorage.setItem('analisisPisada', JSON.stringify({
+      result: data.result,
+      zonasDetectadas: zonas,
+      expiry,
+      compressedPreview: data.preview
+    }));
+    console.log('[Persistencia] Resultado guardado.');
+  } else {
+    console.log('[Persistencia] Ya existía, no se sobrescribe.');
+  }
+}
+
+
     // Resultado correcto: mantener botón deshabilitado y texto original
     setButtonText('Seleccionar imagen');
     setButtonDisabled(true);
@@ -596,7 +659,7 @@ export default function Home() {
 )}
 
 
-          {!preview && (
+          {!preview && !compressedPreview && !result && (
   <div className="ejemplos-subida">
     <div className="ejemplo">
       <img src="/plantillavalida2.png" alt="Ejemplo correcto 1" />
@@ -630,7 +693,13 @@ export default function Home() {
 )}
 
 
-          {preview && <img src={preview} alt="preview" className="preview" />}
+          {(preview || compressedPreview) && (
+  <img
+    src={preview || compressedPreview}
+    alt="preview"
+    className="preview"
+  />
+)}
 
           {preview && !result && (
             <>
@@ -710,42 +779,85 @@ export default function Home() {
   <>
     <hr className="linea-separadora" />
 
+   {result && zonasDetectadas.length > 0 && (
+  <>
+    <hr className="linea-separadora" />
     <div className="recomendacion-container">
       <ArrowDown color="#1f2937" size={18} />
       <span className="recomendacion-texto">Nuestro Producto recomendado</span>
       <ArrowDown color="#1f2937" size={18} />
     </div>
+
+    {tiempoRestante && (
+      <p style={{
+  textAlign: 'center',
+  color: '#555',
+  fontSize: '1rem',
+  marginBottom: '2rem',
+  fontWeight: '500',
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  gap: '0.5rem'
+}}>
+  <AlarmClock  size={18} strokeWidth={2} />
+  La oferta termina en: {tiempoRestante}
+</p>
+    )}
+  </>
+)}
   </>
 )}
 
       </div>
 
-      {imagenTest && compressedPreview && (
-  <div style={{ marginTop: '2rem' }}>
-    <button
-      onClick={() => {
-        const link = document.createElement('a');
-        link.href = compressedPreview;
-        link.download = 'imagen_comprimida.png';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }}
-      style={{
-        backgroundColor: '#6c757d',
-        color: 'white',
-        border: 'none',
-        padding: '0.5rem 1rem',
-        borderRadius: '5px',
-        cursor: 'pointer',
-        fontSize: '0.95rem'
-      }}
-    >
-      Descargar imagen comprimida (test)
-    </button>
+      {(imagenTest || mostrarBotonReset) && (
+  <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+    {imagenTest && compressedPreview && (
+      <button
+        onClick={() => {
+          const link = document.createElement('a');
+          link.href = compressedPreview;
+          link.download = 'imagen_comprimida.png';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }}
+        style={{
+          backgroundColor: '#6c757d',
+          color: 'white',
+          border: 'none',
+          padding: '0.5rem 1rem',
+          borderRadius: '5px',
+          cursor: 'pointer',
+          fontSize: '0.95rem'
+        }}
+      >
+        Descargar imagen comprimida (test)
+      </button>
+    )}
+
+    {mostrarBotonReset && (
+      <button
+        onClick={() => {
+          localStorage.removeItem('analisisPisada');
+          window.location.reload();
+        }}
+        style={{
+          backgroundColor: '#d32f2f',
+          color: 'white',
+          border: 'none',
+          padding: '0.5rem 1rem',
+          borderRadius: '5px',
+          cursor: 'pointer',
+          fontSize: '0.95rem'
+        }}
+      >
+        🔄 Reiniciar análisis (test)
+      </button>
+    )}
   </div>
 )}
-
 
     </>
   );
