@@ -59,35 +59,31 @@ if (file.size > maxSizeMB * 1024 * 1024) {
       const prompt = `
 Analiza la imagen de una pisada y responde únicamente si se trata de una fotografía real de una plantilla de pisada con evidencia clara de uso y desgaste. Si la imagen es un dibujo, una ilustración digital, una simulación generada por IA, o no muestra señales físicas claras de presión, no nombres ninguna zona.
 En caso de que sí detectes una imagen real con evidencia visible de uso (como marcas, suciedad o hundimientos), responde solo con las zonas de mayor presión, una por línea.
-Formato de salida obligatorio:
-📌 Zonas de presión detectadas:
-(zona 1)
-(zona 2)
-(zona 3, si hay más)
 Zonas posibles (no inventar ni deducir): dedos, metatarsos, arco, exterior, talón.
-❌ No respondas nada si no estás completamente seguro de que la imagen representa una pisada real con desgaste visible. No supongas. No rellenes. No interpretes imágenes abstractas o esquemáticas como pisadas reales.
 `;
 
       const response = await openai.chat.completions.create({
-        model: 'gpt-4-turbo',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: prompt },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: `data:image/jpeg;base64,${base64Image}`,
-                },
-              },
-            ],
+  model: 'gpt-4-turbo',
+  messages: [
+    {
+      role: 'user',
+      content: [
+        { type: 'text', text: prompt },
+        {
+          type: 'image_url',
+          image_url: {
+            url: `data:image/jpeg;base64,${base64Image}`,
           },
-        ],
-        max_tokens: 500,
-      });
+        },
+      ],
+    },
+  ],
+  max_tokens: 500,
+});
+
 
       let result = response.choices[0]?.message?.content || '';
+      console.log(`[OpenAI (${response.model}) respuesta completa]:`, result);
 
       const zonasValidas = ['dedos', 'metatarsos', 'exterior', 'arco', 'talón'];
       const contieneZonas = zonasValidas.some((zona) =>

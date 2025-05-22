@@ -635,14 +635,16 @@ useEffect(() => {
 
 
 
-          <input
+ <input
   id="file-upload"
   type="file"
   name="image"
   accept="image/*"
+  capture="environment" // activa cámara trasera si está disponible
   ref={fileInputRef}
   onChange={handleFileChange}
 />
+
           {!(result && zonasDetectadas.length > 0) && (
   <div className="info-text">
   <h3 className="recomendaciones-titulo">
