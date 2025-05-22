@@ -777,7 +777,6 @@ useEffect(() => {
 
         {result && zonasDetectadas.length > 0 && (
   <>
-    <hr className="linea-separadora" />
 
    {result && zonasDetectadas.length > 0 && (
   <>
