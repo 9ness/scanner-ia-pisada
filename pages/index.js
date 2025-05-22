@@ -439,8 +439,12 @@ useEffect(() => {
           margin-bottom: 2rem;
         }
         input[type='file'] {
-          display: none;
-        }
+  opacity: 0;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  z-index: -1;
+}
         .custom-file-upload {
   display: inline-flex;
   align-items: center;
@@ -611,6 +615,7 @@ useEffect(() => {
   style={{
     opacity: result && zonasDetectadas.length > 0 ? 0.5 : 1,
     cursor: result && zonasDetectadas.length > 0 ? 'not-allowed' : 'pointer',
+    pointerEvents: result && zonasDetectadas.length > 0 ? 'none' : 'auto', // 🔑 Esto evita interceptar el click
   }}
   onClick={(e) => {
     if (result && zonasDetectadas.length > 0) {
@@ -643,6 +648,7 @@ useEffect(() => {
   ref={fileInputRef}
   onChange={handleFileChange}
 />
+
           {!(result && zonasDetectadas.length > 0) && (
   <div className="info-text">
   <h3 className="recomendaciones-titulo">
