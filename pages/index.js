@@ -5,6 +5,8 @@ import { Lightbulb, CheckCircle, XCircle } from 'lucide-react';
 import { MapPin  } from 'lucide-react';
 import { ArrowDown } from 'lucide-react';
 import { AlarmClock  } from 'lucide-react';
+import { Footprints } from 'lucide-react';
+
 
 export default function Home() {
   const imagenTest = false;
@@ -22,6 +24,7 @@ export default function Home() {
   const [estadoAnalisis, setEstadoAnalisis] = useState('');
   const fileInputRef = useRef(null);
   const [tiempoRestante, setTiempoRestante] = useState(null);
+  const [tendenciaTexto, setTendenciaTexto] = useState('');
 
   const steps = [
     'Analizando imagen...',
@@ -178,7 +181,17 @@ useEffect(() => {
       if (data.result) {
   setResult(data.result);
   const zonas = extraerZonas(data.result);
+  // Si no incluye ni metatarsos ni exterior, forzar agregar arco
+if (!zonas.includes('metatarsos') && !zonas.includes('exterior') && !zonas.includes('arco')) {
+  zonas.push('arco');
+}
   setZonasDetectadas(zonas);
+
+  if (zonas.includes('arco')) {
+  setTendenciaTexto('Plano (Pronador)');
+} else if (zonas.includes('metatarsos') || zonas.includes('talon') || zonas.includes('talón') || zonas.includes('dedos') || zonas.includes('exterior')) {
+  setTendenciaTexto('Cavo (supinador)');
+}
 
   if (zonas.length > 0) {
     if (persistenciaActiva) {
@@ -555,6 +568,34 @@ useEffect(() => {
   margin: 0 auto;
 }
 
+.preview-wrapper {
+  position: relative;
+  width: fit-content;
+  margin: 1rem auto;
+}
+
+.scan-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(to right, transparent, rgba(0, 255, 0, 0.7), transparent);
+  animation: scan 2s ease-in-out infinite;
+  border-radius: 4px;
+  box-shadow: 0 0 12px rgba(0, 255, 0, 0.6);
+  z-index: 5;
+}
+
+
+
+@keyframes scan {
+  0% { top: 0; }
+  50% { top: calc(100% - 4px); }
+  100% { top: 0; }
+}
+
+
 .error-texto {
   font-weight: 500;
   font-size: 1rem;
@@ -564,11 +605,25 @@ useEffect(() => {
   padding: 0 1rem;
 }
 
+.bloque-tendencia {
+  margin-top: 1.5rem;
+  text-align: center;
+}
+
+.texto-tendencia {
+  font-size: 1rem;
+  color: #1f2937;
+  margin-top: 0.5rem;
+  line-height: 1.4;
+}
+
+
 
 
         .bloque-zonas {
         padding-left: 0.5rem;
         text-align: center;
+        font-size: 13px;
       }
 
       .bloque-zonas ul {
@@ -693,13 +748,17 @@ useEffect(() => {
 )}
 
 
-          {(preview || compressedPreview) && (
-  <img
-    src={preview || compressedPreview}
-    alt="preview"
-    className="preview"
-  />
+{(preview || compressedPreview) && (
+  <div className="preview-wrapper">
+    <img
+      src={preview || compressedPreview}
+      alt="preview"
+      className="preview"
+    />
+    {loading && <div className="scan-line" />}
+  </div>
 )}
+
 
           {preview && !result && (
             <>
@@ -757,6 +816,16 @@ useEffect(() => {
                         </li>
                       ))}
 
+                    </ul>
+
+                    <p>
+                      <strong>
+                        <Footprints size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
+                        Tendencia del pie:
+                      </strong>
+                    </p>
+                    <ul className="lista-zonas">
+                     {tendenciaTexto}
                     </ul>
                   </div>
                 </div>
