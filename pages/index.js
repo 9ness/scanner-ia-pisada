@@ -182,7 +182,7 @@ useEffect(() => {
   setResult(data.result);
   const zonas = extraerZonas(data.result);
   // Si no incluye ni metatarsos ni exterior, forzar agregar arco
-if (!zonas.includes('metatarsos') && !zonas.includes('exterior') && !zonas.includes('arco')) {
+if (zonas.length > 0 && !zonas.includes('metatarsos') && !zonas.includes('exterior') && !zonas.includes('arco')) {
   zonas.push('arco');
 }
   setZonasDetectadas(zonas);
