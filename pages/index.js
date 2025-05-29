@@ -421,6 +421,10 @@ if (zonas.length > 0 && !zonas.includes('metatarsos') && !zonas.includes('exteri
   }
 }
 
+body {
+  overflow-x: hidden;
+}
+
 .estado-progreso {
   display: flex;
   align-items: center;
@@ -656,8 +660,7 @@ if (zonas.length > 0 && !zonas.includes('metatarsos') && !zonas.includes('exteri
 
       `}</style>
       <div className="container">       
-              
-  <h1 className="titulo-logo">Analizador de Pisada con IA  </h1>
+             
         <form onSubmit={handleSubmit}>
           {!(result && zonasDetectadas.length > 0) && (
   <label
