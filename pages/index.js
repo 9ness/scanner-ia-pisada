@@ -28,6 +28,7 @@ export default function Home() {
   const progresoRef = useRef(null);
   const refSpinner = useRef(null);
   const refSteps = useRef(null);
+  const refCargaInicio = useRef(null);
   const [tiempoRestante, setTiempoRestante] = useState(null);
   const [tendenciaTexto, setTendenciaTexto] = useState('');
 
@@ -125,10 +126,11 @@ useEffect(() => {
 useEffect(() => {
   if (loading) {
     setTimeout(() => {
-      refSpinner.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 300); // espera breve para que el spinner ya esté en el DOM
+      refCargaInicio.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 300); // espera ligera para asegurar que se renderizó
   }
 }, [loading]);
+
 
 
   const compressImage = async (file) => {
@@ -815,15 +817,19 @@ if (zonas.length > 0 && !zonas.includes('metatarsos') && !zonas.includes('exteri
                 </span>
               </button>
               {loading && (
-                <div ref={progresoRef} className="estado-progreso">
-                  <span className="spinner" />
-                  <span className="estado-analisis">{estadoAnalisis}</span>
-                </div>
-              )}
+  <>
+    <div ref={refCargaInicio}></div>
+    <div className="estado-progreso">
+      <span className="spinner" />
+      <span className="estado-analisis">{estadoAnalisis}</span>
+    </div>
+  </>
+)}
+
 
 
               {loading && (
-  <div ref={refSteps} className="steps-container">
+  <div className="steps-container">
     <div className="steps">
       {steps.map((_, index) => (
         <div
