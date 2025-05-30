@@ -274,13 +274,10 @@ if (zonas.length > 0 && !zonas.includes('metatarsos') && !zonas.includes('exteri
 
 .ejemplos-subida {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1rem;
-  margin-top: 1rem;
-  padding-bottom: 2rem;
-  max-width: 400px;
-  margin-left: auto;
-  margin-right: auto;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  max-width: 320px; /* Más estrecho */
+  margin: 0 auto 2rem auto;
 }
 
 
@@ -445,11 +442,13 @@ body {
 }
         .container {
           background: white;
-          padding: 2rem;
+          padding: 1.5rem;
           border-radius: 1rem;
           box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
           text-align: center;
           width: 100%;
+          max-width: 460px; /* Limita el ancho general */
+          margin: 0 auto;
         }
         h1 {
           color: #2c3e50;
@@ -733,20 +732,22 @@ body {
         <strong>No válido</strong>
       </p>
     </div>
-    <div className="ejemplo">
-      <img src="/plantillavalida1.png" alt="Ejemplo correcto 2" />
-      <p className="texto-ejemplo correcto">
-        <CheckCircle size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
-        <strong>Correcto</strong>
-      </p>
-    </div>
-    <div className="ejemplo">
-      <img src="/plantillanovalida1.png" alt="Ejemplo incorrecto 2" />
-      <p className="texto-ejemplo incorrecto">
-        <XCircle size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
-        <strong>No válido</strong>
-      </p>
-    </div> 
+    {/*
+  <div className="ejemplo">
+    <img src="/plantillavalida1.png" alt="Ejemplo correcto 2" />
+    <p className="texto-ejemplo correcto">
+      <CheckCircle size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
+      <strong>Correcto</strong>
+    </p>
+  </div>
+  <div className="ejemplo">
+    <img src="/plantillanovalida1.png" alt="Ejemplo incorrecto 2" />
+    <p className="texto-ejemplo incorrecto">
+      <XCircle size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
+      <strong>No válido</strong>
+    </p>
+  </div>
+*/} 
   </div>
 )}
 
