@@ -145,9 +145,6 @@ useEffect(() => {
     const file = e.target.files[0];
     if (file) {
       setPreview(URL.createObjectURL(file));
-      setTimeout(() => {
-  analizarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}, 100);
       setResult('');
       setButtonText('Analizar pisada con IA');
       setButtonDisabled(false);
