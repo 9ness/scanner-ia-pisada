@@ -456,6 +456,10 @@ if (zonas.length > 0 && !zonas.includes('metatarsos') && !zonas.includes('exteri
     font-weight: 500;
     color: #333;
     font-family: 'Poppins', sans-serif;
+    white-space: nowrap;
+  flex-wrap: nowrap;
+  overflow: hidden;
+  text-align: center;
   }
 
   .estado-analisis {
