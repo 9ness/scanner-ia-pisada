@@ -793,14 +793,13 @@ if (zonas.length > 0 && !zonas.includes('metatarsos') && !zonas.includes('exteri
 
           {preview && !result && (
             <>
-            <div ref={analizarRef} style={{ scrollMarginTop: '80px' }}>
+            <div ref={analizarRef} style={{ paddingTop: '1rem' }}></div>
               <button type="submit" disabled={buttonDisabled}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
                   <WandSparkles size={18} />
                   {buttonText}
                 </span>
               </button>
-              </div>
               {loading && (
                 <div className="estado-progreso">
                   <span className="spinner" />
