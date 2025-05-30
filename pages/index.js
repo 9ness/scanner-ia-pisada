@@ -299,10 +299,18 @@ if (zonas.length > 0 && !zonas.includes('metatarsos') && !zonas.includes('exteri
 
 
 .ejemplo img {
-  width: 100%;
+ width: 100%;
+  height: auto;
   display: block;
   object-fit: cover;
   border-bottom: 1px solid #eee;
+}
+
+@media (max-width: 480px) {
+  .ejemplo img {
+    max-width: 90%;
+    margin: 0 auto;
+  }
 }
 
 .etiqueta {
@@ -442,12 +450,12 @@ body {
 }
         .container {
           background: white;
-          padding: 1.5rem;
+          padding: 2rem;
           border-radius: 1rem;
           box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
           text-align: center;
           width: 100%;
-          max-width: 460px; /* Limita el ancho general */
+          max-width: 700px; /* Limita el ancho general */
           margin: 0 auto;
         }
         h1 {
