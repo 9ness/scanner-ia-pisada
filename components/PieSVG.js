@@ -22,9 +22,8 @@ if (!zonasActivadas || zonasActivadas.length === 0) return null;
     <svg
   viewBox="0 0 1365.3333 1365.3333"
   xmlns="http://www.w3.org/2000/svg"
-  style={{ width: '100%', height: 'auto', display: 'block' }}
+  className="pie-svg"
 >
-
 
       <defs>
   <radialGradient id="gradRojo" cx="50%" cy="50%" r="60%">

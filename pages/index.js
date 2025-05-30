@@ -583,17 +583,30 @@ if (zonas.length > 0 && !zonas.includes('metatarsos') && !zonas.includes('exteri
 
   .resultado-container {
   display: grid;
-  grid-template-columns: 1.3fr 1fr;
+  grid-template-columns: 1.2fr 1fr; /* Puedes ajustar el 1.2 si quieres dar más espacio al SVG */
   gap: 2rem;
   margin-top: 0rem;
-  align-items: center;  /* ✅ centra verticalmente ambos bloques */
+  align-items: stretch; /* ← Muy importante */
+  height: auto; /* o un valor fijo si quieres forzar altura */
 }
 
+
 .resultado-grafico {
-  max-width: 100%;
   display: flex;
   justify-content: center;
   align-items: center;
+  height: 100%;       /* ← Se ajusta al alto de la celda */
+  max-height: 100%;
+}
+
+
+.pie-svg {
+  width: auto;
+  height: 100%;
+  max-height: 100%;
+  max-width: 100%;
+  object-fit: contain;
+  display: block;
 }
 
   .resultado-texto ul {
