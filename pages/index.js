@@ -146,7 +146,7 @@ useEffect(() => {
     if (file) {
       setPreview(URL.createObjectURL(file));
       setTimeout(() => {
-  analizarRef.current?.scrollIntoView({ behavior: 'smooth' });
+  analizarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }, 100);
       setResult('');
       setButtonText('Analizar pisada con IA');
@@ -793,7 +793,7 @@ if (zonas.length > 0 && !zonas.includes('metatarsos') && !zonas.includes('exteri
 
           {preview && !result && (
             <>
-            <div ref={analizarRef}>
+            <div ref={analizarRef} style={{ scrollMarginTop: '80px' }}>
               <button type="submit" disabled={buttonDisabled}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
                   <WandSparkles size={18} />
