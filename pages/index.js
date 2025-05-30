@@ -27,6 +27,7 @@ export default function Home() {
   const analisisRef = useRef(null);
   const progresoRef = useRef(null);
   const refSpinner = useRef(null);
+  const refSteps = useRef(null);
   const [tiempoRestante, setTiempoRestante] = useState(null);
   const [tendenciaTexto, setTendenciaTexto] = useState('');
 
