@@ -26,6 +26,7 @@ export default function Home() {
   const analizarRef = useRef(null);
   const analisisRef = useRef(null);
   const progresoRef = useRef(null);
+  const refSpinner = useRef(null);
   const [tiempoRestante, setTiempoRestante] = useState(null);
   const [tendenciaTexto, setTendenciaTexto] = useState('');
 
@@ -119,6 +120,15 @@ useEffect(() => {
   window.addEventListener('resize', enviarAltura);
   return () => window.removeEventListener('resize', enviarAltura);
 }, []);
+
+useEffect(() => {
+  if (loading) {
+    setTimeout(() => {
+      refSpinner.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 300); // espera breve para que el spinner ya esté en el DOM
+  }
+}, [loading]);
+
 
   const compressImage = async (file) => {
     return new Promise((resolve) => {
@@ -812,17 +822,18 @@ if (zonas.length > 0 && !zonas.includes('metatarsos') && !zonas.includes('exteri
 
 
               {loading && (
-                <div ref={analisisRef} className="steps-container">
-                <div className="steps">
-                  {steps.map((_, index) => (
-                    <div
-                      key={index}
-                      className={`step ${(index < progressStep || (index === 0 && loading)) ? 'active' : ''}`}
-                    />
-                  ))}
-                </div>
-                </div>
-              )}
+  <div ref={refSteps} className="steps-container">
+    <div className="steps">
+      {steps.map((_, index) => (
+        <div
+          key={index}
+          className={`step ${(index < progressStep || (index === 0 && loading)) ? 'active' : ''}`}
+        />
+      ))}
+    </div>
+  </div>
+)}
+
             </>
           )}
         </form>
