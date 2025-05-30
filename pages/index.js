@@ -167,6 +167,7 @@ useEffect(() => {
     const file = e.target.files[0];
     if (file) {
       setPreview(URL.createObjectURL(file));
+      window.parent.postMessage({ type: 'scrollToIframe', step: 'boton' }, '*');
       setResult('');
       setButtonText('Analizar pisada con IA');
       setButtonDisabled(false);
@@ -256,6 +257,7 @@ if (zonas.length > 0 && !zonas.includes('metatarsos') && !zonas.includes('exteri
   }
 
   setImageAnalyzed(true);
+  window.parent.postMessage({ type: 'scrollToIframe', step: 'resultado' }, '*');
 } else {
         setResult('Error al analizar la imagen.');
         setButtonText('Error en el análisis');
