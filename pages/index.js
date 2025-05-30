@@ -100,6 +100,18 @@ useEffect(() => {
   }
 }, [loading]);
 
+useEffect(() => {
+  const enviarAltura = () => {
+    if (window.parent) {
+      const altura = document.documentElement.scrollHeight;
+      window.parent.postMessage({ type: 'setIframeHeight', height: altura }, '*');
+    }
+  };
+
+  enviarAltura();
+  window.addEventListener('resize', enviarAltura);
+  return () => window.removeEventListener('resize', enviarAltura);
+}, []);
 
   const compressImage = async (file) => {
     return new Promise((resolve) => {
