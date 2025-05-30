@@ -127,7 +127,7 @@ useEffect(() => {
   if (loading && refCargaInicio.current) {
     // Desplaza hacia abajo solo 100 píxeles
     setTimeout(() => {
-      const offset = 100; // Ajusta esto a tu gusto (menos = menos scroll)
+      const offset = 60; // Ajusta esto a tu gusto (menos = menos scroll)
       window.scrollBy({ top: offset, behavior: 'smooth' });
     }, 300);
   }
