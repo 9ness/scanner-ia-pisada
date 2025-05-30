@@ -432,13 +432,17 @@ if (zonas.length > 0 && !zonas.includes('metatarsos') && !zonas.includes('exteri
   }
 
   .spinner {
-    width: 16px;
-    height: 16px;
-    border: 2px solid #6a994e;
-    border-top: 2px solid transparent;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-  }
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  min-height: 16px;
+  border: 2px solid #6a994e;
+  border-top: 2px solid transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  box-sizing: border-box;
+}
+
 
   @keyframes spin {
     to {
@@ -448,25 +452,22 @@ if (zonas.length > 0 && !zonas.includes('metatarsos') && !zonas.includes('exteri
 
   .estado-progreso {
   display: flex;
-  align-items: center;         /* ✅ Centra verticalmente texto y spinner */
-  justify-content: center;     /* ✅ Centra todo en horizontal */
+  align-items: center;        /* ✅ Centra verticalmente texto con spinner */
+  justify-content: center;    /* ✅ Centra todo en horizontal */
   gap: 0.5rem;
   margin-top: 1.5rem;
   font-size: 1rem;
   font-weight: 500;
   color: #333;
   font-family: 'Poppins', sans-serif;
-  flex-wrap: nowrap;
   white-space: normal;
-  text-align: left;
+  text-align: center;
+  flex-wrap: nowrap;
   max-width: 90%;
   margin-left: auto;
   margin-right: auto;
-  line-height: 1.3;             /* ✅ Mejor alineación si el texto ocupa 2 líneas */
+  line-height: 1.4;
 }
-
-
-
 
   .estado-analisis {
     font-size: 0.95rem;
