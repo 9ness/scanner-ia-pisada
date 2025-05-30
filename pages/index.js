@@ -582,12 +582,18 @@ if (zonas.length > 0 && !zonas.includes('metatarsos') && !zonas.includes('exteri
   }
 
   .resultado-container {
-  display: flex;
-  flex-direction: row;
-  justify-content: space-between;
-  align-items: center;
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
   gap: 2rem;
-  flex-wrap: wrap;
+  margin-top: 0rem;
+  align-items: center;  /* ✅ centra verticalmente ambos bloques */
+}
+
+.resultado-grafico {
+  max-width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
   .resultado-texto ul {
@@ -603,16 +609,28 @@ if (zonas.length > 0 && !zonas.includes('metatarsos') && !zonas.includes('exteri
 }
 
 
- .resultado-grafico {
-  display: flex;
-  justify-content: center;
+ .resultado-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
   align-items: center;
 }
 
+
 .resultado-grafico svg {
-  max-width: 300px;
-  outline: 1px dashed red;
+  width: 420px;       /* fuerza el tamaño real */
+  height: auto;
+  display: block;
+  margin: 0 auto;
 }
+
+.resultado-grafico img {
+  width: 220px;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+
 
 
   .lista-zonas {

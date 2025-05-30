@@ -20,10 +20,12 @@ if (!zonasActivadas || zonasActivadas.length === 0) return null;
 
   return (
     <svg
-      viewBox="0 0 1365.3333 1365.3333"
-      xmlns="http://www.w3.org/2000/svg"
-      className="w-full max-w-md mx-auto"
-    >
+  viewBox="0 0 1365.3333 1365.3333"
+  xmlns="http://www.w3.org/2000/svg"
+  style={{ width: '100%', height: 'auto', display: 'block' }}
+>
+
+
       <defs>
   <radialGradient id="gradRojo" cx="50%" cy="50%" r="60%">
     <stop offset="0%" style={{ stopColor: '#ff4d4d', stopOpacity: 1 }} />
