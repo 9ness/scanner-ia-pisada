@@ -24,6 +24,8 @@ export default function Home() {
   const [estadoAnalisis, setEstadoAnalisis] = useState('');
   const fileInputRef = useRef(null);
   const analizarRef = useRef(null);
+  const analisisRef = useRef(null);
+  const progresoRef = useRef(null);
   const [tiempoRestante, setTiempoRestante] = useState(null);
   const [tendenciaTexto, setTendenciaTexto] = useState('');
 
@@ -90,6 +92,10 @@ useEffect(() => {
       if (stepIndex < steps.length) {
         setProgressStep(stepIndex + 1);
         setEstadoAnalisis(steps[stepIndex]);
+        analisisRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        setTimeout(() => {
+  progresoRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}, 100);
       } else {
         setProgressStep(steps.length);
         clearInterval(interval);
@@ -798,7 +804,7 @@ if (zonas.length > 0 && !zonas.includes('metatarsos') && !zonas.includes('exteri
                 </span>
               </button>
               {loading && (
-                <div className="estado-progreso">
+                <div ref={progresoRef} className="estado-progreso">
                   <span className="spinner" />
                   <span className="estado-analisis">{estadoAnalisis}</span>
                 </div>
@@ -806,7 +812,7 @@ if (zonas.length > 0 && !zonas.includes('metatarsos') && !zonas.includes('exteri
 
 
               {loading && (
-                <div className="steps-container">
+                <div ref={analisisRef} className="steps-container">
                 <div className="steps">
                   {steps.map((_, index) => (
                     <div
