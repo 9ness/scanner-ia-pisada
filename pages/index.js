@@ -447,8 +447,8 @@ if (zonas.length > 0 && !zonas.includes('metatarsos') && !zonas.includes('exteri
   }
 
   .estado-progreso {
-  display: inline-flex;
-  align-items: center;
+  display: flex;
+  align-items: flex-start;     /* Alinea arriba si hay salto en el texto */
   justify-content: center;
   gap: 0.5rem;
   margin-top: 1.5rem;
@@ -456,10 +456,11 @@ if (zonas.length > 0 && !zonas.includes('metatarsos') && !zonas.includes('exteri
   font-weight: 500;
   color: #333;
   font-family: 'Poppins', sans-serif;
-  white-space: normal;      /* ✅ permite salto de línea si es necesario */
-  flex-wrap: wrap;          /* ✅ permite que se adapte en pantallas pequeñas */
-  text-align: center;
+  white-space: normal;         /* ✅ permite saltos de línea en el texto */
+  flex-wrap: nowrap;           /* ❌ impide que el spinner salte arriba */
+  text-align: left;
 }
+
 
 
   .estado-analisis {
