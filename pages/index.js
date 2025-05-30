@@ -447,20 +447,20 @@ if (zonas.length > 0 && !zonas.includes('metatarsos') && !zonas.includes('exteri
   }
 
   .estado-progreso {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    margin-top: 1.5rem;
-    font-size: 1rem;
-    font-weight: 500;
-    color: #333;
-    font-family: 'Poppins', sans-serif;
-    white-space: nowrap;
-  flex-wrap: nowrap;
-  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #333;
+  font-family: 'Poppins', sans-serif;
+  white-space: normal;      /* ✅ permite salto de línea si es necesario */
+  flex-wrap: wrap;          /* ✅ permite que se adapte en pantallas pequeñas */
   text-align: center;
-  }
+}
+
 
   .estado-analisis {
     font-size: 0.95rem;
