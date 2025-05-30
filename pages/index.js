@@ -23,6 +23,7 @@ export default function Home() {
   const [zonasDetectadas, setZonasDetectadas] = useState([]);
   const [estadoAnalisis, setEstadoAnalisis] = useState('');
   const fileInputRef = useRef(null);
+  const analizarRef = useRef(null);
   const [tiempoRestante, setTiempoRestante] = useState(null);
   const [tendenciaTexto, setTendenciaTexto] = useState('');
 
@@ -144,6 +145,9 @@ useEffect(() => {
     const file = e.target.files[0];
     if (file) {
       setPreview(URL.createObjectURL(file));
+      setTimeout(() => {
+  analizarRef.current?.scrollIntoView({ behavior: 'smooth' });
+}, 100);
       setResult('');
       setButtonText('Analizar pisada con IA');
       setButtonDisabled(false);
@@ -727,10 +731,10 @@ if (zonas.length > 0 && !zonas.includes('metatarsos') && !zonas.includes('exteri
   <div className="info-text">
   <h3 className="recomendaciones-titulo">
     <Lightbulb size={18} color="#f5c518" style={{ verticalAlign: 'middle', marginRight: '0.4rem' }} />
-    Recomendaciones de subida:
+    Recomendaciones:
   </h3>
   <ol className="recomendaciones-grid">
-    <li><span>Plantilla usada</span></li>
+    <li><span>Foto de plantilla usada</span></li>
     <li><span>Marca de pisada visible</span></li>
     <li><span>Sacar foto a favor de luz</span></li>
   </ol>
@@ -789,12 +793,14 @@ if (zonas.length > 0 && !zonas.includes('metatarsos') && !zonas.includes('exteri
 
           {preview && !result && (
             <>
+            <div ref={analizarRef}>
               <button type="submit" disabled={buttonDisabled}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
                   <WandSparkles size={18} />
                   {buttonText}
                 </span>
               </button>
+              </div>
               {loading && (
                 <div className="estado-progreso">
                   <span className="spinner" />
