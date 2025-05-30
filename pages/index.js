@@ -124,12 +124,15 @@ useEffect(() => {
 }, []);
 
 useEffect(() => {
-  if (loading) {
+  if (loading && refCargaInicio.current) {
+    // Desplaza hacia abajo solo 100 píxeles
     setTimeout(() => {
-      refCargaInicio.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 300); // espera ligera para asegurar que se renderizó
+      const offset = 100; // Ajusta esto a tu gusto (menos = menos scroll)
+      window.scrollBy({ top: offset, behavior: 'smooth' });
+    }, 300);
   }
 }, [loading]);
+
 
 
 
