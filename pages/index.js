@@ -123,19 +123,6 @@ useEffect(() => {
   return () => window.removeEventListener('resize', enviarAltura);
 }, []);
 
-useEffect(() => {
-  if (loading && refCargaInicio.current) {
-    // Desplaza hacia abajo solo 100 píxeles
-    setTimeout(() => {
-      const offset = 60; // Ajusta esto a tu gusto (menos = menos scroll)
-      window.scrollBy({ top: offset, behavior: 'smooth' });
-    }, 300);
-  }
-}, [loading]);
-
-
-
-
   const compressImage = async (file) => {
     return new Promise((resolve) => {
       const reader = new FileReader();
