@@ -2,9 +2,9 @@ import { useState, useRef, useEffect } from 'react';
 import PieSVG from '../components/PieSVG';
 import { Camera, Plus, WandSparkles } from 'lucide-react';
 import { Lightbulb, CheckCircle, XCircle } from 'lucide-react';
-import { MapPin  } from 'lucide-react';
+import { MapPin } from 'lucide-react';
 import { ArrowDown } from 'lucide-react';
-import { AlarmClock  } from 'lucide-react';
+import { AlarmClock } from 'lucide-react';
 import { Footprints } from 'lucide-react';
 
 
@@ -22,6 +22,7 @@ export default function Home() {
   const [imageAnalyzed, setImageAnalyzed] = useState(false);
   const [zonasDetectadas, setZonasDetectadas] = useState([]);
   const [estadoAnalisis, setEstadoAnalisis] = useState('');
+  const [tipoPisada, setTipoPisada] = useState('');
   const fileInputRef = useRef(null);
   const analizarRef = useRef(null);
   const analisisRef = useRef(null);
@@ -39,89 +40,96 @@ export default function Home() {
     'Generando recomendación personalizada...'
   ];
 
-useEffect(() => {
-  if (!persistenciaActiva) {
-    console.log('[Persistencia] Desactivada por configuración.');
-  } else if (!loading) {
-    const saved = localStorage.getItem('analisisPisada');
-    if (saved) {
-      try {
-        const { result, zonasDetectadas, expiry, compressedPreview } = JSON.parse(saved);
-        if (Date.now() < expiry) {
-          console.log('[Persistencia] Restaurando estado completo...');
+  useEffect(() => {
+    if (!persistenciaActiva) {
+      console.log('[Persistencia] Desactivada por configuración.');
+    } else if (!loading) {
+      const saved = localStorage.getItem('analisisPisada');
+      if (saved) {
+        try {
+          const { result, zonasDetectadas, expiry, compressedPreview } = JSON.parse(saved);
+          if (Date.now() < expiry) {
+            console.log('[Persistencia] Restaurando estado completo...');
 
-          // Restaurar estado visual
-          setResult(result);
-          setZonasDetectadas(zonasDetectadas);
-          setImageAnalyzed(true);
-          setCompressedPreview(compressedPreview || null);
-          setButtonText('Seleccionar imagen');
-          setButtonDisabled(true);
-          setProgressStep(steps.length);
+            // Restaurar estado visual
+            setResult(result);
+            setZonasDetectadas(zonasDetectadas);
+            setImageAnalyzed(true);
+            setCompressedPreview(compressedPreview || null);
+            setButtonText('Seleccionar imagen');
+            setButtonDisabled(true);
+            setProgressStep(steps.length);
 
-          // Contador activo
-          const actualizarTiempo = () => {
-            const diff = expiry - Date.now();
-            if (diff <= 0) {
-              setTiempoRestante(null);
-              localStorage.removeItem('analisisPisada');
-              return;
-            }
-            const h = Math.floor(diff / 3600000);
-            const m = Math.floor((diff % 3600000) / 60000);
-            const s = Math.floor((diff % 60000) / 1000);
-            setTiempoRestante(`${h}h ${m}m ${s}s`);
-          };
+            // Contador activo
+            const actualizarTiempo = () => {
+              const diff = expiry - Date.now();
+              if (diff <= 0) {
+                setTiempoRestante(null);
+                localStorage.removeItem('analisisPisada');
+                return;
+              }
+              const h = Math.floor(diff / 3600000);
+              const m = Math.floor((diff % 3600000) / 60000);
+              const s = Math.floor((diff % 60000) / 1000);
+              setTiempoRestante(`${h}h ${m}m ${s}s`);
+            };
 
-          actualizarTiempo();
-          const interval = setInterval(actualizarTiempo, 1000);
-          return () => clearInterval(interval);
-        } else {
+            actualizarTiempo();
+            const interval = setInterval(actualizarTiempo, 1000);
+            return () => clearInterval(interval);
+          } else {
+            localStorage.removeItem('analisisPisada');
+            console.log('[Persistencia] Expirada, eliminada.');
+          }
+        } catch (e) {
+          console.error('[Persistencia] Error:', e);
           localStorage.removeItem('analisisPisada');
-          console.log('[Persistencia] Expirada, eliminada.');
         }
-      } catch (e) {
-        console.error('[Persistencia] Error:', e);
-        localStorage.removeItem('analisisPisada');
       }
     }
-  }
 
-  if (loading) {
-    let stepIndex = 0;
-    setEstadoAnalisis(steps[stepIndex]);
-    const interval = setInterval(() => {
-      stepIndex++;
-      if (stepIndex < steps.length) {
-        setProgressStep(stepIndex + 1);
-        setEstadoAnalisis(steps[stepIndex]);
-        analisisRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        setTimeout(() => {
-  progresoRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}, 100);
-      } else {
-        setProgressStep(steps.length);
-        clearInterval(interval);
-      }
-    }, 1500);
-    return () => clearInterval(interval);
-  } else {
-    setEstadoAnalisis('');
-  }
-}, [loading]);
-
-useEffect(() => {
-  const enviarAltura = () => {
-    if (window.parent) {
-      const altura = document.documentElement.scrollHeight;
-      window.parent.postMessage({ type: 'setIframeHeight', height: altura }, '*');
+    if (loading) {
+      let stepIndex = 0;
+      setEstadoAnalisis(steps[stepIndex]);
+      const interval = setInterval(() => {
+        stepIndex++;
+        if (stepIndex < steps.length) {
+          setProgressStep(stepIndex + 1);
+          setEstadoAnalisis(steps[stepIndex]);
+          analisisRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          setTimeout(() => {
+            progresoRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 100);
+        } else {
+          setProgressStep(steps.length);
+          clearInterval(interval);
+        }
+      }, 1500);
+      return () => clearInterval(interval);
+    } else {
+      setEstadoAnalisis('');
     }
-  };
+  }, [loading]);
 
-  enviarAltura();
-  window.addEventListener('resize', enviarAltura);
-  return () => window.removeEventListener('resize', enviarAltura);
-}, []);
+  useEffect(() => {
+    if (tendenciaTexto) {
+      setTipoPisada(tendenciaTexto);
+    }
+  }, [tendenciaTexto]);
+
+
+  useEffect(() => {
+    const enviarAltura = () => {
+      if (window.parent) {
+        const altura = document.documentElement.scrollHeight;
+        window.parent.postMessage({ type: 'setIframeHeight', height: altura }, '*');
+      }
+    };
+
+    enviarAltura();
+    window.addEventListener('resize', enviarAltura);
+    return () => window.removeEventListener('resize', enviarAltura);
+  }, []);
 
   const compressImage = async (file) => {
     return new Promise((resolve) => {
@@ -202,50 +210,50 @@ useEffect(() => {
       const data = await res.json();
 
       if (data.result) {
-  setResult(data.result);
-  const zonas = extraerZonas(data.result);
-  // Si no incluye ni metatarsos ni exterior, forzar agregar arco
-if (zonas.length > 0 && !zonas.includes('metatarsos') && !zonas.includes('exterior') && !zonas.includes('arco')) {
-  zonas.push('arco');
-}
-  setZonasDetectadas(zonas);
+        setResult(data.result);
+        const zonas = extraerZonas(data.result);
+        // Si no incluye ni metatarsos ni exterior, forzar agregar arco
+        if (zonas.length > 0 && !zonas.includes('metatarsos') && !zonas.includes('exterior') && !zonas.includes('arco')) {
+          zonas.push('arco');
+        }
+        setZonasDetectadas(zonas);
 
-  if (zonas.includes('arco')) {
-  setTendenciaTexto('Plano (Pronador)');
-} else if (zonas.includes('metatarsos') || zonas.includes('talon') || zonas.includes('talón') || zonas.includes('dedos') || zonas.includes('exterior')) {
-  setTendenciaTexto('Cavo (supinador)');
-}
+        if (zonas.includes('arco')) {
+          setTendenciaTexto('Plano (Pronador)');
+        } else if (zonas.includes('metatarsos') || zonas.includes('talon') || zonas.includes('talón') || zonas.includes('dedos') || zonas.includes('exterior')) {
+          setTendenciaTexto('Cavo (supinador)');
+        }
 
-  if (zonas.length > 0) {
-    if (persistenciaActiva) {
-  const existing = localStorage.getItem('analisisPisada');
-  if (!existing) {
-    const expiry = Date.now() + 2 * 60 * 60 * 1000; // 2 horas
-    localStorage.setItem('analisisPisada', JSON.stringify({
-      result: data.result,
-      zonasDetectadas: zonas,
-      expiry,
-      compressedPreview: data.preview
-    }));
-    console.log('[Persistencia] Resultado guardado.');
-  } else {
-    console.log('[Persistencia] Ya existía, no se sobrescribe.');
-  }
-}
+        if (zonas.length > 0) {
+          if (persistenciaActiva) {
+            const existing = localStorage.getItem('analisisPisada');
+            if (!existing) {
+              const expiry = Date.now() + 2 * 60 * 60 * 1000; // 2 horas
+              localStorage.setItem('analisisPisada', JSON.stringify({
+                result: data.result,
+                zonasDetectadas: zonas,
+                expiry,
+                compressedPreview: data.preview
+              }));
+              console.log('[Persistencia] Resultado guardado.');
+            } else {
+              console.log('[Persistencia] Ya existía, no se sobrescribe.');
+            }
+          }
 
 
-    // Resultado correcto: mantener botón deshabilitado y texto original
-    setButtonText('Seleccionar imagen');
-    setButtonDisabled(true);
-  } else {
-    // Resultado incorrecto: permitir reintento
-    setButtonText('Analizar pisada con IA');
-    setButtonDisabled(false);
-  }
+          // Resultado correcto: mantener botón deshabilitado y texto original
+          setButtonText('Seleccionar imagen');
+          setButtonDisabled(true);
+        } else {
+          // Resultado incorrecto: permitir reintento
+          setButtonText('Analizar pisada con IA');
+          setButtonDisabled(false);
+        }
 
-  setImageAnalyzed(true);
-  window.parent.postMessage({ type: 'scrollToIframe', step: 'resultado' }, '*');
-} else {
+        setImageAnalyzed(true);
+        window.parent.postMessage({ type: 'scrollToIframe', step: 'resultado' }, '*');
+      } else {
         setResult('Error al analizar la imagen.');
         setButtonText('Error en el análisis');
       }
@@ -743,83 +751,102 @@ if (zonas.length > 0 && !zonas.includes('metatarsos') && !zonas.includes('exteri
     color: #2c3e50;
     font-weight: 600;
   }
+
+  .btn-ver-producto {
+  display: inline-block;
+  background-color: #16a34a; /* Verde principal */
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 1rem;
+  margin-top: 1rem;
+  transition: background-color 0.3s ease;
+}
+
+.btn-ver-producto:hover {
+  background-color: #15803d; /* Verde más oscuro al pasar el mouse */
+}
+
+
 `}</style>
 
-      <div className="container">       
-             
+      <div className="container">
+
         <form onSubmit={handleSubmit}>
           {!(result && zonasDetectadas.length > 0) && (
-  <label
-  htmlFor="file-upload"
-  className="custom-file-upload"
-  style={{
-    opacity: result && zonasDetectadas.length > 0 ? 0.5 : 1,
-    cursor: result && zonasDetectadas.length > 0 ? 'not-allowed' : 'pointer',
-  }}
-  onClick={(e) => {
-    if (result && zonasDetectadas.length > 0) {
-      e.preventDefault(); // Bloquea el clic
-    }
-  }}
->
-  {imageAnalyzed && zonasDetectadas.length === 0 ? (
-    <>
-      <Plus size={18} style={{ marginRight: '8px' }} />
-      Seleccionar nueva imagen
-    </>
-  ) : (
-    <>
-      <Camera size={18} style={{ marginRight: '8px' }} />
-      Seleccionar imagen
-    </>
-  )}
-</label>
+            <label
+              htmlFor="file-upload"
+              className="custom-file-upload"
+              style={{
+                opacity: result && zonasDetectadas.length > 0 ? 0.5 : 1,
+                cursor: result && zonasDetectadas.length > 0 ? 'not-allowed' : 'pointer',
+              }}
+              onClick={(e) => {
+                if (result && zonasDetectadas.length > 0) {
+                  e.preventDefault(); // Bloquea el clic
+                }
+              }}
+            >
+              {imageAnalyzed && zonasDetectadas.length === 0 ? (
+                <>
+                  <Plus size={18} style={{ marginRight: '8px' }} />
+                  Seleccionar nueva imagen
+                </>
+              ) : (
+                <>
+                  <Camera size={18} style={{ marginRight: '8px' }} />
+                  Seleccionar imagen
+                </>
+              )}
+            </label>
 
-)}
+          )}
 
 
 
           <input
-  id="file-upload"
-  type="file"
-  name="image"
-  accept="image/*"
-  ref={fileInputRef}
-  onChange={handleFileChange}
-/>
+            id="file-upload"
+            type="file"
+            name="image"
+            accept="image/*"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+          />
           {!(result && zonasDetectadas.length > 0) && (
-  <div className="info-text">
-  <h3 className="recomendaciones-titulo">
-    <Lightbulb size={18} color="#f5c518" style={{ verticalAlign: 'middle', marginRight: '0.4rem' }} />
-    Recomendaciones:
-  </h3>
-  <ol className="recomendaciones-grid">
-    <li><span>Foto de plantilla usada</span></li>
-    <li><span>Marca de pisada visible</span></li>
-    <li><span>Sacar foto a favor de luz</span></li>
-  </ol>
-</div>
+            <div className="info-text">
+              <h3 className="recomendaciones-titulo">
+                <Lightbulb size={18} color="#f5c518" style={{ verticalAlign: 'middle', marginRight: '0.4rem' }} />
+                Recomendaciones:
+              </h3>
+              <ol className="recomendaciones-grid">
+                <li><span>Foto de plantilla usada</span></li>
+                <li><span>Marca de pisada visible</span></li>
+                <li><span>Sacar foto a favor de luz</span></li>
+              </ol>
+            </div>
 
-)}
+          )}
 
 
           {!preview && !compressedPreview && !result && (
-  <div className="ejemplos-subida">
-    <div className="ejemplo">
-      <img src="/ejemplo_valido.png" alt="Ejemplo correcto 1" />
-      <p className="texto-ejemplo correcto">
-        <CheckCircle size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
-        <strong>Correcto</strong>
-      </p>
-    </div>
-    <div className="ejemplo">
-      <img src="/ejemplo_novalido.png" alt="Ejemplo incorrecto 1" />
-      <p className="texto-ejemplo incorrecto">
-        <XCircle size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
-        <strong>No válido</strong>
-      </p>
-    </div>
-    {/*
+            <div className="ejemplos-subida">
+              <div className="ejemplo">
+                <img src="/ejemplo_valido.png" alt="Ejemplo correcto 1" />
+                <p className="texto-ejemplo correcto">
+                  <CheckCircle size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
+                  <strong>Correcto</strong>
+                </p>
+              </div>
+              <div className="ejemplo">
+                <img src="/ejemplo_novalido.png" alt="Ejemplo incorrecto 1" />
+                <p className="texto-ejemplo incorrecto">
+                  <XCircle size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
+                  <strong>No válido</strong>
+                </p>
+              </div>
+              {/*
   <div className="ejemplo">
     <img src="/plantillavalida1.png" alt="Ejemplo correcto 2" />
     <p className="texto-ejemplo correcto">
@@ -834,26 +861,26 @@ if (zonas.length > 0 && !zonas.includes('metatarsos') && !zonas.includes('exteri
       <strong>No válido</strong>
     </p>
   </div>
-*/} 
-  </div>
-)}
+*/}
+            </div>
+          )}
 
 
-{(preview || compressedPreview) && (
-  <div className="preview-wrapper">
-    <img
-      src={preview || compressedPreview}
-      alt="preview"
-      className="preview"
-    />
-    {loading && <div className="scan-line" />}
-  </div>
-)}
+          {(preview || compressedPreview) && (
+            <div className="preview-wrapper">
+              <img
+                src={preview || compressedPreview}
+                alt="preview"
+                className="preview"
+              />
+              {loading && <div className="scan-line" />}
+            </div>
+          )}
 
 
           {preview && !result && (
             <>
-            <div ref={analizarRef} style={{ paddingTop: '1rem' }}></div>
+              <div ref={analizarRef} style={{ paddingTop: '1rem' }}></div>
               <button type="submit" disabled={buttonDisabled}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
                   <WandSparkles size={18} />
@@ -861,29 +888,29 @@ if (zonas.length > 0 && !zonas.includes('metatarsos') && !zonas.includes('exteri
                 </span>
               </button>
               {loading && (
-  <>
-    <div ref={refCargaInicio}></div>
-    <div className="estado-progreso">
-      <span className="spinner" />
-      <span className="estado-analisis">{estadoAnalisis}</span>
-    </div>
-  </>
-)}
+                <>
+                  <div ref={refCargaInicio}></div>
+                  <div className="estado-progreso">
+                    <span className="spinner" />
+                    <span className="estado-analisis">{estadoAnalisis}</span>
+                  </div>
+                </>
+              )}
 
 
 
               {loading && (
-  <div className="steps-container">
-    <div className="steps">
-      {steps.map((_, index) => (
-        <div
-          key={index}
-          className={`step ${(index < progressStep || (index === 0 && loading)) ? 'active' : ''}`}
-        />
-      ))}
-    </div>
-  </div>
-)}
+                <div className="steps-container">
+                  <div className="steps">
+                    {steps.map((_, index) => (
+                      <div
+                        key={index}
+                        className={`step ${(index < progressStep || (index === 0 && loading)) ? 'active' : ''}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
 
             </>
           )}
@@ -896,186 +923,158 @@ if (zonas.length > 0 && !zonas.includes('metatarsos') && !zonas.includes('exteri
                 <CheckCircle size={30} color="#28a745" />
                 Resultado del análisis
               </h2>
-               <div className="resultado-center">
-              <div className="resultado-container">
-                <div className="resultado-texto">
-                  <div className="bloque-zonas">
-                    <p>
-                      <strong>
-                        <MapPin  size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
-                        Zonas de presión detectadas:
-                      </strong>
-                    </p>
-                    <ul className="lista-zonas">
-                      {zonasDetectadas.map((zona) => (
-                        <li key={zona}>
-                          {zona === 'talon' ? 'talón' : zona.replace('-', ' ')}
-                        </li>
-                      ))}
+              <div className="resultado-center">
+                <div className="resultado-container">
+                  <div className="resultado-texto">
+                    <div className="bloque-zonas">
+                      <p>
+                        <strong>
+                          <MapPin size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
+                          Zonas de presión detectadas:
+                        </strong>
+                      </p>
+                      <ul className="lista-zonas">
+                        {zonasDetectadas.map((zona) => (
+                          <li key={zona}>
+                            {zona === 'talon' ? 'talón' : zona.replace('-', ' ')}
+                          </li>
+                        ))}
 
-                    </ul>
+                      </ul>
 
-                    <p>
-                      <strong>
-                        <Footprints size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
-                        Tendencia del pie:
-                      </strong>
-                    </p>
-                    <ul className="lista-zonas">
-                     {tendenciaTexto}
-                    </ul>
+                      <p>
+                        <strong>
+                          <Footprints size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
+                          Tendencia del pie:
+                        </strong>
+                      </p>
+                      <ul className="lista-zonas">
+                        {tendenciaTexto}
+                      </ul>
+                    </div>
+                  </div>
+                  <div className="resultado-grafico">
+                    <PieSVG zonasActivadas={zonasDetectadas} />
                   </div>
                 </div>
-                <div className="resultado-grafico">
-                  <PieSVG zonasActivadas={zonasDetectadas} />
-                </div>
-              </div>
               </div>
             </div>
           </>
         ) : (
           result && zonasDetectadas.length === 0 && (
             <div className="error-texto">
-    {result}
-  </div>
+              {result}
+            </div>
           )
         )}
 
         {result && zonasDetectadas.length > 0 && (
-  <>
+          <>
 
-   {result && zonasDetectadas.length > 0 && (
-  <>
-    <hr className="linea-separadora" />
-    <div className="recomendacion-container">
-      <ArrowDown color="#1f2937" size={18} />
-      <span className="recomendacion-texto">Nuestro Producto recomendado</span>
-      <ArrowDown color="#1f2937" size={18} />
-    </div>
+            {result && zonasDetectadas.length > 0 && (
+              <>
+                <hr className="linea-separadora" />
+                <div className="recomendacion-container">
+                  <ArrowDown color="#1f2937" size={18} />
+                  <span className="recomendacion-texto">Nuestro Producto recomendado</span>
+                  <ArrowDown color="#1f2937" size={18} />
+                </div>
 
-    {tiempoRestante && (
-      <p style={{
-  textAlign: 'center',
-  color: '#555',
-  fontSize: '1rem',
-  marginBottom: '2rem',
-  fontWeight: '500',
-  display: 'flex',
-  justifyContent: 'center',
-  alignItems: 'center',
-  gap: '0.5rem'
-}}>
-  <AlarmClock  size={18} strokeWidth={2} />
-  La oferta termina en: {tiempoRestante}
-</p>
 
-    )}
 
-    {result && zonasDetectadas.length > 0 && (
-  <>
-    <hr className="linea-separadora" />
-    <div className="recomendacion-container">
-      <ArrowDown color="#1f2937" size={18} />
-      <span className="recomendacion-texto">Nuestro Producto recomendado</span>
-      <ArrowDown color="#1f2937" size={18} />
-    </div>
+                {tiempoRestante && (
+                  <p style={{
+                    textAlign: 'center',
+                    color: '#555',
+                    fontSize: '1rem',
+                    marginBottom: '2rem',
+                    fontWeight: '500',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    gap: '0.5rem'
+                  }}>
+                    <AlarmClock size={18} strokeWidth={2} />
+                    La oferta termina en: {tiempoRestante}
+                  </p>
+                )}
 
-    {tiempoRestante && (
-      <p style={{
-        textAlign: 'center',
-        color: '#555',
-        fontSize: '1rem',
-        marginBottom: '2rem',
-        fontWeight: '500',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        gap: '0.5rem'
-      }}>
-        <AlarmClock size={18} strokeWidth={2} />
-        La oferta termina en: {tiempoRestante}
-      </p>
-    )}
-
-    {/* AÑADE ESTE BLOQUE DEBAJO DEL CONTADOR */}
-    <div style={{ width: '100%', marginTop: '1rem' }}>
-      {tendenciaTexto.toLowerCase().includes('cavo') && (
-        <iframe
-          src="https://pisadaviva.com/products/plantilla-cavo"
-          width="100%"
-          height="1000"
-          style={{ border: 'none', borderRadius: '12px' }}
-          title="Producto pie cavo"
-        />
-      )}
-
-      {tendenciaTexto.toLowerCase().includes('plano') && (
-        <iframe
-          src="https://tutienda.myshopify.com/products/plantilla-pie-plano"
-          width="100%"
-          height="1000"
-          style={{ border: 'none', borderRadius: '12px' }}
-          title="Producto pie plano"
-        />
-      )}
-    </div>
-  </>
+                {tipoPisada && (
+  <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+    <a
+      href={
+        tipoPisada.toLowerCase().includes('cavo')
+          ? 'https://www.pisadaviva.com/products/plantilla-pie-cavo'
+          : tipoPisada.toLowerCase().includes('plano')
+          ? 'https://www.pisadaviva.com/products/plantilla-pie-plano'
+          : '#'
+      }
+      target="_blank"
+      rel="noopener noreferrer"
+      className="btn-ver-producto"
+    >
+      Ver producto recomendado
+    </a>
+  </div>
 )}
 
-  </>
-)}
-  </>
-)}
+
+
+              </>
+            )}
+          </>
+        )}
 
       </div>
 
-      {(imagenTest || mostrarBotonReset) && (
-  <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-    {imagenTest && compressedPreview && (
-      <button
-        onClick={() => {
-          const link = document.createElement('a');
-          link.href = compressedPreview;
-          link.download = 'imagen_comprimida.png';
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-        }}
-        style={{
-          backgroundColor: '#6c757d',
-          color: 'white',
-          border: 'none',
-          padding: '0.5rem 1rem',
-          borderRadius: '5px',
-          cursor: 'pointer',
-          fontSize: '0.95rem'
-        }}
-      >
-        Descargar imagen comprimida (test)
-      </button>
-    )}
 
-    {mostrarBotonReset && (
-      <button
-        onClick={() => {
-          localStorage.removeItem('analisisPisada');
-          window.location.reload();
-        }}
-        style={{
-          backgroundColor: '#d32f2f',
-          color: 'white',
-          border: 'none',
-          padding: '0.5rem 1rem',
-          borderRadius: '5px',
-          cursor: 'pointer',
-          fontSize: '0.95rem'
-        }}
-      >
-        🔄 Reiniciar análisis (test)
-      </button>
-    )}
-  </div>
-)}
+      {(imagenTest || mostrarBotonReset) && (
+        <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+          {imagenTest && compressedPreview && (
+            <button
+              onClick={() => {
+                const link = document.createElement('a');
+                link.href = compressedPreview;
+                link.download = 'imagen_comprimida.png';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              }}
+              style={{
+                backgroundColor: '#6c757d',
+                color: 'white',
+                border: 'none',
+                padding: '0.5rem 1rem',
+                borderRadius: '5px',
+                cursor: 'pointer',
+                fontSize: '0.95rem'
+              }}
+            >
+              Descargar imagen comprimida (test)
+            </button>
+          )}
+
+          {mostrarBotonReset && (
+            <button
+              onClick={() => {
+                localStorage.removeItem('analisisPisada');
+                window.location.reload();
+              }}
+              style={{
+                backgroundColor: '#d32f2f',
+                color: 'white',
+                border: 'none',
+                padding: '0.5rem 1rem',
+                borderRadius: '5px',
+                cursor: 'pointer',
+                fontSize: '0.95rem'
+              }}
+            >
+              🔄 Reiniciar análisis (test)
+            </button>
+          )}
+        </div>
+      )}
 
     </>
   );
