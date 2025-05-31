@@ -806,14 +806,14 @@ if (zonas.length > 0 && !zonas.includes('metatarsos') && !zonas.includes('exteri
           {!preview && !compressedPreview && !result && (
   <div className="ejemplos-subida">
     <div className="ejemplo">
-      <img src="/plantillavalida2.png" alt="Ejemplo correcto 1" />
+      <img src="/ejemplo_valido.png" alt="Ejemplo correcto 1" />
       <p className="texto-ejemplo correcto">
         <CheckCircle size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
         <strong>Correcto</strong>
       </p>
     </div>
     <div className="ejemplo">
-      <img src="/plantillanovalida2.png" alt="Ejemplo incorrecto 1" />
+      <img src="/ejemplo_novalido.png" alt="Ejemplo incorrecto 1" />
       <p className="texto-ejemplo incorrecto">
         <XCircle size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
         <strong>No válido</strong>
@@ -968,7 +968,60 @@ if (zonas.length > 0 && !zonas.includes('metatarsos') && !zonas.includes('exteri
   <AlarmClock  size={18} strokeWidth={2} />
   La oferta termina en: {tiempoRestante}
 </p>
+
     )}
+
+    {result && zonasDetectadas.length > 0 && (
+  <>
+    <hr className="linea-separadora" />
+    <div className="recomendacion-container">
+      <ArrowDown color="#1f2937" size={18} />
+      <span className="recomendacion-texto">Nuestro Producto recomendado</span>
+      <ArrowDown color="#1f2937" size={18} />
+    </div>
+
+    {tiempoRestante && (
+      <p style={{
+        textAlign: 'center',
+        color: '#555',
+        fontSize: '1rem',
+        marginBottom: '2rem',
+        fontWeight: '500',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: '0.5rem'
+      }}>
+        <AlarmClock size={18} strokeWidth={2} />
+        La oferta termina en: {tiempoRestante}
+      </p>
+    )}
+
+    {/* AÑADE ESTE BLOQUE DEBAJO DEL CONTADOR */}
+    <div style={{ width: '100%', marginTop: '1rem' }}>
+      {tendenciaTexto.toLowerCase().includes('cavo') && (
+        <iframe
+          src="https://pisadaviva.com/products/plantilla-cavo"
+          width="100%"
+          height="1000"
+          style={{ border: 'none', borderRadius: '12px' }}
+          title="Producto pie cavo"
+        />
+      )}
+
+      {tendenciaTexto.toLowerCase().includes('plano') && (
+        <iframe
+          src="https://tutienda.myshopify.com/products/plantilla-pie-plano"
+          width="100%"
+          height="1000"
+          style={{ border: 'none', borderRadius: '12px' }}
+          title="Producto pie plano"
+        />
+      )}
+    </div>
+  </>
+)}
+
   </>
 )}
   </>
