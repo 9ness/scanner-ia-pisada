@@ -53,7 +53,11 @@ const BuyButtonPlano = () => {
                   unitPrice: { color: '#3e3e3e' },
                 },
                 buttonDestination: 'modal',
-                contents: { options: false },
+                contents: {
+                  button: false,
+                  options: false,
+                },
+
                 text: { button: 'Ver producto' },
                 googleFonts: ['Open Sans'],
               },
