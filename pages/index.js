@@ -6,6 +6,9 @@ import { MapPin } from 'lucide-react';
 import { ArrowDown } from 'lucide-react';
 import { AlarmClock } from 'lucide-react';
 import { Footprints } from 'lucide-react';
+import BuyButtonCavo from '../components/BuyButtonCavo';
+import BuyButtonPlano from '../components/BuyButtonPlano';
+
 
 
 export default function Home() {
@@ -999,24 +1002,18 @@ export default function Home() {
                   </p>
                 )}
 
-                {tipoPisada && (
-  <div style={{ textAlign: 'center', marginTop: '1rem' }}>
-    <a
-      href={
-        tipoPisada.toLowerCase().includes('cavo')
-          ? 'https://www.pisadaviva.com/products/plantilla-pie-cavo'
-          : tipoPisada.toLowerCase().includes('plano')
-          ? 'https://www.pisadaviva.com/products/plantilla-pie-plano'
-          : '#'
-      }
-      target="_blank"
-      rel="noopener noreferrer"
-      className="btn-ver-producto"
-    >
-      Ver producto recomendado
-    </a>
-  </div>
-)}
+
+                {tipoPisada.toLowerCase().includes('cavo') && (
+                  <div style={{ display: 'flex', justifyContent: 'center' }}>
+                    <BuyButtonCavo />
+                  </div>
+                )}
+
+                {tipoPisada.toLowerCase().includes('plano') && (
+                  <div style={{ display: 'flex', justifyContent: 'center' }}>
+                    <BuyButtonPlano />
+                  </div>
+                )}
 
 
 
