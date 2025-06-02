@@ -10,23 +10,47 @@ const BuyButtonCavo = () => {
       script.src = 'https://sdks.shopifycdn.com/buy-button/latest/buy-button-storefront.min.js';
       script.async = true;
       script.id = scriptId;
-      script.onload = renderBuyButton;
+      script.onload = waitForNodeAndRender;
       document.body.appendChild(script);
     } else {
-      renderBuyButton();
+      waitForNodeAndRender();
     }
+
+    function waitForNodeAndRender() {
+      const targetId = 'product-component-cavo';
+
+      if (document.getElementById(targetId)) {
+        renderBuyButton();
+        return;
+      }
+
+      const observer = new MutationObserver(() => {
+        if (document.getElementById(targetId)) {
+          observer.disconnect();
+          renderBuyButton();
+        }
+      });
+
+      observer.observe(document.body, { childList: true, subtree: true });
+    }
+
 
     function renderBuyButton() {
       if (!window.ShopifyBuy) return;
       if (window.ShopifyBuy.UI) {
+        // Limpia el contenedor por si ya existe algo dentro
+        const existing = document.getElementById('product-component-cavo');
+        if (existing) existing.innerHTML = '';
+
         const client = window.ShopifyBuy.buildClient({
           domain: '0ssfqf-rv.myshopify.com',
           storefrontAccessToken: 'c055a6bf600ea75fe12442dfe7b29285',
         });
 
         window.ShopifyBuy.UI.onReady(client).then((ui) => {
+          document.getElementById('product-component-cavo').innerHTML = '';
           ui.createComponent('product', {
-            id: '15032879579462',
+            id: '15032879579462', // ID del producto de pie cavo
             node: document.getElementById('product-component-cavo'),
             moneyFormat: '%E2%82%AC%7B%7Bamount_with_comma_separator%7D%7D',
             options: {
@@ -54,7 +78,6 @@ const BuyButtonCavo = () => {
                   button: false,
                   options: false,
                 },
-
                 text: { button: 'Ver producto' },
                 googleFonts: ['Open Sans'],
               },

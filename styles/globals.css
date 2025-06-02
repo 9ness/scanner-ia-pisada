@@ -1,17 +1,12 @@
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
 
-#product-component-cavo .shopify-buy__product,
-#product-component-plano .shopify-buy__product {
-  max-width: 300px;
-  margin: 0 auto;
-  text-align: center;
-}
-
-#product-component-cavo .shopify-buy__title,
-#product-component-plano .shopify-buy__title,
-#product-component-cavo .shopify-buy__price,
-#product-component-plano .shopify-buy__price {
-  text-align: center;
+#product-component-plano .shopify-buy__product__title,
+#product-component-plano .shopify-buy__product__price,
+#product-component-plano .shopify-buy__product__actual-price,
+#product-component-plano .shopify-buy__product__compare-price {
+  text-align: center !important;
+  width: 100% !important;
+  float: none !important;
 }
 
 body {
@@ -86,10 +81,14 @@ body {
 
 @media (max-width: 480px) {
   .ejemplo img {
-    max-width: 90%;
-    margin: 0 auto;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
   }
 }
+
+
+
 
 .etiqueta {
   padding: 0.5rem 0;
@@ -339,11 +338,11 @@ button:disabled {
 
 .resultado-container {
   display: grid;
-  grid-template-columns: 1.2fr 1fr;
+  grid-template-columns: 1fr 1fr;
   /* Puedes ajustar el 1.2 si quieres dar más espacio al SVG */
   gap: 2rem;
   margin-top: 0rem;
-  align-items: stretch;
+  align-items: center;
   /* ← Muy importante */
   height: auto;
   /* o un valor fijo si quieres forzar altura */
@@ -377,10 +376,9 @@ button:disabled {
 .resultado-texto {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
   justify-content: center;
+  height: 100%;
 }
-
 
 .resultado-container {
   display: grid;
@@ -476,6 +474,8 @@ button:disabled {
   color: #1f2937;
   margin-top: 0.5rem;
   line-height: 1.4;
+  margin-left: 1.0rem;
+
 }
 
 .bloque-zonas {
@@ -528,17 +528,52 @@ button:disabled {
 }
 
 .resultado-wrapper {
-  animation: fadeInScale 0.8s ease-in-out forwards;
-  opacity: 0;
-  transform: scale(0.95);
+  margin-top: 2rem;
 }
 
-@keyframes fadeInScale {
+.bloque-producto-animado {
+  opacity: 0;
+  animation: aparecerProducto 0.6s ease-in-out 0.5s forwards;
+}
+
+@keyframes aparecerProducto {
   to {
     opacity: 1;
-    transform: scale(1);
   }
 }
+
+.bloque-zonas-alineado {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding-left: 1.2rem;
+  text-align: left;
+}
+
+.grupo-analisis {
+  margin-bottom: 1rem;
+}
+
+.titulo-analisis-bloque svg {
+  display: inline-block;
+  transform: translateY(1px);
+  /* Ajuste fino, también puedes probar con 2px */
+}
+
+
+
+.titulo-analisis-bloque {
+  font-weight: bold;
+  font-size: 0.9rem;
+  color: #1f2937;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  line-height: 1.2;
+}
+
+
+
 
 
 .btn-ver-producto:hover {

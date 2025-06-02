@@ -30,9 +30,8 @@ export default function Home() {
   const analizarRef = useRef(null);
   const analisisRef = useRef(null);
   const progresoRef = useRef(null);
-  const refSpinner = useRef(null);
-  const refSteps = useRef(null);
   const refCargaInicio = useRef(null);
+
   const [tiempoRestante, setTiempoRestante] = useState(null);
   const [tendenciaTexto, setTendenciaTexto] = useState('');
 
@@ -50,13 +49,16 @@ export default function Home() {
       const saved = localStorage.getItem('analisisPisada');
       if (saved) {
         try {
-          const { result, zonasDetectadas, expiry, compressedPreview } = JSON.parse(saved);
+          const { result, zonasDetectadas, expiry, compressedPreview, tendenciaTexto } = JSON.parse(saved);
+
           if (Date.now() < expiry) {
             console.log('[Persistencia] Restaurando estado completo...');
 
             // Restaurar estado visual
             setResult(result);
             setZonasDetectadas(zonasDetectadas);
+            setTendenciaTexto(tendenciaTexto);
+            setTipoPisada(tendenciaTexto);
             setImageAnalyzed(true);
             setCompressedPreview(compressedPreview || null);
             setButtonText('Seleccionar imagen');
@@ -115,13 +117,6 @@ export default function Home() {
   }, [loading]);
 
   useEffect(() => {
-    if (tendenciaTexto) {
-      setTipoPisada(tendenciaTexto);
-    }
-  }, [tendenciaTexto]);
-
-
-  useEffect(() => {
     const enviarAltura = () => {
       if (window.parent) {
         const altura = document.documentElement.scrollHeight;
@@ -172,6 +167,7 @@ export default function Home() {
       setProgressStep(0);
       setImageAnalyzed(false);
       setZonasDetectadas([]);
+      setTendenciaTexto('');
     } else {
       setPreview(null);
     }
@@ -196,6 +192,7 @@ export default function Home() {
     setButtonDisabled(true);
     setProgressStep(0);
     setZonasDetectadas([]);
+    setTendenciaTexto('');
 
     try {
       const compressedFile = await compressImage(originalFile);
@@ -219,40 +216,52 @@ export default function Home() {
         if (zonas.length > 0 && !zonas.includes('metatarsos') && !zonas.includes('exterior') && !zonas.includes('arco')) {
           zonas.push('arco');
         }
+
         setZonasDetectadas(zonas);
 
-        if (zonas.includes('arco')) {
-          setTendenciaTexto('Plano (Pronador)');
-        } else if (zonas.includes('metatarsos') || zonas.includes('talon') || zonas.includes('talón') || zonas.includes('dedos') || zonas.includes('exterior')) {
-          setTendenciaTexto('Cavo (supinador)');
-        }
-
+        // 🔹 1. Calcular correctamente la tendencia
+        let tendencia = '';
         if (zonas.length > 0) {
-          if (persistenciaActiva) {
-            const existing = localStorage.getItem('analisisPisada');
-            if (!existing) {
-              const expiry = Date.now() + 2 * 60 * 60 * 1000; // 2 horas
-              localStorage.setItem('analisisPisada', JSON.stringify({
-                result: data.result,
-                zonasDetectadas: zonas,
-                expiry,
-                compressedPreview: data.preview
-              }));
-              console.log('[Persistencia] Resultado guardado.');
-            } else {
-              console.log('[Persistencia] Ya existía, no se sobrescribe.');
-            }
+
+          let tendencia = '';
+          if (zonas.includes('arco')) {
+            tendencia = 'Plano (Pronador)';
+          } else if (
+            zonas.includes('metatarsos') ||
+            zonas.includes('talon') ||
+            zonas.includes('talón') ||
+            zonas.includes('dedos') ||
+            zonas.includes('exterior')
+          ) {
+            tendencia = 'Cavo (supinador)';
           }
 
+          // 🔹 2. Asignar ambos estados
+          setTendenciaTexto(tendencia);
+          setTipoPisada(tendencia);
 
-          // Resultado correcto: mantener botón deshabilitado y texto original
+          // 🔹 3. Guardar en localStorage
+          if (persistenciaActiva) {
+            const expiry = Date.now() + 2 * 60 * 60 * 1000; // 2 h
+            localStorage.setItem('analisisPisada', JSON.stringify({
+              result: data.result,
+              zonasDetectadas: zonas,
+              expiry,
+              compressedPreview,
+              tendenciaTexto: tendencia
+            }));
+          }
+
           setButtonText('Seleccionar imagen');
           setButtonDisabled(true);
+          setImageAnalyzed(true);
+          window.parent.postMessage({ type: 'scrollToIframe', step: 'resultado' }, '*');
         } else {
-          // Resultado incorrecto: permitir reintento
+          // Resultado incorrecto
           setButtonText('Analizar pisada con IA');
           setButtonDisabled(false);
         }
+
 
         setImageAnalyzed(true);
         window.parent.postMessage({ type: 'scrollToIframe', step: 'resultado' }, '*');
@@ -340,36 +349,25 @@ export default function Home() {
           {!preview && !compressedPreview && !result && (
             <div className="ejemplos-subida">
               <div className="ejemplo">
-                <img src="/ejemplo_valido.png" alt="Ejemplo correcto 1" />
+                <div className="imagen-wrapper">
+                  <img src="/ejemplo_plantilla_valida.webp" alt="Ejemplo plantilla correcta" />
+                </div>
                 <p className="texto-ejemplo correcto">
                   <CheckCircle size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
                   <strong>Correcto</strong>
                 </p>
               </div>
               <div className="ejemplo">
-                <img src="/ejemplo_novalido.png" alt="Ejemplo incorrecto 1" />
+                <div className="imagen-wrapper">
+                  <img src="/ejemplo_plantilla_no_valida.webp" alt="Ejemplo plantilla incorrecta" />
+                </div>
                 <p className="texto-ejemplo incorrecto">
                   <XCircle size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
                   <strong>No válido</strong>
                 </p>
               </div>
-              {/*
-  <div className="ejemplo">
-    <img src="/plantillavalida1.png" alt="Ejemplo correcto 2" />
-    <p className="texto-ejemplo correcto">
-      <CheckCircle size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
-      <strong>Correcto</strong>
-    </p>
-  </div>
-  <div className="ejemplo">
-    <img src="/plantillanovalida1.png" alt="Ejemplo incorrecto 2" />
-    <p className="texto-ejemplo incorrecto">
-      <XCircle size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
-      <strong>No válido</strong>
-    </p>
-  </div>
-*/}
             </div>
+
           )}
 
 
@@ -433,14 +431,11 @@ export default function Home() {
               <div className="resultado-center">
                 <div className="resultado-container">
                   <div className="resultado-texto">
-                    <div className="bloque-zonas">
-                      {/* BLOQUE DE ZONAS */}
-                      <div>
-                        <p>
-                          <strong>
-                            <MapPin size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
-                            Zonas de presión detectadas:
-                          </strong>
+                    <div className="bloque-zonas-alineado">
+                      <div className="grupo-analisis">
+                        <p className="titulo-analisis-bloque">
+                          <MapPin size={16} />
+                          Zonas de presión detectadas:
                         </p>
                         <ul className="lista-zonas">
                           {zonasDetectadas.map((zona) => (
@@ -451,17 +446,15 @@ export default function Home() {
                         </ul>
                       </div>
 
-                      {/* BLOQUE DE TENDENCIA */}
-                      <div>
-                        <p>
-                          <strong>
-                            <Footprints size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
-                            Tendencia del pie:
-                          </strong>
+                      <div className="grupo-analisis">
+                        <p className="titulo-analisis-bloque">
+                          <Footprints size={16} style={{ marginRight: '0.3rem' }} />
+                          Tendencia del pie:
                         </p>
-                        <p style={{ margin: 0 }}>{tendenciaTexto}</p>
+                        <p className="texto-tendencia">{tendenciaTexto}</p>
                       </div>
                     </div>
+
 
                   </div>
                   <div className="resultado-grafico">
@@ -484,88 +477,111 @@ export default function Home() {
 
             {result && zonasDetectadas.length > 0 && (
               <>
-                <hr className="linea-separadora" />
-                <div className="recomendacion-container">
-                  <ArrowDown color="#1f2937" size={18} />
-                  <span className="recomendacion-texto">Nuestro Producto recomendado</span>
-                  <ArrowDown color="#1f2937" size={18} />
+                <div className="bloque-producto-animado">
+                  <hr className="linea-separadora" />
+                  <div className="recomendacion-container">
+                    <ArrowDown color="#1f2937" size={18} />
+                    <span className="recomendacion-texto">Nuestro Producto recomendado</span>
+                    <ArrowDown color="#1f2937" size={18} />
+                  </div>
+
+
+
+                  {tiempoRestante && (
+                    <p style={{
+                      textAlign: 'center',
+                      color: '#555',
+                      fontSize: '1rem',
+                      marginBottom: '2rem',
+                      fontWeight: '500',
+                      display: 'flex',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      gap: '0.5rem'
+                    }}>
+                      <AlarmClock size={18} strokeWidth={2} />
+                      La oferta termina en: {tiempoRestante}
+                    </p>
+                  )}
+
+
+                  {typeof tipoPisada === 'string' && tipoPisada.toLowerCase().includes('cavo') && (
+                    <>
+                      <div style={{ display: 'flex', justifyContent: 'center' }}>
+                        <div
+                          style={{
+                            border: '1px solid #e5e7eb', // borde gris claro
+                            borderRadius: '12px',
+                            padding: '0.5rem',
+                            boxShadow: '0 2px 6px rgba(0, 0, 0, 0.04)', // sombra sutil
+                            backgroundColor: '#fff',
+                            width: 'fit-content',
+                          }}
+                        >
+                          <BuyButtonCavo />
+                        </div>
+                      </div>
+
+                      <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+                        <a
+                          href="https://www.pisadaviva.com/products/plantilla-pie-cavo"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            display: 'inline-block',
+                            padding: '10px 20px',
+                            backgroundColor: '#007442',
+                            color: 'white',
+                            textDecoration: 'none',
+                            borderRadius: '8px',
+                            fontWeight: '600',
+                          }}
+                        >
+                          Ver producto
+                        </a>
+                      </div>
+                    </>
+                  )}
+
+                  {typeof tipoPisada === 'string' && tipoPisada.toLowerCase().includes('plano') && (
+                    <>
+                      <div style={{ display: 'flex', justifyContent: 'center' }}>
+                        <div
+                          style={{
+                            border: '1px solid #e5e7eb', // borde gris claro
+                            borderRadius: '12px',
+                            padding: '0.5rem',
+                            boxShadow: '0 2px 6px rgba(0, 0, 0, 0.04)', // sombra sutil
+                            backgroundColor: '#fff',
+                            width: 'fit-content',
+                          }}
+                        >
+                          <BuyButtonPlano />
+                        </div>
+                      </div>
+
+                      <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+                        <a
+                          href="https://www.pisadaviva.com/products/plantilla-pie-plano"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            display: 'inline-block',
+                            padding: '10px 20px',
+                            backgroundColor: '#007442',
+                            color: 'white',
+                            textDecoration: 'none',
+                            borderRadius: '8px',
+                            fontWeight: '600',
+                          }}
+                        >
+                          Ver producto
+                        </a>
+                      </div>
+
+                    </>
+                  )}
                 </div>
-
-
-
-                {tiempoRestante && (
-                  <p style={{
-                    textAlign: 'center',
-                    color: '#555',
-                    fontSize: '1rem',
-                    marginBottom: '2rem',
-                    fontWeight: '500',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    gap: '0.5rem'
-                  }}>
-                    <AlarmClock size={18} strokeWidth={2} />
-                    La oferta termina en: {tiempoRestante}
-                  </p>
-                )}
-
-
-                {tipoPisada.toLowerCase().includes('cavo') && (
-                  <>
-                    <div style={{ display: 'flex', justifyContent: 'center' }}>
-                      <BuyButtonCavo />
-                    </div>
-                    <div style={{ textAlign: 'center', marginTop: '1rem' }}>
-                      <a
-                        href="https://www.pisadaviva.com/products/plantilla-pie-cavo"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                          display: 'inline-block',
-                          padding: '10px 20px',
-                          backgroundColor: '#007442',
-                          color: 'white',
-                          textDecoration: 'none',
-                          borderRadius: '8px',
-                          fontWeight: '600',
-                        }}
-                      >
-                        Ver producto
-                      </a>
-                    </div>
-                  </>
-                )}
-
-                {tipoPisada.toLowerCase().includes('plano') && (
-                  <>
-                    <div style={{ display: 'flex', justifyContent: 'center' }}>
-                      <BuyButtonPlano />
-                    </div>
-                    <div style={{ textAlign: 'center', marginTop: '1rem' }}>
-                      <a
-                        href="https://www.pisadaviva.com/products/plantilla-pie-plano"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                          display: 'inline-block',
-                          padding: '10px 20px',
-                          backgroundColor: '#007442',
-                          color: 'white',
-                          textDecoration: 'none',
-                          borderRadius: '8px',
-                          fontWeight: '600',
-                        }}
-                      >
-                        Ver producto
-                      </a>
-                    </div>
-                  </>
-                )}
-
-
-
-
               </>
             )}
           </>
