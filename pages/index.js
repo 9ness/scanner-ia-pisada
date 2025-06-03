@@ -2,12 +2,11 @@ import { useState, useRef, useEffect } from 'react';
 import PieSVG from '../components/PieSVG';
 import { Camera, Plus, WandSparkles } from 'lucide-react';
 import { Lightbulb, CheckCircle, XCircle } from 'lucide-react';
-import { MapPin } from 'lucide-react';
 import { ArrowDown } from 'lucide-react';
-import { AlarmClock } from 'lucide-react';
 import { Footprints } from 'lucide-react';
 import BuyButtonCavo from '../components/BuyButtonCavo';
 import BuyButtonPlano from '../components/BuyButtonPlano';
+import { motion, AnimatePresence } from "framer-motion";
 
 
 
@@ -43,9 +42,54 @@ export default function Home() {
   ];
 
   useEffect(() => {
+    if (loading) {
+      let stepIndex = 0;
+      setEstadoAnalisis(steps[stepIndex]);
+      const interval = setInterval(() => {
+        stepIndex++;
+        if (stepIndex < steps.length) {
+          setProgressStep(stepIndex + 1);
+          setEstadoAnalisis(steps[stepIndex]);
+          analisisRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          setTimeout(() => {
+            progresoRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 100);
+        } else {
+          setProgressStep(steps.length);
+          clearInterval(interval);
+        }
+      }, 1500);
+      return () => clearInterval(interval);
+    } else {
+      setEstadoAnalisis('');
+    }
+  }, [loading]);
+
+
+  useEffect(() => {
     if (!persistenciaActiva) {
       console.log('[Persistencia] Desactivada por configuración.');
-    } else if (!loading) {
+
+      const inicioTemporal = Date.now();
+      const duracionTemporal = 2 * 60 * 60 * 1000; // 2h
+      const expiry = inicioTemporal + duracionTemporal;
+
+      const actualizarTiempo = () => {
+        const diff = expiry - Date.now();
+        if (diff <= 0) {
+          setTiempoRestante(null);
+          return;
+        }
+        const h = Math.floor(diff / 3600000);
+        const m = Math.floor((diff % 3600000) / 60000);
+        const s = Math.floor((diff % 60000) / 1000);
+        setTiempoRestante(`${h}h ${m}m ${s}s`);
+      };
+
+      actualizarTiempo();
+      const interval = setInterval(actualizarTiempo, 1000);
+      return () => clearInterval(interval);
+    } else {
       const saved = localStorage.getItem('analisisPisada');
       if (saved) {
         try {
@@ -53,8 +97,6 @@ export default function Home() {
 
           if (Date.now() < expiry) {
             console.log('[Persistencia] Restaurando estado completo...');
-
-            // Restaurar estado visual
             setResult(result);
             setZonasDetectadas(zonasDetectadas);
             setTendenciaTexto(tendenciaTexto);
@@ -65,7 +107,6 @@ export default function Home() {
             setButtonDisabled(true);
             setProgressStep(steps.length);
 
-            // Contador activo
             const actualizarTiempo = () => {
               const diff = expiry - Date.now();
               if (diff <= 0) {
@@ -92,29 +133,7 @@ export default function Home() {
         }
       }
     }
-
-    if (loading) {
-      let stepIndex = 0;
-      setEstadoAnalisis(steps[stepIndex]);
-      const interval = setInterval(() => {
-        stepIndex++;
-        if (stepIndex < steps.length) {
-          setProgressStep(stepIndex + 1);
-          setEstadoAnalisis(steps[stepIndex]);
-          analisisRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          setTimeout(() => {
-            progresoRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }, 100);
-        } else {
-          setProgressStep(steps.length);
-          clearInterval(interval);
-        }
-      }, 1500);
-      return () => clearInterval(interval);
-    } else {
-      setEstadoAnalisis('');
-    }
-  }, [loading]);
+  }, [persistenciaActiva]);
 
   useEffect(() => {
     const enviarAltura = () => {
@@ -225,7 +244,7 @@ export default function Home() {
 
           let tendencia = '';
           if (zonas.includes('arco')) {
-            tendencia = 'Plano (Pronador)';
+            tendencia = 'Pie plano pronador';
           } else if (
             zonas.includes('metatarsos') ||
             zonas.includes('talon') ||
@@ -233,7 +252,7 @@ export default function Home() {
             zonas.includes('dedos') ||
             zonas.includes('exterior')
           ) {
-            tendencia = 'Cavo (supinador)';
+            tendencia = 'Pie cavo supinador';
           }
 
           // 🔹 2. Asignar ambos estados
@@ -333,13 +352,13 @@ export default function Home() {
           {!(result && zonasDetectadas.length > 0) && (
             <div className="info-text">
               <h3 className="recomendaciones-titulo">
-                <Lightbulb size={18} color="#f5c518" style={{ verticalAlign: 'middle', marginRight: '0.4rem' }} />
+                <Lightbulb size={18} color="#007442" style={{ verticalAlign: 'middle', marginRight: '0.4rem' }} />
                 Recomendaciones:
               </h3>
               <ol className="recomendaciones-grid">
-                <li><span>Foto de plantilla usada</span></li>
-                <li><span>Marca de pisada visible</span></li>
-                <li><span>Sacar foto a favor de luz</span></li>
+                <li><span className="numero">1.</span><span className="texto">Foto de plantilla usada</span></li>
+                <li><span className="numero">2.</span><span className="texto">Marca de pisada visible</span></li>
+                <li><span className="numero">3.</span><span className="texto">Sacar foto a favor de luz</span></li>
               </ol>
             </div>
 
@@ -402,8 +421,6 @@ export default function Home() {
                 </>
               )}
 
-
-
               {loading && (
                 <div className="steps-container">
                   <div className="steps">
@@ -423,45 +440,66 @@ export default function Home() {
 
         {result && zonasDetectadas.length > 0 ? (
           <>
-            <div className="resultado-wrapper">
-              <h2 className="titulo-analisis" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                <CheckCircle size={30} color="#28a745" />
-                Resultado del análisis
-              </h2>
-              <div className="resultado-center">
-                <div className="resultado-container">
-                  <div className="resultado-texto">
-                    <div className="bloque-zonas-alineado">
-                      <div className="grupo-analisis">
-                        <p className="titulo-analisis-bloque">
-                          <MapPin size={16} />
-                          Zonas de presión detectadas:
-                        </p>
-                        <ul className="lista-zonas">
-                          {zonasDetectadas.map((zona) => (
-                            <li key={zona}>
-                              {zona === 'talon' ? 'talón' : zona.replace('-', ' ')}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-
-                      <div className="grupo-analisis">
-                        <p className="titulo-analisis-bloque">
-                          <Footprints size={16} style={{ marginRight: '0.3rem' }} />
-                          Tendencia del pie:
-                        </p>
-                        <p className="texto-tendencia">{tendenciaTexto}</p>
-                      </div>
-                    </div>
-
-
+            <h2 className="titulo-analisis">
+              <CheckCircle size={30} color="#28a745" style={{ marginRight: '0.5rem' }} />
+              Análisis completado
+            </h2>
+            <div className="bloque-resultado-final">
+              <div className="bloque-superior">
+                {/* 1. ZONAS DE PRESIÓN */}
+                <motion.div
+                  className="bloque-zonas-presion-final"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2, duration: 0.4 }}
+                >
+                  <div className="grupo-zonas-texto">
+                    <p className="titulo-analisis-bloque">
+                      Zonas de presión detectadas:
+                    </p>
+                    <ul className="zonas-detectadas-lista">
+                      {zonasDetectadas.map((zona, i) => {
+                        const zonaFormateada = zona === 'talon' ? 'talón' : zona;
+                        return (
+                          <li key={i} className="zona-item">{zonaFormateada}</li>
+                        );
+                      })}
+                    </ul>
                   </div>
-                  <div className="resultado-grafico">
-                    <PieSVG zonasActivadas={zonasDetectadas} />
-                  </div>
-                </div>
+                </motion.div>
+
+
+                {/* 2. PIE SVG */}
+                <motion.div
+                  className="bloque-svg-final"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2, duration: 0.4 }}
+                >
+                  <PieSVG zonasActivadas={zonasDetectadas} />
+                </motion.div>
               </div>
+
+              {/* 3. TENDENCIA + IMAGEN */}
+              <motion.div
+                className="bloque-tendencia-final"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2, duration: 0.4 }}
+              >
+                <div className="texto-tendencia-final">
+                  <p className="titulo-analisis-bloque">
+                    <Footprints size={16} style={{ verticalAlign: 'middle', marginRight: '0.4rem' }} />
+                    Tendencia del pie:
+                  </p>
+                  <p className="texto-pisada-final">{tendenciaTexto}</p>
+                </div>
+                <img
+                  src={tendenciaTexto.toLowerCase().includes('cavo') ? '/supinador.webp' : '/pronador.webp'}
+                  alt="Imagen pisada"
+                  className="imagen-elegimetro"
+                />
+              </motion.div>
             </div>
           </>
         ) : (
@@ -472,6 +510,7 @@ export default function Home() {
           )
         )}
 
+
         {result && zonasDetectadas.length > 0 && (
           <>
 
@@ -479,109 +518,85 @@ export default function Home() {
               <>
                 <div className="bloque-producto-animado">
                   <hr className="linea-separadora" />
+
                   <div className="recomendacion-container">
                     <ArrowDown color="#1f2937" size={18} />
                     <span className="recomendacion-texto">Nuestro Producto recomendado</span>
                     <ArrowDown color="#1f2937" size={18} />
                   </div>
 
-
-
                   {tiempoRestante && (
-                    <p style={{
-                      textAlign: 'center',
-                      color: '#555',
-                      fontSize: '1rem',
-                      marginBottom: '2rem',
-                      fontWeight: '500',
-                      display: 'flex',
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      gap: '0.5rem'
-                    }}>
-                      <AlarmClock size={18} strokeWidth={2} />
-                      La oferta termina en: {tiempoRestante}
-                    </p>
+                    <div className="bloque-tiempo-restante">
+                      <p className="tiempo-label">
+                        <span className="tiempo-linea1">¡APROVECHA!</span><br />
+                        <span className="tiempo-linea2">Oferta por tu primer escaneo</span>
+                      </p>
+                      <div className="tiempo-contador">
+                        {tiempoRestante.split(" ").map((unidad, i) => {
+                          const valor = unidad.slice(0, -1).padStart(2, '0');
+                          const tipo = unidad.slice(-1);
+                          const label = tipo === 'h' ? 'horas' : tipo === 'm' ? 'minutos' : 'segundos';
+
+                          return (
+                            <div key={tipo} className="bloque-tiempo-unidad">
+                              <AnimatePresence mode="wait">
+                                <motion.span
+                                  key={valor}
+                                  initial={{ y: -20, opacity: 0 }}
+                                  animate={{ y: 0, opacity: 1 }}
+                                  exit={{ y: 20, opacity: 0 }}
+                                  transition={{ duration: 0.3 }}
+                                  className="tiempo-numero"
+                                >
+                                  {valor}
+                                </motion.span>
+                              </AnimatePresence>
+                              <span className="tiempo-etiqueta">{label}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
                   )}
 
 
-                  {typeof tipoPisada === 'string' && tipoPisada.toLowerCase().includes('cavo') && (
-                    <>
-                      <div style={{ display: 'flex', justifyContent: 'center' }}>
-                        <div
-                          style={{
-                            border: '1px solid #e5e7eb', // borde gris claro
-                            borderRadius: '12px',
-                            padding: '0.5rem',
-                            boxShadow: '0 2px 6px rgba(0, 0, 0, 0.04)', // sombra sutil
-                            backgroundColor: '#fff',
-                            width: 'fit-content',
-                          }}
-                        >
-                          <BuyButtonCavo />
+                  <div className="bloque-producto-wrapper">
+                    {typeof tipoPisada === 'string' && tipoPisada.toLowerCase().includes('cavo') && (
+                      <>
+                        <div style={{ display: 'flex', justifyContent: 'center' }}>
+                          <div className="cuadro-producto">
+                            <BuyButtonCavo />
+                          </div>
                         </div>
-                      </div>
-
-                      <div style={{ textAlign: 'center', marginTop: '1rem' }}>
-                        <a
-                          href="https://www.pisadaviva.com/products/plantilla-pie-cavo"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{
-                            display: 'inline-block',
-                            padding: '10px 20px',
-                            backgroundColor: '#007442',
-                            color: 'white',
-                            textDecoration: 'none',
-                            borderRadius: '8px',
-                            fontWeight: '600',
-                          }}
-                        >
-                          Ver producto
-                        </a>
-                      </div>
-                    </>
-                  )}
-
-                  {typeof tipoPisada === 'string' && tipoPisada.toLowerCase().includes('plano') && (
-                    <>
-                      <div style={{ display: 'flex', justifyContent: 'center' }}>
-                        <div
-                          style={{
-                            border: '1px solid #e5e7eb', // borde gris claro
-                            borderRadius: '12px',
-                            padding: '0.5rem',
-                            boxShadow: '0 2px 6px rgba(0, 0, 0, 0.04)', // sombra sutil
-                            backgroundColor: '#fff',
-                            width: 'fit-content',
-                          }}
-                        >
-                          <BuyButtonPlano />
+                        <div className="enlace-producto">
+                          <a
+                            href="https://www.pisadaviva.com/products/plantilla-pie-cavo"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            Ver producto
+                          </a>
                         </div>
-                      </div>
+                      </>
+                    )}
 
-                      <div style={{ textAlign: 'center', marginTop: '1rem' }}>
-                        <a
-                          href="https://www.pisadaviva.com/products/plantilla-pie-plano"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{
-                            display: 'inline-block',
-                            padding: '10px 20px',
-                            backgroundColor: '#007442',
-                            color: 'white',
-                            textDecoration: 'none',
-                            borderRadius: '8px',
-                            fontWeight: '600',
-                          }}
-                        >
-                          Ver producto
-                        </a>
-                      </div>
-
-                    </>
-                  )}
+                    {typeof tipoPisada === 'string' && tipoPisada.toLowerCase().includes('plano') && (
+                      <>
+                        <BuyButtonPlano />
+                        <div className="enlace-producto">
+                          <a
+                            href="https://www.pisadaviva.com/products/plantilla-pie-plano"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            Ver producto
+                          </a>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
+
               </>
             )}
           </>
