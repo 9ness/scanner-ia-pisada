@@ -4,7 +4,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "lint:css": "stylelint '**/*.css'"
   },
   "dependencies": {
     "axios": "^1.9.0",
@@ -22,5 +23,10 @@
     "react-dom": "^18.2.0",
     "react-flip-clock": "^1.0.4",
     "sharp": "^0.34.1"
+  },
+  "devDependencies": {
+    "stylelint": "^16.20.0",
+    "stylelint-config-standard": "^38.0.0",
+    "stylelint-order": "^7.0.0"
   }
 }

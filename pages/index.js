@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import PieSVG from '../components/PieSVG';
-import { Camera, Plus, WandSparkles } from 'lucide-react';
+import { Camera, Plus, Scan } from 'lucide-react';
 import { Lightbulb, CheckCircle, XCircle } from 'lucide-react';
 import { ArrowDown } from 'lucide-react';
 import { Footprints } from 'lucide-react';
@@ -134,6 +134,20 @@ export default function Home() {
       }
     }
   }, [persistenciaActiva]);
+
+  useEffect(() => {
+    const sendHeight = () => {
+      const height = document.documentElement.scrollHeight;
+      window.parent.postMessage({ height }, '*');
+    };
+
+    sendHeight(); // inicial
+    const observer = new MutationObserver(sendHeight); // cuando cambie el DOM
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    return () => observer.disconnect();
+  }, []);
+
 
   useEffect(() => {
     const enviarAltura = () => {
@@ -407,7 +421,7 @@ export default function Home() {
               <div ref={analizarRef} style={{ paddingTop: '1rem' }}></div>
               <button type="submit" disabled={buttonDisabled}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <WandSparkles size={18} />
+                  <Scan size={18} />
                   {buttonText}
                 </span>
               </button>
@@ -440,10 +454,10 @@ export default function Home() {
 
         {result && zonasDetectadas.length > 0 ? (
           <>
-            <h2 className="titulo-analisis">
+            <h3 className="titulo-analisis">
               <CheckCircle size={30} color="#28a745" style={{ marginRight: '0.5rem' }} />
               Análisis completado
-            </h2>
+            </h3>
             <div className="bloque-resultado-final">
               <div className="bloque-superior">
                 {/* 1. ZONAS DE PRESIÓN */}
