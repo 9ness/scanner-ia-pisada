@@ -36,16 +36,16 @@ export default async function handler(req, res) {
         return;
       }
       // Validación de tipo y tamaño de imagen
-if (!file.mimetype.startsWith('image/')) {
-  res.status(400).json({ error: 'El archivo debe ser una imagen válida (jpeg, png, etc).' });
-  return;
-}
+      if (!file.mimetype.startsWith('image/')) {
+        res.status(400).json({ error: 'El archivo debe ser una imagen válida (jpeg, png, etc).' });
+        return;
+      }
 
-const maxSizeMB = 10;
-if (file.size > maxSizeMB * 1024 * 1024) {
-  res.status(400).json({ error: `La imagen no puede superar los ${maxSizeMB}MB.` });
-  return;
-}
+      const maxSizeMB = 10;
+      if (file.size > maxSizeMB * 1024 * 1024) {
+        res.status(400).json({ error: `La imagen no puede superar los ${maxSizeMB}MB.` });
+        return;
+      }
 
       const originalBuffer = await fs.readFile(file.filepath);
 
@@ -60,26 +60,27 @@ if (file.size > maxSizeMB * 1024 * 1024) {
 Analiza la imagen de una pisada y responde únicamente si se trata de una fotografía real de una plantilla de pisada con evidencia clara de uso y desgaste. Si la imagen es un dibujo, una ilustración digital, una simulación generada por IA, o no muestra señales físicas claras de presión, no nombres ninguna zona.
 En caso de que sí detectes una imagen real con evidencia visible de uso (como marcas, suciedad o hundimientos), responde solo con las zonas de mayor presión, una por línea.
 Zonas posibles (no inventar ni deducir): dedos, metatarsos, arco, exterior, talón.
+También debes detectar si se trata de un pie derecho o izquierdo. Debes escribir un texto a mayores de las zonas de presión que diga solamente la palabra "izquierdo" o "derecho".
 `;
 
       const response = await openai.chat.completions.create({
-  model: 'gpt-4-turbo',
-  messages: [
-    {
-      role: 'user',
-      content: [
-        { type: 'text', text: prompt },
-        {
-          type: 'image_url',
-          image_url: {
-            url: `data:image/jpeg;base64,${base64Image}`,
+        model: 'gpt-4-turbo',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: prompt },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:image/jpeg;base64,${base64Image}`,
+                },
+              },
+            ],
           },
-        },
-      ],
-    },
-  ],
-  max_tokens: 500,
-});
+        ],
+        max_tokens: 500,
+      });
 
 
       let result = response.choices[0]?.message?.content || '';

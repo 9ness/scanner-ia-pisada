@@ -250,6 +250,10 @@ body {
   font-family: 'Poppins', sans-serif;
 }
 
+.invertido-horizontal {
+  transform: scaleX(-1) !important;
+}
+
 .container {
   background-color: white;
   padding: 2rem;

@@ -30,6 +30,7 @@ export default function Home() {
   const analisisRef = useRef(null);
   const progresoRef = useRef(null);
   const refCargaInicio = useRef(null);
+  const [esPieIzquierdo, setEsPieIzquierdo] = useState(false);
 
   const [tiempoRestante, setTiempoRestante] = useState(null);
   const [tendenciaTexto, setTendenciaTexto] = useState('');
@@ -302,6 +303,14 @@ export default function Home() {
         setResult('Error al analizar la imagen.');
         setButtonText('Error en el análisis');
       }
+      // Detectar si es izquierdo o derecho
+      const textoPlano = normalizarTexto(data.result || '');
+      if (textoPlano.includes('izquierdo')) {
+        setEsPieIzquierdo(true);
+      } else {
+        setEsPieIzquierdo(false); // Por defecto derecho
+      }
+
     } catch (err) {
       console.error(err);
       setResult('Error en la conexión con el servidor.');
@@ -485,13 +494,14 @@ export default function Home() {
 
                 {/* 2. PIE SVG */}
                 <motion.div
-                  className="bloque-svg-final"
+                  className={`bloque-svg-final ${esPieIzquierdo ? 'invertido-horizontal' : ''}`}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.2, duration: 0.4 }}
                 >
                   <PieSVG zonasActivadas={zonasDetectadas} />
                 </motion.div>
+
               </div>
 
               {/* 3. TENDENCIA + IMAGEN */}
