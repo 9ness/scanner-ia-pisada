@@ -1,79 +1,33 @@
 {
-    "extends": "stylelint-config-standard",
+    "extends": [
+        "stylelint-config-standard",
+        "stylelint-config-recommended",
+        "stylelint-config-prettier"
+    ],
     "plugins": [
         "stylelint-order"
     ],
     "rules": {
-        "declaration-block-no-duplicate-properties": true,
-        "block-no-empty": true,
-        "color-no-invalid-hex": true,
-        "property-no-unknown": true,
-        "unit-no-unknown": true,
         "no-extra-semicolons": true,
+        "selector-class-pattern": null,
+        "font-family-name-quotes": "always-where-recommended",
+        "media-feature-range-notation": "prefix",
+        "color-function-notation": "modern",
+        "alpha-value-notation": "percentage",
+        "color-function-alias-notation": "modern",
         "shorthand-property-no-redundant-values": true,
-        "order/order": [
-            "custom-properties",
-            "dollar-variables",
-            "declarations",
-            "rules",
-            "at-rules"
-        ],
-        "order/properties-order": [
-            "position",
-            "top",
-            "right",
-            "bottom",
-            "left",
-            "z-index",
-            "display",
-            "flex-direction",
-            "flex-wrap",
-            "justify-content",
-            "align-items",
-            "align-content",
-            "order",
-            "flex",
-            "flex-grow",
-            "flex-shrink",
-            "flex-basis",
-            "align-self",
-            "width",
-            "min-width",
-            "max-width",
-            "height",
-            "min-height",
-            "max-height",
-            "margin",
-            "margin-top",
-            "margin-right",
-            "margin-bottom",
-            "margin-left",
-            "padding",
-            "padding-top",
-            "padding-right",
-            "padding-bottom",
-            "padding-left",
-            "font",
-            "font-size",
-            "font-weight",
-            "line-height",
-            "text-align",
-            "color",
-            "background",
-            "background-color",
-            "background-image",
-            "background-size",
-            "background-position",
-            "border",
-            "border-radius",
-            "box-shadow",
-            "transition",
-            "animation",
-            "overflow",
-            "visibility",
-            "opacity",
-            "box-sizing",
-            "cursor"
+        "declaration-block-no-redundant-longhand-properties": true,
+        "order/properties-order": [],
+        "comment-empty-line-before": [
+            "always",
+            {
+                "except": [
+                    "first-nested"
+                ],
+                "ignore": [
+                    "stylelint-commands"
+                ]
+            }
         ]
     }
 }
