@@ -2,13 +2,10 @@ import { useState, useRef, useEffect } from 'react';
 import PieSVG from '../components/PieSVG';
 import { Camera, Plus, Scan } from 'lucide-react';
 import { Lightbulb, CheckCircle, XCircle } from 'lucide-react';
-import { ArrowDown } from 'lucide-react';
 import { Footprints } from 'lucide-react';
 import BuyButtonCavo from '../components/BuyButtonCavo';
 import BuyButtonPlano from '../components/BuyButtonPlano';
 import { motion, AnimatePresence } from "framer-motion";
-
-
 
 export default function Home() {
   const imagenTest = false;
@@ -29,9 +26,11 @@ export default function Home() {
   const analizarRef = useRef(null);
   const analisisRef = useRef(null);
   const progresoRef = useRef(null);
+  const scrollDestinoRef = useRef(null);
+  const bloqueProductoRef = useRef(null);
   const refCargaInicio = useRef(null);
   const [esPieIzquierdo, setEsPieIzquierdo] = useState(false);
-
+  const [mostrarDetalles, setMostrarDetalles] = useState(false);
   const [tiempoRestante, setTiempoRestante] = useState(null);
   const [tendenciaTexto, setTendenciaTexto] = useState('');
 
@@ -65,6 +64,18 @@ export default function Home() {
       setEstadoAnalisis('');
     }
   }, [loading]);
+
+  useEffect(() => {
+    if (mostrarDetalles) {
+      const timeout = setTimeout(() => {
+        scrollDestinoRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+        });
+      }, 400); // Ajusta el tiempo según la duración de tu animación
+      return () => clearTimeout(timeout);
+    }
+  }, [mostrarDetalles]);
 
 
   useEffect(() => {
@@ -464,7 +475,7 @@ export default function Home() {
         {result && zonasDetectadas.length > 0 ? (
           <>
             <h3 className="titulo-analisis">
-              <CheckCircle size={30} color="#28a745" style={{ marginRight: '0.5rem' }} />
+              <CheckCircle size={22} color="#28a745" style={{ marginRight: '0.1rem' }} />
               Análisis completado
             </h3>
             <div className="bloque-resultado-final">
@@ -540,89 +551,122 @@ export default function Home() {
 
             {result && zonasDetectadas.length > 0 && (
               <>
-                <div className="bloque-producto-animado">
-                  <hr className="linea-separadora" />
+                <hr className="linea-separadora" />
+                <div className="recomendacion-container">
+                  <span className="recomendacion-texto">Tu plantilla personalizada ya está lista</span><br />
+                  <span className="recomendacion-texto2">
+                    Basado en tu escaneo, esta plantilla es ideal para ti.
+                  </span>
 
-                  <div className="recomendacion-container">
-                    <ArrowDown color="#1f2937" size={18} />
-                    <span className="recomendacion-texto">Nuestro Producto recomendado</span>
-                    <ArrowDown color="#1f2937" size={18} />
-                  </div>
-
-                  {tiempoRestante && (
-                    <div className="bloque-tiempo-restante">
-                      <p className="tiempo-label">
-                        <span className="tiempo-linea1">¡APROVECHA!</span><br />
-                        <span className="tiempo-linea2">Oferta por tu primer escaneo</span>
-                      </p>
-                      <div className="tiempo-contador">
-                        {tiempoRestante.split(" ").map((unidad, i) => {
-                          const valor = unidad.slice(0, -1).padStart(2, '0');
-                          const tipo = unidad.slice(-1);
-                          const label = tipo === 'h' ? 'horas' : tipo === 'm' ? 'minutos' : 'segundos';
-
-                          return (
-                            <div key={tipo} className="bloque-tiempo-unidad">
-                              <AnimatePresence mode="wait">
-                                <motion.span
-                                  key={valor}
-                                  initial={{ y: -20, opacity: 0 }}
-                                  animate={{ y: 0, opacity: 1 }}
-                                  exit={{ y: 20, opacity: 0 }}
-                                  transition={{ duration: 0.3 }}
-                                  className="tiempo-numero"
-                                >
-                                  {valor}
-                                </motion.span>
-                              </AnimatePresence>
-                              <span className="tiempo-etiqueta">{label}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-
-                  <div className="bloque-producto-wrapper">
-                    {typeof tipoPisada === 'string' && tipoPisada.toLowerCase().includes('cavo') && (
-                      <>
-                        <div style={{ display: 'flex', justifyContent: 'center' }}>
-                          <div className="cuadro-producto">
-                            <BuyButtonCavo />
-                          </div>
-                        </div>
-                        <div className="enlace-producto">
-                          <a
-                            href="https://www.pisadaviva.com/products/plantilla-pie-cavo"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            Ver producto
-                          </a>
-                        </div>
-                      </>
-                    )}
-
-                    {typeof tipoPisada === 'string' && tipoPisada.toLowerCase().includes('plano') && (
-                      <>
-                        <BuyButtonPlano />
-                        <div className="enlace-producto">
-                          <a
-                            href="https://www.pisadaviva.com/products/plantilla-pie-plano"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            Ver producto
-                          </a>
-                        </div>
-                      </>
-                    )}
-                  </div>
+                  <p
+                    onClick={() => setMostrarDetalles(prev => !prev)}
+                    style={{
+                      cursor: 'pointer',
+                      color: '#007442',
+                      fontSize: '14px',
+                      marginTop: '4px',
+                      marginBottom: '12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      width: 'fit-content'
+                    }}
+                  >
+                    <span>{mostrarDetalles ? 'Ocultar detalles' : 'Mostrar detalles'}</span>
+                    <span style={{ fontSize: '10px' }}>{mostrarDetalles ? '▲' : '▼'}</span>
+                  </p>
                 </div>
 
+                <motion.div layout>
+                  <AnimatePresence initial={false}>
+                    {mostrarDetalles && (
+                      <motion.div
+                        layout
+                        className="bloque-producto-animado"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.4, ease: 'easeInOut' }}
+                      >
+                        {tiempoRestante && (
+                          <div className="bloque-tiempo-restante">
+                            <p className="tiempo-label">
+                              <span className="tiempo-linea1">¡APROVECHA!</span><br />
+                              <span className="tiempo-linea2">Oferta por tu primer escaneo</span>
+                            </p>
+                            <div className="tiempo-contador">
+                              {tiempoRestante.split(" ").map((unidad, i) => {
+                                const valor = unidad.slice(0, -1).padStart(2, '0');
+                                const tipo = unidad.slice(-1);
+                                const label = tipo === 'h' ? 'horas' : tipo === 'm' ? 'minutos' : 'segundos';
+
+                                return (
+                                  <div key={tipo} className="bloque-tiempo-unidad">
+                                    <AnimatePresence mode="wait">
+                                      <motion.span
+                                        key={valor}
+                                        initial={{ y: -20, opacity: 0 }}
+                                        animate={{ y: 0, opacity: 1 }}
+                                        exit={{ y: 20, opacity: 0 }}
+                                        transition={{ duration: 0.3 }}
+                                        className="tiempo-numero"
+                                      >
+                                        {valor}
+                                      </motion.span>
+                                    </AnimatePresence>
+                                    <span className="tiempo-etiqueta">{label}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        <div
+                          className="bloque-producto-wrapper"
+                          ref={scrollDestinoRef}
+                        >
+                          {typeof tipoPisada === 'string' && tipoPisada.toLowerCase().includes('cavo') && (
+                            <>
+                              <div style={{ display: 'flex', justifyContent: 'center' }}>
+                                <div className="cuadro-producto">
+                                  <BuyButtonCavo />
+                                </div>
+                              </div>
+                              <div className="enlace-producto">
+                                <a
+                                  href="https://www.pisadaviva.com/products/plantilla-pie-cavo"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  Ver mi plantilla
+                                </a>
+                              </div>
+                            </>
+                          )}
+
+                          {typeof tipoPisada === 'string' && tipoPisada.toLowerCase().includes('plano') && (
+                            <>
+                              <BuyButtonPlano />
+                              <div className="enlace-producto">
+                                <a
+                                  href="https://www.pisadaviva.com/products/plantilla-pie-plano"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  Ver mi plantilla
+                                </a>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
               </>
             )}
+
           </>
         )}
 

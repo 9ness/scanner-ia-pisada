@@ -121,17 +121,23 @@ body {
 }
 
 .recomendacion-container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
+  align-items: left;
+  justify-content: left;
   margin-bottom: 1rem;
+  text-align: left;
 }
 
 .recomendacion-texto {
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 600;
   color: #1f2937;
+  text-align: left;
+}
+
+.recomendacion-texto2 {
+  font-size: 0.85rem;
+  color: #1f2937;
+  text-align: left;
 }
 
 .logo-izquierda {
@@ -517,7 +523,7 @@ button:disabled {
 .titulo-analisis {
   width: 100%;
   text-align: center;
-  font-size: 1.5rem;
+  font-size: 1.2rem;
   margin-top: 2rem;
   color: #1b1b1b;
   display: flex;
@@ -562,7 +568,6 @@ button:disabled {
 
 .bloque-producto-animado {
   opacity: 0;
-  animation: aparecerProducto 0.6s ease-in-out 0.5s forwards;
 }
 
 @keyframes aparecerProducto {
