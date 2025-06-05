@@ -559,7 +559,13 @@ export default function Home() {
                   </span>
 
                   <p
-                    onClick={() => setMostrarDetalles(prev => !prev)}
+                    onClick={() => {
+                      if (tipoPisada.toLowerCase().includes('cavo')) {
+                        window.open('https://www.pisadaviva.com/products/plantilla-pie-cavo', '_blank');
+                      } else if (tipoPisada.toLowerCase().includes('plano')) {
+                        window.open('https://www.pisadaviva.com/products/plantilla-pie-plano', '_blank');
+                      }
+                    }}
                     style={{
                       cursor: 'pointer',
                       color: '#007442',
@@ -569,103 +575,17 @@ export default function Home() {
                       display: 'flex',
                       alignItems: 'center',
                       gap: '4px',
-                      width: 'fit-content'
+                      width: 'fit-content',
+                      textDecoration: 'underline'
                     }}
                   >
-                    <span>{mostrarDetalles ? 'Ocultar detalles' : 'Mostrar detalles'}</span>
-                    <span style={{ fontSize: '10px' }}>{mostrarDetalles ? '▲' : '▼'}</span>
+                    <span>Ver mi plantilla</span>
+                    <span style={{ fontSize: '10px' }}></span>
                   </p>
                 </div>
-
-                <motion.div layout>
-                  <AnimatePresence initial={false}>
-                    {mostrarDetalles && (
-                      <motion.div
-                        layout
-                        className="bloque-producto-animado"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.4, ease: 'easeInOut' }}
-                      >
-                        {tiempoRestante && (
-                          <div className="bloque-tiempo-restante">
-                            <p className="tiempo-label">
-                              <span className="tiempo-linea1">¡APROVECHA!</span><br />
-                              <span className="tiempo-linea2">Oferta por tu primer escaneo</span>
-                            </p>
-                            <div className="tiempo-contador">
-                              {tiempoRestante.split(" ").map((unidad, i) => {
-                                const valor = unidad.slice(0, -1).padStart(2, '0');
-                                const tipo = unidad.slice(-1);
-                                const label = tipo === 'h' ? 'horas' : tipo === 'm' ? 'minutos' : 'segundos';
-
-                                return (
-                                  <div key={tipo} className="bloque-tiempo-unidad">
-                                    <AnimatePresence mode="wait">
-                                      <motion.span
-                                        key={valor}
-                                        initial={{ y: -20, opacity: 0 }}
-                                        animate={{ y: 0, opacity: 1 }}
-                                        exit={{ y: 20, opacity: 0 }}
-                                        transition={{ duration: 0.3 }}
-                                        className="tiempo-numero"
-                                      >
-                                        {valor}
-                                      </motion.span>
-                                    </AnimatePresence>
-                                    <span className="tiempo-etiqueta">{label}</span>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-
-                        <div
-                          className="bloque-producto-wrapper"
-                          ref={scrollDestinoRef}
-                        >
-                          {typeof tipoPisada === 'string' && tipoPisada.toLowerCase().includes('cavo') && (
-                            <>
-                              <div style={{ display: 'flex', justifyContent: 'center' }}>
-                                <div className="cuadro-producto">
-                                  <BuyButtonCavo />
-                                </div>
-                              </div>
-                              <div className="enlace-producto">
-                                <a
-                                  href="https://www.pisadaviva.com/products/plantilla-pie-cavo"
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  Ver mi plantilla
-                                </a>
-                              </div>
-                            </>
-                          )}
-
-                          {typeof tipoPisada === 'string' && tipoPisada.toLowerCase().includes('plano') && (
-                            <>
-                              <BuyButtonPlano />
-                              <div className="enlace-producto">
-                                <a
-                                  href="https://www.pisadaviva.com/products/plantilla-pie-plano"
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  Ver mi plantilla
-                                </a>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </motion.div>
               </>
             )}
+
 
           </>
         )}
