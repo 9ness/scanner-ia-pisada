@@ -340,256 +340,257 @@ export default function Home() {
 
   return (
     <>
+      <div className="main-wrapper" style={{ overflow: 'visible' }}>
+        <div className="container">
 
-      <div className="container">
-
-        <form onSubmit={handleSubmit}>
-          {!(result && zonasDetectadas.length > 0) && (
-            <label
-              htmlFor="file-upload"
-              className="custom-file-upload"
-              style={{
-                opacity: result && zonasDetectadas.length > 0 ? 0.5 : 1,
-                cursor: result && zonasDetectadas.length > 0 ? 'not-allowed' : 'pointer',
-              }}
-              onClick={(e) => {
-                if (result && zonasDetectadas.length > 0) {
-                  e.preventDefault(); // Bloquea el clic
-                }
-              }}
-            >
-              {imageAnalyzed && zonasDetectadas.length === 0 ? (
-                <>
-                  <Plus size={18} style={{ marginRight: '8px' }} />
-                  Seleccionar nueva imagen
-                </>
-              ) : (
-                <>
-                  <Camera size={18} style={{ marginRight: '8px' }} />
-                  Seleccionar imagen
-                </>
-              )}
-            </label>
-
-          )}
-
-
-
-          <input
-            id="file-upload"
-            type="file"
-            name="image"
-            accept="image/*"
-            ref={fileInputRef}
-            onChange={handleFileChange}
-          />
-          {!(result && zonasDetectadas.length > 0) && (
-            <div className="info-text">
-              <h3 className="recomendaciones-titulo">
-                <Lightbulb size={18} color="#007442" style={{ verticalAlign: 'middle', marginRight: '0.4rem' }} />
-                Recomendaciones:
-              </h3>
-              <ol className="recomendaciones-grid">
-                <li><span className="numero">1.</span><span className="texto">Foto de plantilla usada</span></li>
-                <li><span className="numero">2.</span><span className="texto">Marca de pisada visible</span></li>
-                <li><span className="numero">3.</span><span className="texto">Sacar foto a favor de luz</span></li>
-              </ol>
-            </div>
-
-          )}
-
-
-          {!preview && !compressedPreview && !result && (
-            <div className="ejemplos-subida">
-              <div className="ejemplo">
-                <div className="imagen-wrapper">
-                  <img src="/ejemplo_plantilla_valida.webp" alt="Ejemplo plantilla correcta" />
-                </div>
-                <p className="texto-ejemplo correcto">
-                  <CheckCircle size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
-                  <strong>Correcto</strong>
-                </p>
-              </div>
-              <div className="ejemplo">
-                <div className="imagen-wrapper">
-                  <img src="/ejemplo_plantilla_no_valida.webp" alt="Ejemplo plantilla incorrecta" />
-                </div>
-                <p className="texto-ejemplo incorrecto">
-                  <XCircle size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
-                  <strong>No válido</strong>
-                </p>
-              </div>
-            </div>
-
-          )}
-
-
-          {(preview || compressedPreview) && (
-            <div className="preview-wrapper">
-              <img
-                src={preview || compressedPreview}
-                alt="preview"
-                className="preview"
-              />
-              {loading && <div className="scan-line" />}
-            </div>
-          )}
-
-
-          {preview && !result && (
-            <>
-              <div ref={analizarRef} style={{ paddingTop: '1rem' }}></div>
-              <button type="submit" disabled={buttonDisabled}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Scan size={18} />
-                  {buttonText}
-                </span>
-              </button>
-              {loading && (
-                <>
-                  <div ref={refCargaInicio}></div>
-                  <div className="estado-progreso">
-                    <span className="spinner" />
-                    <span className="estado-analisis">{estadoAnalisis}</span>
-                  </div>
-                </>
-              )}
-
-              {loading && (
-                <div className="steps-container">
-                  <div className="steps">
-                    {steps.map((_, index) => (
-                      <div
-                        key={index}
-                        className={`step ${(index < progressStep || (index === 0 && loading)) ? 'active' : ''}`}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-            </>
-          )}
-        </form>
-
-        {result && zonasDetectadas.length > 0 ? (
-          <>
-            <h3 className="titulo-analisis">
-              <CheckCircle size={22} color="#28a745" style={{ marginRight: '0.1rem' }} />
-              Análisis completado
-            </h3>
-            <div className="bloque-resultado-final">
-              <div className="bloque-superior">
-                {/* 1. ZONAS DE PRESIÓN */}
-                <motion.div
-                  className="bloque-zonas-presion-final"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2, duration: 0.4 }}
-                >
-                  <div className="grupo-zonas-texto">
-                    <p className="titulo-analisis-bloque">
-                      Zonas de presión detectadas:
-                    </p>
-                    <ul className="zonas-detectadas-lista">
-                      {zonasDetectadas.map((zona, i) => {
-                        const zonaFormateada = zona === 'talon' ? 'talón' : zona;
-                        return (
-                          <li key={i} className="zona-item">{zonaFormateada}</li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                </motion.div>
-
-
-                {/* 2. PIE SVG */}
-                <motion.div
-                  className={`bloque-svg-final ${esPieIzquierdo ? 'invertido-horizontal' : ''}`}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2, duration: 0.4 }}
-                >
-                  <PieSVG zonasActivadas={zonasDetectadas} />
-                </motion.div>
-
-              </div>
-
-              {/* 3. TENDENCIA + IMAGEN */}
-              <motion.div
-                className="bloque-tendencia-final"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2, duration: 0.4 }}
+          <form onSubmit={handleSubmit}>
+            {!(result && zonasDetectadas.length > 0) && (
+              <label
+                htmlFor="file-upload"
+                className="custom-file-upload"
+                style={{
+                  opacity: result && zonasDetectadas.length > 0 ? 0.5 : 1,
+                  cursor: result && zonasDetectadas.length > 0 ? 'not-allowed' : 'pointer',
+                }}
+                onClick={(e) => {
+                  if (result && zonasDetectadas.length > 0) {
+                    e.preventDefault(); // Bloquea el clic
+                  }
+                }}
               >
-                <div className="texto-tendencia-final">
-                  <p className="titulo-analisis-bloque">
-                    <Footprints size={16} style={{ verticalAlign: 'middle', marginRight: '0.4rem' }} />
-                    Tendencia del pie:
-                  </p>
-                  <p className="texto-pisada-final">{tendenciaTexto}</p>
-                </div>
-                <img
-                  src={tendenciaTexto.toLowerCase().includes('cavo') ? '/supinador.webp' : '/pronador.webp'}
-                  alt="Imagen pisada"
-                  className="imagen-elegimetro"
-                />
-              </motion.div>
-            </div>
-          </>
-        ) : (
-          result && zonasDetectadas.length === 0 && (
-            <div className="error-texto">
-              {result}
-            </div>
-          )
-        )}
+                {imageAnalyzed && zonasDetectadas.length === 0 ? (
+                  <>
+                    <Plus size={18} style={{ marginRight: '8px' }} />
+                    Seleccionar nueva imagen
+                  </>
+                ) : (
+                  <>
+                    <Camera size={18} style={{ marginRight: '8px' }} />
+                    Seleccionar imagen
+                  </>
+                )}
+              </label>
 
-
-        {result && zonasDetectadas.length > 0 && (
-          <>
-
-            {result && zonasDetectadas.length > 0 && (
-              <>
-                <hr className="linea-separadora" />
-                <div className="recomendacion-container">
-                  <span className="recomendacion-texto">Tu plantilla personalizada ya está lista</span><br />
-                  <span className="recomendacion-texto2">
-                    Basado en tu escaneo, esta plantilla es ideal para ti.
-                  </span>
-
-                  <p
-                    onClick={() => {
-                      if (tipoPisada.toLowerCase().includes('cavo')) {
-                        window.open('https://www.pisadaviva.com/products/plantilla-pie-cavo', '_blank');
-                      } else if (tipoPisada.toLowerCase().includes('plano')) {
-                        window.open('https://www.pisadaviva.com/products/plantilla-pie-plano', '_blank');
-                      }
-                    }}
-                    style={{
-                      cursor: 'pointer',
-                      color: '#007442',
-                      fontSize: '14px',
-                      marginTop: '4px',
-                      marginBottom: '12px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      width: 'fit-content',
-                      textDecoration: 'underline'
-                    }}
-                  >
-                    <span>Ver mi plantilla</span>
-                    <span style={{ fontSize: '10px' }}></span>
-                  </p>
-                </div>
-              </>
             )}
 
 
-          </>
-        )}
 
+            <input
+              id="file-upload"
+              type="file"
+              name="image"
+              accept="image/*"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+            />
+            {!(result && zonasDetectadas.length > 0) && (
+              <div className="info-text">
+                <h3 className="recomendaciones-titulo">
+                  <Lightbulb size={18} color="#007442" style={{ verticalAlign: 'middle', marginRight: '0.4rem' }} />
+                  Recomendaciones:
+                </h3>
+                <ol className="recomendaciones-grid">
+                  <li><span className="numero">1.</span><span className="texto">Foto de plantilla usada</span></li>
+                  <li><span className="numero">2.</span><span className="texto">Marca de pisada visible</span></li>
+                  <li><span className="numero">3.</span><span className="texto">Sacar foto a favor de luz</span></li>
+                </ol>
+              </div>
+
+            )}
+
+
+            {!preview && !compressedPreview && !result && (
+              <div className="ejemplos-subida">
+                <div className="ejemplo">
+                  <div className="imagen-wrapper">
+                    <img src="/ejemplo_plantilla_valida.webp" alt="Ejemplo plantilla correcta" />
+                  </div>
+                  <p className="texto-ejemplo correcto">
+                    <CheckCircle size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
+                    <strong>Correcto</strong>
+                  </p>
+                </div>
+                <div className="ejemplo">
+                  <div className="imagen-wrapper">
+                    <img src="/ejemplo_plantilla_no_valida.webp" alt="Ejemplo plantilla incorrecta" />
+                  </div>
+                  <p className="texto-ejemplo incorrecto">
+                    <XCircle size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
+                    <strong>No válido</strong>
+                  </p>
+                </div>
+              </div>
+
+            )}
+
+
+            {(preview || compressedPreview) && (
+              <div className="preview-wrapper">
+                <img
+                  src={preview || compressedPreview}
+                  alt="preview"
+                  className="preview"
+                />
+                {loading && <div className="scan-line" />}
+              </div>
+            )}
+
+
+            {preview && !result && (
+              <>
+                <div ref={analizarRef} style={{ paddingTop: '1rem' }}></div>
+                <button type="submit" disabled={buttonDisabled}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Scan size={18} />
+                    {buttonText}
+                  </span>
+                </button>
+                {loading && (
+                  <>
+                    <div ref={refCargaInicio}></div>
+                    <div className="estado-progreso">
+                      <span className="spinner" />
+                      <span className="estado-analisis">{estadoAnalisis}</span>
+                    </div>
+                  </>
+                )}
+
+                {loading && (
+                  <div className="steps-container">
+                    <div className="steps">
+                      {steps.map((_, index) => (
+                        <div
+                          key={index}
+                          className={`step ${(index < progressStep || (index === 0 && loading)) ? 'active' : ''}`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+              </>
+            )}
+          </form>
+
+          {result && zonasDetectadas.length > 0 ? (
+            <>
+              <h3 className="titulo-analisis">
+                <CheckCircle size={22} color="#28a745" style={{ marginRight: '0.1rem' }} />
+                Análisis completado
+              </h3>
+              <div className="bloque-resultado-final">
+                <div className="bloque-superior">
+                  {/* 1. ZONAS DE PRESIÓN */}
+                  <motion.div
+                    className="bloque-zonas-presion-final"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2, duration: 0.4 }}
+                  >
+                    <div className="grupo-zonas-texto">
+                      <p className="titulo-analisis-bloque">
+                        Zonas de presión detectadas:
+                      </p>
+                      <ul className="zonas-detectadas-lista">
+                        {zonasDetectadas.map((zona, i) => {
+                          const zonaFormateada = zona === 'talon' ? 'talón' : zona;
+                          return (
+                            <li key={i} className="zona-item">{zonaFormateada}</li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  </motion.div>
+
+
+                  {/* 2. PIE SVG */}
+                  <motion.div
+                    className={`bloque-svg-final ${esPieIzquierdo ? 'invertido-horizontal' : ''}`}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2, duration: 0.4 }}
+                  >
+                    <PieSVG zonasActivadas={zonasDetectadas} />
+                  </motion.div>
+
+                </div>
+
+                {/* 3. TENDENCIA + IMAGEN */}
+                <motion.div
+                  className="bloque-tendencia-final"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2, duration: 0.4 }}
+                >
+                  <div className="texto-tendencia-final">
+                    <p className="titulo-analisis-bloque">
+                      <Footprints size={16} style={{ verticalAlign: 'middle', marginRight: '0.4rem' }} />
+                      Tendencia del pie:
+                    </p>
+                    <p className="texto-pisada-final">{tendenciaTexto}</p>
+                  </div>
+                  <img
+                    src={tendenciaTexto.toLowerCase().includes('cavo') ? '/supinador.webp' : '/pronador.webp'}
+                    alt="Imagen pisada"
+                    className="imagen-elegimetro"
+                  />
+                </motion.div>
+              </div>
+            </>
+          ) : (
+            result && zonasDetectadas.length === 0 && (
+              <div className="error-texto">
+                {result}
+              </div>
+            )
+          )}
+
+
+          {result && zonasDetectadas.length > 0 && (
+            <>
+
+              {result && zonasDetectadas.length > 0 && (
+                <>
+                  <hr className="linea-separadora" />
+                  <div className="recomendacion-container">
+                    <span className="recomendacion-texto">Tu plantilla personalizada ya está lista</span><br />
+                    <span className="recomendacion-texto2">
+                      Basado en tu escaneo, esta plantilla es ideal para ti.
+                    </span>
+
+                    <p
+                      onClick={() => {
+                        if (tipoPisada.toLowerCase().includes('cavo')) {
+                          window.open('https://www.pisadaviva.com/products/plantilla-pie-cavo', '_blank');
+                        } else if (tipoPisada.toLowerCase().includes('plano')) {
+                          window.open('https://www.pisadaviva.com/products/plantilla-pie-plano', '_blank');
+                        }
+                      }}
+                      style={{
+                        cursor: 'pointer',
+                        color: '#007442',
+                        fontSize: '14px',
+                        marginTop: '4px',
+                        marginBottom: '12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        width: 'fit-content',
+                        textDecoration: 'underline'
+                      }}
+                    >
+                      <span>Ver mi plantilla</span>
+                      <span style={{ fontSize: '10px' }}></span>
+                    </p>
+                  </div>
+                </>
+              )}
+
+
+            </>
+          )}
+
+        </div>
       </div>
 
 
