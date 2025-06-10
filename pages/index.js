@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 
 export default function Home() {
   const imagenTest = false;
-  const persistenciaActiva = false; // ← cambiar a false si quiero desactivar persistencia de cuenta atrás
+  const persistenciaActiva = true; // ← cambiar a false si quiero desactivar persistencia de cuenta atrás
   const mostrarBotonReset = false; // Cambiar a false para ocultarlo
   const [loading, setLoading] = useState(false);
   const [buttonText, setButtonText] = useState('Analizar pisada con IA');
@@ -30,6 +30,9 @@ export default function Home() {
   const [tendenciaTexto, setTendenciaTexto] = useState('');
   const sizes = ['37-38', '38-39', '40-41']; // o lo que te devuelva tu escáner
   const [size, setSize] = useState(sizes[0]);
+
+  // Estado para bloquear render de UI principal antes de restaurar:
+  const [isHydrated, setIsHydrated] = useState(!persistenciaActiva);
 
   const steps = [
     'Analizando imagen...',
@@ -78,32 +81,49 @@ export default function Home() {
   useEffect(() => {
     if (!persistenciaActiva) {
       console.log('[Persistencia] Desactivada por configuración.');
+      setIsHydrated(true);
+      return;
+    }
+    console.log('[Persistencia] Intentando restaurar estado de análisis previo...');
+    const saved = localStorage.getItem('analisisPisada');
+    if (saved) {
+      try {
+        const {
+          result: savedResult,
+          zonasDetectadas: savedZonas,
+          tendenciaTexto: savedTendencia,
+          compressedPreviewDataUrl: savedCompressedPreview,
+          esPieIzquierdo: savedEsPieIzq,
+        } = JSON.parse(saved);
 
-    } else {
-      console.log('[Persistencia] Entrando a persistencia');
-      const saved = localStorage.getItem('analisisPisada');
-      if (saved) {
-        try {
-          const { result, zonasDetectadas, compressedPreview, tendenciaTexto } = JSON.parse(saved);
+        console.log('[Persistencia] Restaurando estado:', { savedResult, savedZonas, savedTendencia, savedEsPieIzq });
+        // 1. Resultado y bloques
+        setResult(savedResult);
+        setZonasDetectadas(savedZonas);
+        setTendenciaTexto(savedTendencia);
+        setTipoPisada(savedTendencia);
+        setEsPieIzquierdo(!!savedEsPieIzq);
+        setImageAnalyzed(true);
 
-          console.log('[Persistencia] Restaurando estado completo...');
-          setResult(result);
-          setZonasDetectadas(zonasDetectadas);
-          setTendenciaTexto(tendenciaTexto);
-          setTipoPisada(tendenciaTexto);
-          setImageAnalyzed(true);
-          setCompressedPreview(compressedPreview || null);
-          setButtonText('Seleccionar imagen');
-          setButtonDisabled(true);
-          setProgressStep(steps.length);
-
-        } catch (e) {
-          console.error('[Persistencia] Error:', e);
-          localStorage.removeItem('analisisPisada');
+        // 2. Imagen subida (comprimida) en DataURL
+        if (savedCompressedPreview) {
+          setCompressedPreview(savedCompressedPreview);
+          // No seteamos preview con URL.createObjectURL, sino DataURL, así muestra al recargar:
+          setPreview(null);
         }
+
+        // 3. Ajustes de UI: botón en “Seleccionar imagen” deshabilitado, progreso final, etc.
+        setButtonText('Seleccionar imagen');
+        setButtonDisabled(true);
+        setProgressStep(steps.length);
+      } catch (e) {
+        console.error('[Persistencia] Error al parsear localStorage, borrando clave:', e);
+        localStorage.removeItem('analisisPisada');
       }
     }
+    setIsHydrated(true);
   }, [persistenciaActiva]);
+
 
   useEffect(() => {
     const sendHeight = () => {
@@ -162,19 +182,29 @@ export default function Home() {
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      if (persistenciaActiva) {
+        localStorage.removeItem('analisisPisada');
+        console.log('[Persistencia] Estado previo eliminado al seleccionar nueva imagen');
+      }
+      // limpiamos estados de análisis previo:
       setPreview(URL.createObjectURL(file));
-      window.parent.postMessage({ type: 'scrollToIframe', step: 'boton' }, '*');
+      setCompressedPreview(null);
       setResult('');
+      setZonasDetectadas([]);
+      setTendenciaTexto('');
+      setTipoPisada('');
+      setEsPieIzquierdo(false);
+      setImageAnalyzed(false);
       setButtonText('Analizar pisada con IA');
       setButtonDisabled(false);
       setProgressStep(0);
-      setImageAnalyzed(false);
-      setZonasDetectadas([]);
-      setTendenciaTexto('');
+      // Scroll si hacía falta:
+      window.parent.postMessage({ type: 'scrollToIframe', step: 'boton' }, '*');
     } else {
       setPreview(null);
     }
   };
+
 
   const normalizarTexto = (texto) =>
     texto.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -196,46 +226,66 @@ export default function Home() {
     setProgressStep(0);
     setZonasDetectadas([]);
     setTendenciaTexto('');
+    setTipoPisada('');
+    setEsPieIzquierdo(false);
+    setCompressedPreview(null);
 
     try {
+      // 1. Comprimir imagen
       const compressedFile = await compressImage(originalFile);
-      setCompressedPreview(URL.createObjectURL(compressedFile));
+
+      // 2. Obtener DataURL para persistencia y preview
+      const dataUrl = await new Promise((resolve) => {
+        const reader2 = new FileReader();
+        reader2.readAsDataURL(compressedFile);
+        reader2.onload = () => resolve(reader2.result);
+        reader2.onerror = () => {
+          console.error('Error leyendo Blob a DataURL');
+          resolve(null);
+        };
+      });
+      if (dataUrl) {
+        setCompressedPreview(dataUrl);
+        // NO usamos URL.createObjectURL, usamos DataURL para que persista tras recarga
+        setPreview(null);
+      } else {
+        // Fallback: si falla DataURL, podemos usar URL.createObjectURL para preview inmediato,
+        // pero no persistirá. Mejor notificar en consola.
+        setCompressedPreview(URL.createObjectURL(compressedFile));
+        console.warn('No se pudo generar DataURL para persistencia, preview inmediato con blob URL');
+      }
+
+      // 3. Lógica de “espera” o petición a API
       const formData = new FormData();
       formData.append('image', compressedFile);
-
+      // ... tu delay simulado o petición real ...
       await new Promise((resolve) => setTimeout(resolve, 6000));
-
       const res = await fetch('/api/upload', {
         method: 'POST',
         body: formData
       });
-
       const data = await res.json();
 
       if (data.result) {
+        // 4. Procesar resultado de texto
         setResult(data.result);
-        const zonas = extraerZonas(data.result);
-        // Si no incluye ni metatarsos ni exterior, forzar agregar arco
+        let zonas = extraerZonas(data.result);
+        // Forzar lógica de “arco”
         if (zonas.length > 0 && !zonas.includes('metatarsos') && !zonas.includes('exterior') && !zonas.includes('arco')) {
           zonas.push('arco');
         }
-        //si incluye metatarsos y arco ELIMINA el arco
         if (zonas.length > 0 && zonas.includes('metatarsos') && zonas.includes('arco')) {
           const idx = zonas.indexOf('arco');
           zonas.splice(idx, 1);
         }
-
         setZonasDetectadas(zonas);
 
-        // 🔹 1. Calcular correctamente la tendencia
+        // 5. Calcular tendencia sin redeclarar variable
         let tendencia = '';
         if (zonas.length > 0) {
-
-          let tendencia = '';
           if (zonas.includes('metatarsos')) {
             tendencia = 'Pie cavo supinador';
-          }
-          else if (zonas.includes('arco')) {
+          } else if (zonas.includes('arco')) {
             tendencia = 'Pie plano pronador';
           } else if (
             zonas.includes('metatarsos') ||
@@ -246,46 +296,58 @@ export default function Home() {
           ) {
             tendencia = 'Pie cavo supinador';
           }
-
-          // 🔹 2. Asignar ambos estados
-          setTendenciaTexto(tendencia);
-          setTipoPisada(tendencia);
-
-          setButtonText('Seleccionar imagen');
-          setButtonDisabled(true);
-          setImageAnalyzed(true);
-          window.parent.postMessage({ type: 'scrollToIframe', step: 'resultado' }, '*');
-        } else {
-          // Resultado incorrecto
-          setButtonText('Analizar pisada con IA');
-          setButtonDisabled(false);
         }
+        setTendenciaTexto(tendencia);
+        setTipoPisada(tendencia);
 
+        // 6. Detectar izquierda/derecha
+        const textoPlano = normalizarTexto(data.result || '');
+        const esIzq = textoPlano.includes('izquierdo');
+        setEsPieIzquierdo(esIzq);
 
+        // 7. Ajustes UI tras análisis exitoso
+        setButtonText('Seleccionar imagen');
+        setButtonDisabled(true);
         setImageAnalyzed(true);
+        setProgressStep(steps.length);
         window.parent.postMessage({ type: 'scrollToIframe', step: 'resultado' }, '*');
+
+        // 8. GUARDAR en localStorage todo el estado persistible
+        if (persistenciaActiva) {
+          try {
+            const payload = {
+              result: data.result,
+              zonasDetectadas: zonas,
+              tendenciaTexto: tendencia,
+              compressedPreviewDataUrl: dataUrl || null,
+              esPieIzquierdo: esIzq,
+            };
+            localStorage.setItem('analisisPisada', JSON.stringify(payload));
+            console.log('[Persistencia] Estado guardado correctamente:', payload);
+          } catch (e) {
+            console.error('[Persistencia] Error guardando estado:', e);
+          }
+        }
       } else {
+        // Resultado incorrecto: permitimos nuevo intento
         setResult('Error al analizar la imagen.');
-        setButtonText('Error en el análisis');
-      }
-      // Detectar si es izquierdo o derecho
-      const textoPlano = normalizarTexto(data.result || '');
-      if (textoPlano.includes('izquierdo')) {
-        setEsPieIzquierdo(true);
-      } else {
-        setEsPieIzquierdo(false); // Por defecto derecho
+        setButtonText('Analizar pisada con IA');
+        setButtonDisabled(false);
+        // No guardamos persistencia, de modo que puede volver a intentar
       }
 
     } catch (err) {
       console.error(err);
       setResult('Error en la conexión con el servidor.');
       setButtonText('Error en la conexión');
+      setButtonDisabled(false);
     } finally {
       setLoading(false);
-      setButtonDisabled(true);
-      setProgressStep(steps.length);
+      // En caso de éxito ya pusimos progressStep = steps.length; en error dejamos listo para reintentar.
     }
   };
+
+  if (!isHydrated) return null;
 
   return (
     <>
@@ -385,7 +447,7 @@ export default function Home() {
           )}
 
 
-          {preview && !result && (
+          {(preview || compressedPreview) && !result && (
             <>
               <div ref={analizarRef} style={{ paddingTop: '1rem' }}></div>
               <button type="submit" disabled={buttonDisabled}>
