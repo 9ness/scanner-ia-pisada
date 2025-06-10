@@ -1,4 +1,5 @@
 
+import CustomSelectTalla from 'components/CustomSelectTalla.js';
 import { useState, useRef, useEffect } from 'react';
 import PieSVG from '../components/PieSVG';
 import { Camera, Plus, Scan, Lightbulb, CheckCircle, XCircle, Footprints } from 'lucide-react';
@@ -16,6 +17,7 @@ export default function Home() {
   const [buttonDisabled, setButtonDisabled] = useState(false);
   const [progressStep, setProgressStep] = useState(0);
   const [imageAnalyzed, setImageAnalyzed] = useState(false);
+  const [escaneoEnCurso, setEscaneoEnCurso] = useState(false); // ✅ NUEVO
   const [zonasDetectadas, setZonasDetectadas] = useState([]);
   const [estadoAnalisis, setEstadoAnalisis] = useState('');
   const [tipoPisada, setTipoPisada] = useState('');
@@ -28,8 +30,10 @@ export default function Home() {
   const [esPieIzquierdo, setEsPieIzquierdo] = useState(false);
   const [mostrarDetalles, setMostrarDetalles] = useState(false);
   const [tendenciaTexto, setTendenciaTexto] = useState('');
-  const sizes = ['37-38', '38-39', '40-41']; // o lo que te devuelva tu escáner
-  const [size, setSize] = useState(sizes[0]);
+  const [idVarianteCavo, setIdVarianteCavo] = useState('');
+  const [idVariantePlano, setIdVariantePlano] = useState('');
+  const [tallaSeleccionada, setTallaSeleccionada] = useState(null);
+
 
   // Estado para bloquear render de UI principal antes de restaurar:
   const [isHydrated, setIsHydrated] = useState(!persistenciaActiva);
@@ -40,6 +44,57 @@ export default function Home() {
     'Identificando tipo de pisada...',
     'Generando recomendación personalizada...'
   ];
+
+  const variantesPorTalla = {
+    "37": {
+      cavo: "54578030707014",
+      plano: "54581077934406",
+    },
+    "38": {
+      cavo: "54578030772550",
+      plano: "54581077999942",
+    },
+    "39": {
+      cavo: "54578030838086",
+      plano: "54581078065478",
+    },
+    "40": {
+      cavo: "54578030903622",
+      plano: "54581078131014",
+    },
+    "41": {
+      cavo: "54578030969158",
+      plano: "54581078196550",
+    },
+    "42": {
+      cavo: "54578031034694",
+      plano: "54598890455366",
+    },
+    "43": {
+      cavo: "54578031100230",
+      plano: "54598898319686",
+    },
+    "44": {
+      cavo: "54578031165766",
+      plano: "54598899335494",
+    },
+    "45": {
+      cavo: "54578031231302",
+      plano: "54598899827014",
+    },
+    "46": {
+      cavo: "54578031296838",
+      plano: "54598900252998",
+    },
+    "47": {
+      cavo: "54578031362374",
+      plano: "54598901563718",
+    },
+    "48": {
+      cavo: "54578031427910",
+      plano: "54598904447302",
+    },
+  };
 
   useEffect(() => {
     if (loading) {
@@ -94,7 +149,10 @@ export default function Home() {
           tendenciaTexto: savedTendencia,
           compressedPreviewDataUrl: savedCompressedPreview,
           esPieIzquierdo: savedEsPieIzq,
+          idVarianteCavo: savedIdVarianteCavo,
+          idVariantePlano: savedIdVariantePlano,
         } = JSON.parse(saved);
+
 
         console.log('[Persistencia] Restaurando estado:', { savedResult, savedZonas, savedTendencia, savedEsPieIzq });
         // 1. Resultado y bloques
@@ -104,6 +162,9 @@ export default function Home() {
         setTipoPisada(savedTendencia);
         setEsPieIzquierdo(!!savedEsPieIzq);
         setImageAnalyzed(true);
+        setEscaneoEnCurso(true); // ✅ Oculta selector si ya había análisis al recargar
+        setIdVarianteCavo(savedIdVarianteCavo || '');
+        setIdVariantePlano(savedIdVariantePlano || '');
 
         // 2. Imagen subida (comprimida) en DataURL
         if (savedCompressedPreview) {
@@ -221,6 +282,7 @@ export default function Home() {
     if (!originalFile) return;
 
     setLoading(true);
+    setEscaneoEnCurso(true); // ✅ Oculta selector cuando empieza el análisis
     setResult('');
     setButtonDisabled(true);
     setProgressStep(0);
@@ -321,6 +383,8 @@ export default function Home() {
               tendenciaTexto: tendencia,
               compressedPreviewDataUrl: dataUrl || null,
               esPieIzquierdo: esIzq,
+              idVarianteCavo,
+              idVariantePlano
             };
             localStorage.setItem('analisisPisada', JSON.stringify(payload));
             console.log('[Persistencia] Estado guardado correctamente:', payload);
@@ -449,8 +513,23 @@ export default function Home() {
 
           {(preview || compressedPreview) && !result && (
             <>
+              {!escaneoEnCurso && (
+                <CustomSelectTalla
+                  onSelect={(tallaElegida) => {
+                    const variantes = variantesPorTalla[tallaElegida];
+                    if (variantes) {
+                      setIdVarianteCavo(variantes.cavo);
+                      setIdVariantePlano(variantes.plano);
+                      setTallaSeleccionada(tallaElegida);
+                    }
+                  }}
+                />
+              )}
+
+
+
               <div ref={analizarRef} style={{ paddingTop: '1rem' }}></div>
-              <button type="submit" disabled={buttonDisabled}>
+              <button type="submit" disabled={buttonDisabled || !tallaSeleccionada}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
                   <Scan size={18} />
                   {buttonText}
@@ -572,9 +651,9 @@ export default function Home() {
                   <p
                     onClick={() => {
                       if (tipoPisada.toLowerCase().includes('cavo')) {
-                        window.open('https://www.pisadaviva.com/products/plantilla-pie-cavo', '_blank');
+                        window.open(`https://www.pisadaviva.com/products/plantilla-pie-cavo?variant=${idVarianteCavo}`, '_blank');
                       } else if (tipoPisada.toLowerCase().includes('plano')) {
-                        window.open('https://www.pisadaviva.com/products/plantilla-pie-plano', '_blank');
+                        window.open(`https://www.pisadaviva.com/products/plantilla-pie-plano?variant=${idVariantePlano}`, '_blank');
                       }
                     }}
                     style={{
