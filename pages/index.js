@@ -1,11 +1,8 @@
+
 import { useState, useRef, useEffect } from 'react';
 import PieSVG from '../components/PieSVG';
-import { Camera, Plus, Scan } from 'lucide-react';
-import { Lightbulb, CheckCircle, XCircle } from 'lucide-react';
-import { Footprints } from 'lucide-react';
-import BuyButtonCavo from '../components/BuyButtonCavo';
-import BuyButtonPlano from '../components/BuyButtonPlano';
-import { motion, AnimatePresence } from "framer-motion";
+import { Camera, Plus, Scan, Lightbulb, CheckCircle, XCircle, Footprints } from 'lucide-react';
+import { motion } from "framer-motion";
 
 export default function Home() {
   const imagenTest = false;
@@ -27,12 +24,12 @@ export default function Home() {
   const analisisRef = useRef(null);
   const progresoRef = useRef(null);
   const scrollDestinoRef = useRef(null);
-  const bloqueProductoRef = useRef(null);
   const refCargaInicio = useRef(null);
   const [esPieIzquierdo, setEsPieIzquierdo] = useState(false);
   const [mostrarDetalles, setMostrarDetalles] = useState(false);
-  const [tiempoRestante, setTiempoRestante] = useState(null);
   const [tendenciaTexto, setTendenciaTexto] = useState('');
+  const sizes = ['37-38', '38-39', '40-41']; // o lo que te devuelva tu escáner
+  const [size, setSize] = useState(sizes[0]);
 
   const steps = [
     'Analizando imagen...',
@@ -82,63 +79,24 @@ export default function Home() {
     if (!persistenciaActiva) {
       console.log('[Persistencia] Desactivada por configuración.');
 
-      const inicioTemporal = Date.now();
-      const duracionTemporal = 2 * 60 * 60 * 1000; // 2h
-      const expiry = inicioTemporal + duracionTemporal;
-
-      const actualizarTiempo = () => {
-        const diff = expiry - Date.now();
-        if (diff <= 0) {
-          setTiempoRestante(null);
-          return;
-        }
-        const h = Math.floor(diff / 3600000);
-        const m = Math.floor((diff % 3600000) / 60000);
-        const s = Math.floor((diff % 60000) / 1000);
-        setTiempoRestante(`${h}h ${m}m ${s}s`);
-      };
-
-      actualizarTiempo();
-      const interval = setInterval(actualizarTiempo, 1000);
-      return () => clearInterval(interval);
     } else {
+      console.log('[Persistencia] Entrando a persistencia');
       const saved = localStorage.getItem('analisisPisada');
       if (saved) {
         try {
-          const { result, zonasDetectadas, expiry, compressedPreview, tendenciaTexto } = JSON.parse(saved);
+          const { result, zonasDetectadas, compressedPreview, tendenciaTexto } = JSON.parse(saved);
 
-          if (Date.now() < expiry) {
-            console.log('[Persistencia] Restaurando estado completo...');
-            setResult(result);
-            setZonasDetectadas(zonasDetectadas);
-            setTendenciaTexto(tendenciaTexto);
-            setTipoPisada(tendenciaTexto);
-            setImageAnalyzed(true);
-            setCompressedPreview(compressedPreview || null);
-            setButtonText('Seleccionar imagen');
-            setButtonDisabled(true);
-            setProgressStep(steps.length);
+          console.log('[Persistencia] Restaurando estado completo...');
+          setResult(result);
+          setZonasDetectadas(zonasDetectadas);
+          setTendenciaTexto(tendenciaTexto);
+          setTipoPisada(tendenciaTexto);
+          setImageAnalyzed(true);
+          setCompressedPreview(compressedPreview || null);
+          setButtonText('Seleccionar imagen');
+          setButtonDisabled(true);
+          setProgressStep(steps.length);
 
-            const actualizarTiempo = () => {
-              const diff = expiry - Date.now();
-              if (diff <= 0) {
-                setTiempoRestante(null);
-                localStorage.removeItem('analisisPisada');
-                return;
-              }
-              const h = Math.floor(diff / 3600000);
-              const m = Math.floor((diff % 3600000) / 60000);
-              const s = Math.floor((diff % 60000) / 1000);
-              setTiempoRestante(`${h}h ${m}m ${s}s`);
-            };
-
-            actualizarTiempo();
-            const interval = setInterval(actualizarTiempo, 1000);
-            return () => clearInterval(interval);
-          } else {
-            localStorage.removeItem('analisisPisada');
-            console.log('[Persistencia] Expirada, eliminada.');
-          }
         } catch (e) {
           console.error('[Persistencia] Error:', e);
           localStorage.removeItem('analisisPisada');
@@ -261,6 +219,11 @@ export default function Home() {
         if (zonas.length > 0 && !zonas.includes('metatarsos') && !zonas.includes('exterior') && !zonas.includes('arco')) {
           zonas.push('arco');
         }
+        //si incluye metatarsos y arco ELIMINA el arco
+        if (zonas.length > 0 && zonas.includes('metatarsos') && zonas.includes('arco')) {
+          const idx = zonas.indexOf('arco');
+          zonas.splice(idx, 1);
+        }
 
         setZonasDetectadas(zonas);
 
@@ -269,7 +232,10 @@ export default function Home() {
         if (zonas.length > 0) {
 
           let tendencia = '';
-          if (zonas.includes('arco')) {
+          if (zonas.includes('metatarsos')) {
+            tendencia = 'Pie cavo supinador';
+          }
+          else if (zonas.includes('arco')) {
             tendencia = 'Pie plano pronador';
           } else if (
             zonas.includes('metatarsos') ||
@@ -284,18 +250,6 @@ export default function Home() {
           // 🔹 2. Asignar ambos estados
           setTendenciaTexto(tendencia);
           setTipoPisada(tendencia);
-
-          // 🔹 3. Guardar en localStorage
-          if (persistenciaActiva) {
-            const expiry = Date.now() + 2 * 60 * 60 * 1000; // 2 h
-            localStorage.setItem('analisisPisada', JSON.stringify({
-              result: data.result,
-              zonasDetectadas: zonas,
-              expiry,
-              compressedPreview,
-              tendenciaTexto: tendencia
-            }));
-          }
 
           setButtonText('Seleccionar imagen');
           setButtonDisabled(true);
@@ -331,11 +285,6 @@ export default function Home() {
       setButtonDisabled(true);
       setProgressStep(steps.length);
     }
-  };
-
-  const renderResultWithBold = (text) => {
-    const html = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    return { __html: html };
   };
 
   return (

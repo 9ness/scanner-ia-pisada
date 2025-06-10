@@ -1,4 +1,7 @@
 // upload.js
+import analisisPisada from 'prompts/analisisPisadaV1.js';
+//import analisisPisada from 'prompts/analisisPisadaV2_gpt4_1_mini_zonasMayorMenor.js';
+//import analisisPisada from 'prompts/analisisPisadaV2_1_gpt4o.js';
 import formidable from 'formidable';
 import { OpenAI } from 'openai';
 import fs from 'fs/promises';
@@ -9,6 +12,8 @@ export const config = {
     bodyParser: false,
   },
 };
+
+const prompt = analisisPisada;
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -56,15 +61,8 @@ export default async function handler(req, res) {
 
       const base64Image = resizedBuffer.toString('base64');
 
-      const prompt = `
-Analiza la imagen de una pisada y responde únicamente si se trata de una fotografía real de una plantilla de pisada con evidencia clara de uso y desgaste. Si la imagen es un dibujo, una ilustración digital, una simulación generada por IA, o no muestra señales físicas claras de presión, no nombres ninguna zona.
-En caso de que sí detectes una imagen real con evidencia visible de uso (como marcas, suciedad o hundimientos), responde solo con las zonas de mayor presión, una por línea.
-Zonas posibles (no inventar ni deducir): dedos, metatarsos, arco, exterior, talón.
-También debes detectar si se trata de un pie derecho o izquierdo. Debes escribir un texto a mayores de las zonas de presión que diga solamente la palabra "izquierdo" o "derecho".
-`;
-
       const response = await openai.chat.completions.create({
-        model: 'gpt-4-turbo',
+        model: 'gpt-4.1-mini',
         messages: [
           {
             role: 'user',
@@ -79,7 +77,6 @@ También debes detectar si se trata de un pie derecho o izquierdo. Debes escribi
             ],
           },
         ],
-        max_tokens: 500,
       });
 
 
