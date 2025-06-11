@@ -800,7 +800,7 @@ button:disabled {
     flex-direction: row;
     justify-content: space-between;
     align-items: flex-start;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     width: 100%;
   }
 

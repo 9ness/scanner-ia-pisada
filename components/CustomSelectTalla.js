@@ -1,5 +1,6 @@
 // components/CustomSelectTalla.js
 import React, { useState, useEffect } from 'react';
+import TablaGuiaTallas from 'components/TablaGuiaTallas.js';
 
 const tallas = [
   { label: 'Talla: EU 37 (25.5 cm)', value: '37' },
@@ -19,6 +20,7 @@ const tallas = [
 export default function CustomSelectTalla({ onSelect }) {
   const [selected, setSelected] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [mostrarGuiaTallas, setMostrarGuiaTallas] = useState(false); // ✅ Estado para el modal de guía
 
   const selectedLabel = tallas.find((t) => t.value === selected)?.label || 'Talla: ';
 
@@ -38,9 +40,45 @@ export default function CustomSelectTalla({ onSelect }) {
 
   return (
     <>
-      <label style={{ textAlign: 'left', fontSize: '0.9rem', marginTop: '2rem', display: 'block' }}>
-        Selecciona tu talla *
-      </label>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'flex-end', // ✅ alinea los dos abajo
+        marginTop: '1rem',
+        marginBottom: '0.3rem',
+        width: '100%'
+      }}>
+        <div style={{
+          width: '80%', // ✅ le damos más espacio real
+          fontWeight: '500',
+          fontSize: '0.85rem',
+          lineHeight: '1.1',
+          textAlign: 'left',
+          color: '#000'
+        }}>
+          Selecciona tu talla *
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setMostrarGuiaTallas(true)}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: '#007442',
+            fontWeight: '500',
+            fontSize: '0.85rem',
+            cursor: 'pointer',
+            padding: 0,
+            margin: 0,
+            textAlign: 'right'
+          }}
+        >
+          Guía de tallas
+        </button>
+      </div>
+
+
       <button
         type="button"
         className="selector-talla-boton"
@@ -118,6 +156,9 @@ export default function CustomSelectTalla({ onSelect }) {
             ))}
           </div>
         </div>
+      )}
+      {mostrarGuiaTallas && (
+        <TablaGuiaTallas onClose={() => setMostrarGuiaTallas(false)} />
       )}
     </>
   );
