@@ -332,23 +332,17 @@ export default function Home() {
     if (!originalFile) return;
 
     setLoading(true);
-    /* ─── Consulta la media dinámica en Redis ───────────── */
-    try {
-      const resLatency = await fetch('/api/latency');
-      const { mean } = await resLatency.json();     // ej. 1180 ms
+    /* ─── Duración fija para la barra ───────────────────────────── */
+    const estMs = 3000;           // 4 segundos exactos
+    setAvgLatency(estMs);         // ←  pasa al hook una única vez
 
-      // colchón UX (2 s); si quieres 1.5 s cambia 2000 → 1500
-      const estMs = (mean || 1200) + 3000;
-      setAvgLatency(estMs);                          // ⬅️ se usará en el hook
-      console.log('[latencia media]', mean, 'ms  → barra', estMs, 'ms');
-    } catch (err) {
-      console.warn('Latencia no disponible, usando 4 s', err);
-      setAvgLatency(1000);        // fallback
-    }
-
-    setEscaneoEnCurso(true); // ✅ Oculta selector cuando empieza el análisis
-    setResult('');
+    /* ─── Activa la carga y bloquea el botón ────────────────────── */
+    setLoading(true);
     setButtonDisabled(true);
+    setEscaneoEnCurso(true);      // oculta selector
+
+    /* ─── Resetea estados previos ───────────────────────────────── */
+    setResult('');
     setProgressStep(0);
     setZonasDetectadas([]);
     setTendenciaTexto('');
@@ -611,7 +605,7 @@ export default function Home() {
               <div ref={analizarRef} style={{ paddingTop: '1rem' }}></div>
               <button
                 type="submit"
-                disabled={buttonDisabled || !tallaSeleccionada}
+                disabled={loading || buttonDisabled || !tallaSeleccionada}
               >
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
                   <ScanLine size={18} />
