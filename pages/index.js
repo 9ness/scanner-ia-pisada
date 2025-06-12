@@ -10,7 +10,7 @@ import LiquidBar from 'components/LiquidBar';
 export default function Home() {
   const imagenTest = false;
   const persistenciaActiva = true; // ← cambiar a false si quiero desactivar persistencia de cuenta atrás
-  const mostrarBotonReset = false; // Cambiar a false para ocultarlo
+  const mostrarBotonReset = true; // Cambiar a false para ocultarlo
   const mostrarBotonReinicioExpirado = true; // ⬅️ Puedes poner en false para ocultar el botón aunque expire
   const [loading, setLoading] = useState(false);
   const [buttonText, setButtonText] = useState('Analizar pisada con IA');
@@ -37,7 +37,7 @@ export default function Home() {
   const [idVariantePlano, setIdVariantePlano] = useState('');
   const [tallaSeleccionada, setTallaSeleccionada] = useState(null);
   const [analisisExpirado, setAnalisisExpirado] = useState(false);
-  // ─── Barra de progreso adaptativa ────────────────────────
+  // ─── Barra de progreso adaptativa  ────────────────────────
   const [avgLatency, setAvgLatency] = useState(3000);   // 4 s de arranque
   const { pct: progressPct, finish } = useOptimisticProgress(loading, avgLatency, 1.00);
 
