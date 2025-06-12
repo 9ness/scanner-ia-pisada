@@ -4,6 +4,8 @@ import { useState, useRef, useEffect } from 'react';
 import PieSVG from '../components/PieSVG';
 import { Camera, Plus, ScanLine, Lightbulb, CheckCircle, XCircle, Footprints, RefreshCcw } from 'lucide-react';
 import { motion } from "framer-motion";
+import { useOptimisticProgress } from 'hooks/useOptimisticProgress';
+import LiquidBar from 'components/LiquidBar';
 
 export default function Home() {
   const imagenTest = false;
@@ -35,6 +37,10 @@ export default function Home() {
   const [idVariantePlano, setIdVariantePlano] = useState('');
   const [tallaSeleccionada, setTallaSeleccionada] = useState(null);
   const [analisisExpirado, setAnalisisExpirado] = useState(false);
+  // ─── Barra de progreso adaptativa ────────────────────────
+  const [avgLatency, setAvgLatency] = useState(3000);   // 4 s de arranque
+  const { pct: progressPct, finish } = useOptimisticProgress(loading, avgLatency, 1.00);
+
 
   // Estado para bloquear render de UI principal antes de restaurar:
   const [isHydrated, setIsHydrated] = useState(!persistenciaActiva);
@@ -96,30 +102,43 @@ export default function Home() {
       plano: "54598904447302",
     },
   };
-
+  /*
+    useEffect(() => {
+      if (loading) {
+        let stepIndex = 0;
+        setEstadoAnalisis(steps[stepIndex]);
+        const interval = setInterval(() => {
+          stepIndex++;
+          if (stepIndex < steps.length) {
+            setProgressStep(stepIndex + 1);
+            setEstadoAnalisis(steps[stepIndex]);
+            analisisRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            setTimeout(() => {
+              progresoRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 100);
+          } else {
+            setProgressStep(steps.length);
+            clearInterval(interval);
+          }
+        }, 1500);
+        return () => clearInterval(interval);
+      } else {
+        setEstadoAnalisis('');
+      }
+    }, [loading]);
+  */
+  // ─── Sincroniza pasos con el porcentaje ──────────────────
   useEffect(() => {
-    if (loading) {
-      let stepIndex = 0;
-      setEstadoAnalisis(steps[stepIndex]);
-      const interval = setInterval(() => {
-        stepIndex++;
-        if (stepIndex < steps.length) {
-          setProgressStep(stepIndex + 1);
-          setEstadoAnalisis(steps[stepIndex]);
-          analisisRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          setTimeout(() => {
-            progresoRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }, 100);
-        } else {
-          setProgressStep(steps.length);
-          clearInterval(interval);
-        }
-      }, 1500);
-      return () => clearInterval(interval);
-    } else {
-      setEstadoAnalisis('');
-    }
-  }, [loading]);
+    if (!loading) return;
+
+    const thresholds = [20, 40, 60, 80];          // % por paso
+    // Encuentra el índice del paso actual
+    let idx = thresholds.findIndex(t => progressPct < t);
+    if (idx === -1) idx = steps.length - 1;       // 80-100 % → último paso
+
+    setEstadoAnalisis(steps[idx]);
+    setProgressStep(idx + 1);                     // para las “pastillas”
+  }, [progressPct, loading]);
 
   useEffect(() => {
     if (mostrarDetalles) {
@@ -313,6 +332,20 @@ export default function Home() {
     if (!originalFile) return;
 
     setLoading(true);
+    /* ─── Consulta la media dinámica en Redis ───────────── */
+    try {
+      const resLatency = await fetch('/api/latency');
+      const { mean } = await resLatency.json();     // ej. 1180 ms
+
+      // colchón UX (2 s); si quieres 1.5 s cambia 2000 → 1500
+      const estMs = (mean || 1200) + 3000;
+      setAvgLatency(estMs);                          // ⬅️ se usará en el hook
+      console.log('[latencia media]', mean, 'ms  → barra', estMs, 'ms');
+    } catch (err) {
+      console.warn('Latencia no disponible, usando 4 s', err);
+      setAvgLatency(1000);        // fallback
+    }
+
     setEscaneoEnCurso(true); // ✅ Oculta selector cuando empieza el análisis
     setResult('');
     setButtonDisabled(true);
@@ -352,12 +385,15 @@ export default function Home() {
       const formData = new FormData();
       formData.append('image', compressedFile);
       // ... tu delay simulado o petición real ...
-      await new Promise((resolve) => setTimeout(resolve, 6000));
+      await new Promise((resolve) => setTimeout(resolve, 3000));
       const res = await fetch('/api/upload', {
         method: 'POST',
         body: formData
       });
       const data = await res.json();
+
+      // ─── Lleva la barra del 90 % al 100 % ────────────────────
+      finish();
 
       if (data.result) {
         // 4. Procesar resultado de texto
@@ -546,23 +582,34 @@ export default function Home() {
 
           {(preview || compressedPreview) && !result && (
             <>
-              {!escaneoEnCurso && (
-                <CustomSelectTalla
-                  onSelect={(tallaElegida) => {
-                    const variantes = variantesPorTalla[tallaElegida];
-                    if (variantes) {
-                      setIdVarianteCavo(variantes.cavo);
-                      setIdVariantePlano(variantes.plano);
-                      setTallaSeleccionada(tallaElegida);
-                    }
-                  }}
-                />
-              )}
+              {/* ─── Selector de talla ó barra de carga ────────────────── */}
+              <div style={{ minHeight: 56 /* alto del select, ajusta si cambia */ }}>
+                {loading ? (
+                  /* Muestra la barra SOLO mientras loading === true */
+                  <LiquidBar pct={progressPct} />
+                ) : (
+                  /* Si no está cargando y no existe análisis previo,
+                     muestra el selector */
+                  !escaneoEnCurso && (
+                    <CustomSelectTalla
+                      onSelect={(tallaElegida) => {
+                        const variantes = variantesPorTalla[tallaElegida];
+                        if (variantes) {
+                          setIdVarianteCavo(variantes.cavo);
+                          setIdVariantePlano(variantes.plano);
+                          setTallaSeleccionada(tallaElegida);
+                        }
+                      }}
+                    />
+                  )
+                )}
+              </div>
+
 
 
 
               <div ref={analizarRef} style={{ paddingTop: '1rem' }}></div>
-              <motion.button
+              <button
                 type="submit"
                 disabled={buttonDisabled || !tallaSeleccionada}
               >
@@ -570,7 +617,8 @@ export default function Home() {
                   <ScanLine size={18} />
                   {buttonText}
                 </span>
-              </motion.button>
+              </button>
+              {/*
               {loading && (
                 <>
                   <div ref={refCargaInicio}></div>
@@ -580,7 +628,7 @@ export default function Home() {
                   </div>
                 </>
               )}
-
+              {/*
               {loading && (
                 <div className="steps-container">
                   <div className="steps">
@@ -593,6 +641,9 @@ export default function Home() {
                   </div>
                 </div>
               )}
+
+              {loading && <LiquidBar pct={progressPct} />}
+*/}
 
             </>
           )}

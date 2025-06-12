@@ -6,6 +6,7 @@ import formidable from 'formidable';
 import { OpenAI } from 'openai';
 import fs from 'fs/promises';
 import sharp from 'sharp';
+import { kv } from 'lib/kv.js';
 
 export const config = {
   api: {
@@ -59,6 +60,8 @@ export default async function handler(req, res) {
         .jpeg({ quality: 70 })
         .toBuffer();
 
+      const t0 = Date.now();
+
       const base64Image = resizedBuffer.toString('base64');
 
       const response = await openai.chat.completions.create({
@@ -79,6 +82,11 @@ export default async function handler(req, res) {
         ],
       });
 
+      // ─── Registramos latencia (máx 50 valores) ───────────────
+      const latency = Date.now() - t0;             // ms
+      await kv.lpush('openai_latencies', latency);
+      await kv.ltrim('openai_latencies', 0, 49);
+      console.log('[latency ms]', latency);
 
       let result = response.choices[0]?.message?.content || '';
       console.log(`[OpenAI (${response.model}) respuesta completa]:`, result);
