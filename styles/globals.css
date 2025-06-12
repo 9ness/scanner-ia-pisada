@@ -453,6 +453,11 @@ button:disabled {
   margin: 1rem auto;
 }
 
+.boton-animado:active {
+  transform: scale(0.96);
+  transition: transform 0.1s ease;
+}
+
 .scan-line {
   position: absolute;
   top: 0;

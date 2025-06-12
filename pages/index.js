@@ -8,7 +8,7 @@ import { motion } from "framer-motion";
 export default function Home() {
   const imagenTest = false;
   const persistenciaActiva = true; // ← cambiar a false si quiero desactivar persistencia de cuenta atrás
-  const mostrarBotonReset = true; // Cambiar a false para ocultarlo
+  const mostrarBotonReset = false; // Cambiar a false para ocultarlo
   const mostrarBotonReinicioExpirado = true; // ⬅️ Puedes poner en false para ocultar el botón aunque expire
   const [loading, setLoading] = useState(false);
   const [buttonText, setButtonText] = useState('Analizar pisada con IA');
@@ -456,8 +456,8 @@ export default function Home() {
               htmlFor="file-upload"
               className="custom-file-upload"
               style={{
-                opacity: result && zonasDetectadas.length > 0 ? 0.5 : 1,
-                cursor: result && zonasDetectadas.length > 0 ? 'not-allowed' : 'pointer',
+                opacity: (result && zonasDetectadas.length > 0) || loading ? 0.5 : 1,
+                cursor: (result && zonasDetectadas.length > 0) || loading ? 'not-allowed' : 'pointer',
               }}
               onClick={(e) => {
                 if (result && zonasDetectadas.length > 0) {
@@ -489,6 +489,7 @@ export default function Home() {
             accept="image/*"
             ref={fileInputRef}
             onChange={handleFileChange}
+            disabled={loading}
           />
           {!(result && zonasDetectadas.length > 0) && (
             <div className="info-text">
@@ -561,12 +562,15 @@ export default function Home() {
 
 
               <div ref={analizarRef} style={{ paddingTop: '1rem' }}></div>
-              <button type="submit" disabled={buttonDisabled || !tallaSeleccionada}>
+              <motion.button
+                type="submit"
+                disabled={buttonDisabled || !tallaSeleccionada}
+              >
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
                   <ScanLine size={18} />
                   {buttonText}
                 </span>
-              </button>
+              </motion.button>
               {loading && (
                 <>
                   <div ref={refCargaInicio}></div>
