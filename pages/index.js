@@ -10,7 +10,7 @@ import LiquidBar from 'components/LiquidBar';
 export default function Home() {
   const imagenTest = false;
   const persistenciaActiva = true; // ← cambiar a false si quiero desactivar persistencia de cuenta atrás
-  const mostrarBotonReset = true; // Cambiar a false para ocultarlo
+  const mostrarBotonReset = false; // Cambiar a false para ocultarlo
   const mostrarBotonReinicioExpirado = true; // ⬅️ Puedes poner en false para ocultar el botón aunque expire
   const [loading, setLoading] = useState(false);
   const [buttonText, setButtonText] = useState('Analizar pisada con IA');
@@ -39,7 +39,7 @@ export default function Home() {
   const [analisisExpirado, setAnalisisExpirado] = useState(false);
   // ─── Barra de progreso adaptativa  ────────────────────────
   const [avgLatency, setAvgLatency] = useState(3000);   // 4 s de arranque
-  const { pct: progressPct, finish } = useOptimisticProgress(loading, avgLatency, 1.00);
+  const { pct: progressPct, finish } = useOptimisticProgress(loading, avgLatency, 1);
 
 
   // Estado para bloquear render de UI principal antes de restaurar:
@@ -331,12 +331,14 @@ export default function Home() {
     const originalFile = fileInputRef.current?.files[0];
     if (!originalFile) return;
 
-    setLoading(true);
-    /* ─── Duración fija para la barra ───────────────────────────── */
-    const estMs = 3000;           // 4 segundos exactos
-    setAvgLatency(estMs);         // ←  pasa al hook una única vez
+    /* ─── Duración fija barra 4,3 s (1,3 s media + 3 s colchón) ── */
+    const TOTAL_MS = 3500;
+    setAvgLatency(TOTAL_MS);      // el hook ya sabe la duración
 
-    /* ─── Activa la carga y bloquea el botón ────────────────────── */
+    /* marca de tiempo para medir lo que tarda la API */
+    const t0 = Date.now();
+
+    /* ahora sí: activa la carga y bloquea el botón */
     setLoading(true);
     setButtonDisabled(true);
     setEscaneoEnCurso(true);      // oculta selector
@@ -378,22 +380,30 @@ export default function Home() {
       // 3. Lógica de “espera” o petición a API
       const formData = new FormData();
       formData.append('image', compressedFile);
-      // ... tu delay simulado o petición real ...
-      await new Promise((resolve) => setTimeout(resolve, 3000));
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData
+      /* -------- sube la imagen y cronómetro en paralelo -------- */
+      const uploadPromise = (async () => {
+        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        return await res.json();          // devuelve el JSON
+      })();
+
+      const delayPromise = new Promise(r => {
+        const elapsed = Date.now() - t0;
+        /* espera lo que falte para TOTAL_MS, nunca < 0 */
+        setTimeout(r, Math.max(0, TOTAL_MS - elapsed));
       });
-      const data = await res.json();
 
-      // ─── Lleva la barra del 90 % al 100 % ────────────────────
-      finish();
+      /* espera a que terminen AMBAS cosas */
+      const [data] = await Promise.all([uploadPromise, delayPromise]);
 
+      finish();                            // barra 98 % → 100 %
+
+
+      /***** PROCESAR EL RESULTADO *****/
       if (data.result) {
-        // 4. Procesar resultado de texto
         setResult(data.result);
+
+        /* extraer zonas tal como ya tenías */
         let zonas = extraerZonas(data.result);
-        // Forzar lógica de “arco”
         if (zonas.length > 0 && !zonas.includes('metatarsos') && !zonas.includes('exterior') && !zonas.includes('arco')) {
           zonas.push('arco');
         }
@@ -403,64 +413,55 @@ export default function Home() {
         }
         setZonasDetectadas(zonas);
 
-        // 5. Calcular tendencia sin redeclarar variable
+        /* tendencia, lado, UI …  (todo igual que antes) */
         let tendencia = '';
         if (zonas.length > 0) {
           if (zonas.includes('metatarsos')) {
             tendencia = 'Pie cavo supinador';
           } else if (zonas.includes('arco')) {
             tendencia = 'Pie plano pronador';
-          } else if (
-            zonas.includes('metatarsos') ||
-            zonas.includes('talon') ||
-            zonas.includes('talón') ||
-            zonas.includes('dedos') ||
-            zonas.includes('exterior')
-          ) {
+          } else {
             tendencia = 'Pie cavo supinador';
           }
         }
         setTendenciaTexto(tendencia);
         setTipoPisada(tendencia);
 
-        // 6. Detectar izquierda/derecha
         const textoPlano = normalizarTexto(data.result || '');
         const esIzq = textoPlano.includes('izquierdo');
         setEsPieIzquierdo(esIzq);
 
-        // 7. Ajustes UI tras análisis exitoso
         setButtonText('Seleccionar imagen');
         setButtonDisabled(true);
         setImageAnalyzed(true);
         setProgressStep(steps.length);
         window.parent.postMessage({ type: 'scrollToIframe', step: 'resultado' }, '*');
 
-        // 8. GUARDAR en localStorage todo el estado persistible
+        /* persistencia en localStorage … */
         if (persistenciaActiva) {
           try {
             const payload = {
               result: data.result,
               zonasDetectadas: zonas,
               tendenciaTexto: tendencia,
-              compressedPreviewDataUrl: dataUrl || null,
+              compressedPreviewDataUrl: compressedPreview,
               esPieIzquierdo: esIzq,
               idVarianteCavo,
               idVariantePlano,
               timestamp: Date.now()
             };
             localStorage.setItem('analisisPisada', JSON.stringify(payload));
-            console.log('[Persistencia] Estado guardado correctamente:', payload);
           } catch (e) {
             console.error('[Persistencia] Error guardando estado:', e);
           }
         }
       } else {
-        // Resultado incorrecto: permitimos nuevo intento
         setResult('Error al analizar la imagen.');
         setButtonText('Analizar pisada con IA');
         setButtonDisabled(false);
-        // No guardamos persistencia, de modo que puede volver a intentar
       }
+      /***** FIN PROCESADO RESULTADO *****/
+
 
     } catch (err) {
       console.error(err);
