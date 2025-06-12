@@ -1,6 +1,6 @@
 // upload.js
-import analisisPisada from 'prompts/analisisPisadaV1.js';
-//import analisisPisada from 'prompts/analisisPisadaV2_gpt4_1_mini_zonasMayorMenor.js';
+//import analisisPisada from 'prompts/analisisPisadaV1.js';
+import analisisPisada from 'prompts/analisisPisadaV3_4-1-mini.js';
 //import analisisPisada from 'prompts/analisisPisadaV2_1_gpt4o.js';
 import formidable from 'formidable';
 import { OpenAI } from 'openai';

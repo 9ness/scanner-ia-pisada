@@ -49,9 +49,9 @@ export default function CustomSelectTalla({ onSelect }) {
         width: '100%'
       }}>
         <div style={{
-          width: '80%', // ✅ le damos más espacio real
+          width: '100%', // ✅ le damos más espacio real
           fontWeight: '500',
-          fontSize: '0.85rem',
+          fontSize: '0.80rem',
           lineHeight: '1.1',
           textAlign: 'left',
           color: '#000'

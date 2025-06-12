@@ -2,13 +2,14 @@
 import CustomSelectTalla from 'components/CustomSelectTalla.js';
 import { useState, useRef, useEffect } from 'react';
 import PieSVG from '../components/PieSVG';
-import { Camera, Plus, Scan, Lightbulb, CheckCircle, XCircle, Footprints } from 'lucide-react';
+import { Camera, Plus, ScanLine, Lightbulb, CheckCircle, XCircle, Footprints, RefreshCcw } from 'lucide-react';
 import { motion } from "framer-motion";
 
 export default function Home() {
   const imagenTest = false;
   const persistenciaActiva = true; // ← cambiar a false si quiero desactivar persistencia de cuenta atrás
   const mostrarBotonReset = false; // Cambiar a false para ocultarlo
+  const mostrarBotonReinicioExpirado = true; // ⬅️ Puedes poner en false para ocultar el botón aunque expire
   const [loading, setLoading] = useState(false);
   const [buttonText, setButtonText] = useState('Analizar pisada con IA');
   const [result, setResult] = useState('');
@@ -33,7 +34,7 @@ export default function Home() {
   const [idVarianteCavo, setIdVarianteCavo] = useState('');
   const [idVariantePlano, setIdVariantePlano] = useState('');
   const [tallaSeleccionada, setTallaSeleccionada] = useState(null);
-
+  const [analisisExpirado, setAnalisisExpirado] = useState(false);
 
   // Estado para bloquear render de UI principal antes de restaurar:
   const [isHydrated, setIsHydrated] = useState(!persistenciaActiva);
@@ -143,6 +144,22 @@ export default function Home() {
     const saved = localStorage.getItem('analisisPisada');
     if (saved) {
       try {
+        const parsed = JSON.parse(saved);
+        const tiempoActual = Date.now();
+        const mediaHora = 30 * 60 * 1000;
+        //const mediaHora = 3 * 1000; // 3 segundos (para pruebas);
+
+        if (parsed.timestamp && tiempoActual - parsed.timestamp > mediaHora) {
+          console.log('[Persistencia] Datos expirados (más de 3 horas)');
+          if (mostrarBotonReinicioExpirado) {
+            setAnalisisExpirado(true); // ⬅️ Solo marcamos como expirado si se habilita el botón
+          }
+        }
+      } catch (e) {
+        console.error('[Persistencia] Error al validar expiración:', e);
+        localStorage.removeItem('analisisPisada');
+      }
+      try {
         const {
           result: savedResult,
           zonasDetectadas: savedZonas,
@@ -212,6 +229,20 @@ export default function Home() {
     window.addEventListener('resize', enviarAltura);
     return () => window.removeEventListener('resize', enviarAltura);
   }, []);
+
+  useEffect(() => {
+    if (result && zonasDetectadas.length > 0) {
+      const timeout = setTimeout(() => {
+        if (window.parent) {
+          const altura = document.documentElement.scrollHeight;
+          window.parent.postMessage({ type: 'setIframeHeight', height: altura }, '*');
+          console.log('[Iframe] Altura reenviada tras mostrar resultado:', altura);
+        }
+      }, 600); // Espera a que termine la animación y render completo
+
+      return () => clearTimeout(timeout);
+    }
+  }, [result, zonasDetectadas]);
 
   const compressImage = async (file) => {
     return new Promise((resolve) => {
@@ -384,7 +415,8 @@ export default function Home() {
               compressedPreviewDataUrl: dataUrl || null,
               esPieIzquierdo: esIzq,
               idVarianteCavo,
-              idVariantePlano
+              idVariantePlano,
+              timestamp: Date.now()
             };
             localStorage.setItem('analisisPisada', JSON.stringify(payload));
             console.log('[Persistencia] Estado guardado correctamente:', payload);
@@ -531,7 +563,7 @@ export default function Home() {
               <div ref={analizarRef} style={{ paddingTop: '1rem' }}></div>
               <button type="submit" disabled={buttonDisabled || !tallaSeleccionada}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Scan size={18} />
+                  <ScanLine size={18} />
                   {buttonText}
                 </span>
               </button>
@@ -672,6 +704,34 @@ export default function Home() {
                     <span>Ver mi plantilla</span>
                     <span style={{ fontSize: '10px' }}></span>
                   </p>
+
+                  {analisisExpirado && mostrarBotonReinicioExpirado && (
+                    <button
+                      onClick={() => {
+                        localStorage.removeItem('analisisPisada');
+                        window.location.reload();
+                      }}
+                      style={{
+                        backgroundColor: '#007442',
+                        color: '#fff',
+                        padding: '0.6rem 1.5rem',
+                        border: 'none',
+                        borderRadius: '9999px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold',
+                        fontSize: '0.95rem',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.5rem', // ⬅️ ESPACIADO ENTRE ICONO Y TEXTO
+                        marginTop: '1rem',
+                        width: '100%',
+                        maxWidth: '300px'
+                      }}
+                    > <RefreshCcw size={18} />
+                      Nuevo análisis GRATIS
+                    </button>
+                  )}
                 </div>
               </>
             )}
@@ -718,11 +778,11 @@ export default function Home() {
               style={{
                 backgroundColor: '#d32f2f',
                 color: 'white',
+                padding: '0.6rem 1.2rem',
                 border: 'none',
-                padding: '0.5rem 1rem',
-                borderRadius: '5px',
+                borderRadius: '8px',
                 cursor: 'pointer',
-                fontSize: '0.95rem'
+                marginTop: '1rem'
               }}
             >
               🔄 Reiniciar análisis (test)
