@@ -38,7 +38,7 @@ export default function Home() {
   const [tallaSeleccionada, setTallaSeleccionada] = useState(null);
   const [analisisExpirado, setAnalisisExpirado] = useState(false);
   // ─── Barra de progreso adaptativa  ────────────────────────
-  const [avgLatency, setAvgLatency] = useState(3000);   // 4 s de arranque
+  const [avgLatency, setAvgLatency] = useState(4000);   // 4 s de arranque
   const { pct: progressPct, finish } = useOptimisticProgress(loading, avgLatency, 1);
 
 
@@ -332,7 +332,7 @@ export default function Home() {
     if (!originalFile) return;
 
     /* ─── Duración fija barra 4,3 s (1,3 s media + 3 s colchón) ── */
-    const TOTAL_MS = 3500;
+    const TOTAL_MS = 4300;
     setAvgLatency(TOTAL_MS);      // el hook ya sabe la duración
 
     /* marca de tiempo para medir lo que tarda la API */
