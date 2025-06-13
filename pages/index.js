@@ -444,7 +444,7 @@ export default function Home() {
               result: data.result,
               zonasDetectadas: zonas,
               tendenciaTexto: tendencia,
-              compressedPreviewDataUrl: compressedPreview,
+              compressedPreviewDataUrl: dataUrl || null,
               esPieIzquierdo: esIzq,
               idVarianteCavo,
               idVariantePlano,
