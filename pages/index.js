@@ -1,4 +1,4 @@
-
+import dynamic from 'next/dynamic';
 import CustomSelectTalla from 'components/CustomSelectTalla.js';
 import { useState, useRef, useEffect } from 'react';
 import PieSVG from '../components/PieSVG';
@@ -404,13 +404,15 @@ export default function Home() {
 
         /* extraer zonas tal como ya tenías */
         let zonas = extraerZonas(data.result);
-        if (zonas.length > 0 && !zonas.includes('metatarsos') && !zonas.includes('exterior') && !zonas.includes('arco')) {
-          zonas.push('arco');
+        if (zonas.length > 0 && !zonas.includes('metatarsos') && !zonas.includes('arco')) {
+          zonas.push('metatarsos');
         }
+
         if (zonas.length > 0 && zonas.includes('metatarsos') && zonas.includes('arco')) {
           const idx = zonas.indexOf('arco');
           zonas.splice(idx, 1);
         }
+
         setZonasDetectadas(zonas);
 
         /* tendencia, lado, UI …  (todo igual que antes) */
