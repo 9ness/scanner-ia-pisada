@@ -488,14 +488,18 @@ export default function Home() {
             <label
               htmlFor="file-upload"
               className="custom-file-upload"
+              tabIndex={0}  // opcional, para focus accesible
+              aria-label="Seleccionar imagen"
               style={{
                 opacity: (result && zonasDetectadas.length > 0) || loading ? 0.5 : 1,
                 cursor: (result && zonasDetectadas.length > 0) || loading ? 'not-allowed' : 'pointer',
               }}
               onClick={(e) => {
+                // Cuando esté disabled, bloqueamos
                 if ((result && zonasDetectadas.length > 0) || loading) {
-                  e.preventDefault(); // bloquea el click si no debe abrirse
+                  e.preventDefault();
                 }
+                // NO llamar a fileInputRef.current.click()
               }}
             >
               {imageAnalyzed && zonasDetectadas.length === 0 ? (
@@ -516,10 +520,13 @@ export default function Home() {
           <input
             id="file-upload"
             type="file"
-            name="image"
             accept="image/*"
             ref={fileInputRef}
-            onChange={handleFileChange}
+            onChange={(e) => {
+              handleFileChange(e);   // tu lógica limpia estados, preview, etc.
+              // Limpiar valor para permitir re-selección misma imagen si se desea:
+              e.target.value = '';
+            }}
             disabled={loading || (result && zonasDetectadas.length > 0)}
             style={{ display: 'none' }}
           />
