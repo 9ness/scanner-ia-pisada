@@ -10,7 +10,7 @@ import LiquidBar from 'components/LiquidBar';
 export default function Home() {
   const imagenTest = false;
   const persistenciaActiva = true; // ← cambiar a false si quiero desactivar persistencia de cuenta atrás
-  const mostrarBotonReset = false; // Cambiar a false para ocultarlo
+  const mostrarBotonReset = true; // Cambiar a false para ocultarlo
   const mostrarBotonReinicioExpirado = true; // ⬅️ Puedes poner en false para ocultar el botón aunque expire
   const [loading, setLoading] = useState(false);
   const [buttonText, setButtonText] = useState('Analizar pisada con IA');
@@ -488,18 +488,14 @@ export default function Home() {
             <label
               htmlFor="file-upload"
               className="custom-file-upload"
-              tabIndex={0}  // opcional, para focus accesible
-              aria-label="Seleccionar imagen"
               style={{
                 opacity: (result && zonasDetectadas.length > 0) || loading ? 0.5 : 1,
                 cursor: (result && zonasDetectadas.length > 0) || loading ? 'not-allowed' : 'pointer',
               }}
               onClick={(e) => {
-                // Cuando esté disabled, bloqueamos
-                if ((result && zonasDetectadas.length > 0) || loading) {
-                  e.preventDefault();
+                if (result && zonasDetectadas.length > 0) {
+                  e.preventDefault(); // Bloquea el clic
                 }
-                // NO llamar a fileInputRef.current.click()
               }}
             >
               {imageAnalyzed && zonasDetectadas.length === 0 ? (
@@ -517,18 +513,16 @@ export default function Home() {
 
           )}
 
+
+
           <input
             id="file-upload"
             type="file"
+            name="image"
             accept="image/*"
             ref={fileInputRef}
-            onChange={(e) => {
-              handleFileChange(e);   // tu lógica limpia estados, preview, etc.
-              // Limpiar valor para permitir re-selección misma imagen si se desea:
-              e.target.value = '';
-            }}
-            disabled={loading || (result && zonasDetectadas.length > 0)}
-            style={{ display: 'none' }}
+            onChange={handleFileChange}
+            disabled={loading}
           />
           {!(result && zonasDetectadas.length > 0) && (
             <div className="info-text">
