@@ -10,7 +10,7 @@ import LiquidBar from 'components/LiquidBar';
 export default function Home() {
   const imagenTest = false;
   const persistenciaActiva = true; // ← cambiar a false si quiero desactivar persistencia de cuenta atrás
-  const mostrarBotonReset = true; // Cambiar a false para ocultarlo
+  const mostrarBotonReset = false; // Cambiar a false para ocultarlo
   const mostrarBotonReinicioExpirado = true; // ⬅️ Puedes poner en false para ocultar el botón aunque expire
   const [loading, setLoading] = useState(false);
   const [buttonText, setButtonText] = useState('Analizar pisada con IA');
@@ -485,18 +485,19 @@ export default function Home() {
 
         <form onSubmit={handleSubmit}>
           {!(result && zonasDetectadas.length > 0) && (
-            <label
-              htmlFor="file-upload"
-              className="custom-file-upload"
+            <button
+              type="button"
               style={{
                 opacity: (result && zonasDetectadas.length > 0) || loading ? 0.5 : 1,
                 cursor: (result && zonasDetectadas.length > 0) || loading ? 'not-allowed' : 'pointer',
               }}
               onClick={(e) => {
-                if (result && zonasDetectadas.length > 0) {
-                  e.preventDefault(); // Bloquea el clic
+                if (!(result && zonasDetectadas.length > 0) && !loading) {
+                  fileInputRef.current.click();
+                  //e.preventDefault(); // Bloquea el clic
                 }
               }}
+              className="custom-file-upload"
             >
               {imageAnalyzed && zonasDetectadas.length === 0 ? (
                 <>
@@ -509,7 +510,7 @@ export default function Home() {
                   Seleccionar imagen
                 </>
               )}
-            </label>
+            </button>
 
           )}
 
