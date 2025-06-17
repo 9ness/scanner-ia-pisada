@@ -487,17 +487,17 @@ export default function Home() {
           {!(result && zonasDetectadas.length > 0) && (
             <button
               type="button"
+              className="custom-file-upload"
+              onClick={(e) => {
+                if (!(result && zonasDetectadas.length > 0) && !loading) {
+                  fileInputRef.current?.click();
+                  //e.preventDefault(); // Bloquea el clic
+                }
+              }}
               style={{
                 opacity: (result && zonasDetectadas.length > 0) || loading ? 0.5 : 1,
                 cursor: (result && zonasDetectadas.length > 0) || loading ? 'not-allowed' : 'pointer',
               }}
-              onClick={(e) => {
-                if (!(result && zonasDetectadas.length > 0) && !loading) {
-                  fileInputRef.current.click();
-                  //e.preventDefault(); // Bloquea el clic
-                }
-              }}
-              className="custom-file-upload"
             >
               {imageAnalyzed && zonasDetectadas.length === 0 ? (
                 <>
@@ -524,6 +524,7 @@ export default function Home() {
             ref={fileInputRef}
             onChange={handleFileChange}
             disabled={loading}
+            style={{ display: 'none' }}
           />
           {!(result && zonasDetectadas.length > 0) && (
             <div className="info-text">
