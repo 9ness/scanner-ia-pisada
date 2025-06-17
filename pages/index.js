@@ -10,7 +10,7 @@ import LiquidBar from 'components/LiquidBar';
 export default function Home() {
   const imagenTest = false;
   const persistenciaActiva = true; // ← cambiar a false si quiero desactivar persistencia de cuenta atrás
-  const mostrarBotonReset = false; // Cambiar a false para ocultarlo
+  const mostrarBotonReset = true; // Cambiar a false para ocultarlo
   const mostrarBotonReinicioExpirado = true; // ⬅️ Puedes poner en false para ocultar el botón aunque expire
   const [loading, setLoading] = useState(false);
   const [buttonText, setButtonText] = useState('Analizar pisada con IA');
@@ -485,18 +485,17 @@ export default function Home() {
 
         <form onSubmit={handleSubmit}>
           {!(result && zonasDetectadas.length > 0) && (
-            <button
-              type="button"
+            <label
+              htmlFor="file-upload"
               className="custom-file-upload"
-              onClick={(e) => {
-                if (!(result && zonasDetectadas.length > 0) && !loading) {
-                  fileInputRef.current?.click();
-                  //e.preventDefault(); // Bloquea el clic
-                }
-              }}
               style={{
                 opacity: (result && zonasDetectadas.length > 0) || loading ? 0.5 : 1,
                 cursor: (result && zonasDetectadas.length > 0) || loading ? 'not-allowed' : 'pointer',
+              }}
+              onClick={(e) => {
+                if ((result && zonasDetectadas.length > 0) || loading) {
+                  e.preventDefault(); // bloquea el click si no debe abrirse
+                }
               }}
             >
               {imageAnalyzed && zonasDetectadas.length === 0 ? (
@@ -510,11 +509,9 @@ export default function Home() {
                   Seleccionar imagen
                 </>
               )}
-            </button>
+            </label>
 
           )}
-
-
 
           <input
             id="file-upload"
@@ -523,7 +520,7 @@ export default function Home() {
             accept="image/*"
             ref={fileInputRef}
             onChange={handleFileChange}
-            disabled={loading}
+            disabled={loading || (result && zonasDetectadas.length > 0)}
             style={{ display: 'none' }}
           />
           {!(result && zonasDetectadas.length > 0) && (
