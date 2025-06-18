@@ -37,6 +37,7 @@ export default function Home() {
   const [idVariantePlano, setIdVariantePlano] = useState('');
   const [tallaSeleccionada, setTallaSeleccionada] = useState(null);
   const [analisisExpirado, setAnalisisExpirado] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
   // ─── Barra de progreso adaptativa  ────────────────────────
   const [avgLatency, setAvgLatency] = useState(4000);   // 4 s de arranque
   const { pct: progressPct, finish } = useOptimisticProgress(loading, avgLatency, 1);
@@ -297,9 +298,11 @@ export default function Home() {
       (f) => !f.type.startsWith('image/')
     );
     if (invalid) {
-      alert('Solo se admiten imágenes (jpg, png, heic…).');
+      setErrorMsg('Solo se admiten imágenes');
       e.target.value = '';       // resetea para permitir otro intento
       return;                    // aborta el flujo habitual
+    } else {
+      setErrorMsg('');           // limpia si ya había un error
     }
 
     const file = e.target.files[0];
@@ -493,6 +496,11 @@ export default function Home() {
     <>
 
       <div className="container">
+        {errorMsg && (
+          <div className="error-banner">
+            {errorMsg}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
           {!(result && zonasDetectadas.length > 0) && (
