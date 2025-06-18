@@ -519,7 +519,7 @@ export default function Home() {
             id="file-upload"
             type="file"
             name="image"
-            accept="image/*"
+            accept="image/*,text/plain"
             multiple
             ref={fileInputRef}
             onChange={handleFileChange}
