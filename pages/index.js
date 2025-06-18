@@ -291,6 +291,17 @@ export default function Home() {
   };
 
   const handleFileChange = (e) => {
+
+    /* ---- BLOQUE NUEVO: filtra todo lo que no sea imagen ---- */
+    const invalid = Array.from(e.target.files || []).some(
+      (f) => !f.type.startsWith('image/')
+    );
+    if (invalid) {
+      alert('Solo se admiten imágenes (jpg, png, heic…).');
+      e.target.value = '';       // resetea para permitir otro intento
+      return;                    // aborta el flujo habitual
+    }
+
     const file = e.target.files[0];
     if (file) {
       if (persistenciaActiva) {
