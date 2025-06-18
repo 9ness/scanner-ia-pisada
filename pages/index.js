@@ -225,7 +225,7 @@ export default function Home() {
   useEffect(() => {
     const sendHeight = () => {
       const height = document.documentElement.scrollHeight;
-      window.parent.postMessage({ height }, '*');
+      window.parent.postMessage({ type: 'setIframeHeight', height }, '*');
     };
 
     sendHeight(); // inicial
