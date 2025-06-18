@@ -478,7 +478,6 @@ export default function Home() {
       }
       /***** FIN PROCESADO RESULTADO *****/
 
-
     } catch (err) {
       console.error(err);
       setResult('Error en la conexión con el servidor.');
