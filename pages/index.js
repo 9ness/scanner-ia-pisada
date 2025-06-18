@@ -520,6 +520,7 @@ export default function Home() {
             type="file"
             name="image"
             accept="image/*"
+            multiple
             ref={fileInputRef}
             onChange={handleFileChange}
             disabled={loading}
