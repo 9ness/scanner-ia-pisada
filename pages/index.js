@@ -419,7 +419,7 @@ export default function Home() {
         /* extraer zonas tal como ya tenías */
         let zonas = extraerZonas(data.result);
         if (zonas.length > 0 && !zonas.includes('metatarsos') && !zonas.includes('arco')) {
-          zonas.push('metatarsos');
+          zonas.push('arco');
         }
 
         if (zonas.length > 0 && zonas.includes('metatarsos') && zonas.includes('arco')) {
