@@ -1,4 +1,5 @@
 import dynamic from 'next/dynamic';
+import Image from 'next/image';
 import CustomSelectTalla from 'components/CustomSelectTalla.js';
 import { useState, useRef, useEffect } from 'react';
 import PieSVG from '../components/PieSVG';
@@ -563,7 +564,14 @@ export default function Home() {
             <div className="ejemplos-subida">
               <div className="ejemplo">
                 <div className="imagen-wrapper">
-                  <img src="/ejemplo_plantilla_valida.webp" alt="Ejemplo plantilla correcta" />
+                  <Image
+                    src="/ejemplo_plantilla_valida.webp"
+                    alt="Ejemplo plantilla correcta"
+                    width={160}
+                    height={90}
+                    priority
+                    quality={70}
+                  />
                 </div>
                 <p className="texto-ejemplo correcto">
                   <CheckCircle size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
@@ -572,7 +580,14 @@ export default function Home() {
               </div>
               <div className="ejemplo">
                 <div className="imagen-wrapper">
-                  <img src="/ejemplo_plantilla_no_valida.webp" alt="Ejemplo plantilla incorrecta" />
+                  <Image
+                    src="/ejemplo_plantilla_no_valida.webp"
+                    alt="Ejemplo plantilla incorrecta"
+                    width={160}
+                    height={90}
+                    priority
+                    quality={70}
+                  />
                 </div>
                 <p className="texto-ejemplo incorrecto">
                   <XCircle size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
