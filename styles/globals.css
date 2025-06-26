@@ -217,13 +217,13 @@ body {
     transform: rotate(360deg);
   }
 }
-
+/*
 .estado-progreso {
   display: flex;
   align-items: center;
-  /* ✅ Centra verticalmente texto con spinner */
+  /* ✅ Centra verticalmente texto con spinner 
   justify-content: center;
-  /* ✅ Centra todo en horizontal */
+
   gap: 0.5rem;
   margin-top: 1.5rem;
   font-size: 1rem;
@@ -238,9 +238,43 @@ body {
   margin-right: auto;
   line-height: 1.4;
 }
+*/
+
+.estado-progreso{
+  font-size:.7rem;            /* más pequeño */
+  font-weight:500;
+  text-align:center;
+  margin-bottom:.25rem;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  gap:.35rem;
+  color: #333;
+}
+
+.dots{
+  display:inline-flex;
+}
+
+.dots span{
+  width:6px;
+  height:6px;
+  margin:0 2px;
+  border-radius:50%;
+  background:#007442;         /* verde corporativo */
+  transform:scale(.3);
+  animation:dotPulse 1.2s infinite ease-in-out;
+}
+.dots span:nth-child(2){animation-delay:.2s;}
+.dots span:nth-child(3){animation-delay:.4s;}
+
+@keyframes dotPulse{
+  0%,100%{transform:scale(.3);}
+  50%{transform:scale(1);}
+}
 
 .estado-analisis {
-  font-size: 0.95rem;
+  font-size: 0.7rem;
   font-weight: 500;
   color: #333;
   font-family: 'Poppins', sans-serif;
@@ -661,12 +695,12 @@ button:disabled {
     text-align: left;
     font-size: 0.95rem;
   }
-
+/*
   .estado-progreso {
     flex-wrap: nowrap;
     gap: 0.25rem;
   }
-
+*/
   .estado-analisis {
     font-size: 0.75rem;
     white-space: nowrap;
@@ -720,7 +754,8 @@ button:disabled {
 }
 
 .bloque-zonas-presion-final {
-  background-color: rgba(243, 244, 246, 0.85);
+  background:rgba(1, 155, 88, 0.034);          /* verde muy suave */
+  border: 1px solid rgba(0,116,66,.20);
   /* gris translúcido */
   border-radius: 1rem;
   padding: 1rem;
@@ -730,7 +765,7 @@ button:disabled {
   flex-direction: column;
   align-items: flex-start;
   text-align: left;
-  min-height: 170px;
+  min-height: 200px;
   justify-content: center;
 }
 
@@ -745,7 +780,7 @@ button:disabled {
   /* pie con fondo blanco */
   border: 1.5px solid #e5e7eb;
   border-radius: 1rem;
-  padding: 1rem;
+  padding: 0rem;
   box-shadow: none;
   width: 260px;
   display: flex;
@@ -753,11 +788,18 @@ button:disabled {
   justify-content: center;
   height: auto;
   box-sizing: border-box;
+  min-height: 200px;
+}
+
+.bloque-svg-final svg{
+  width:100%;        /* ocupa todo el ancho interior */
+  height:auto;       /* mantiene proporción            */
+  max-height:180px;  /* evita que se pase en pantallas muy altas */
 }
 
 .bloque-tendencia-final {
-  background-color: rgba(243, 244, 246, 0.85);
-  /* gris translúcido */
+  background:rgba(1, 155, 88, 0.034);          /* verde muy suave */
+  border:1px solid rgba(0,116,66,.20);
   border-radius: 1rem;
   box-shadow: none;
   display: flex;
@@ -837,7 +879,6 @@ button:disabled {
     flex: 1;
     max-width: 50%;
     box-sizing: border-box;
-    padding: 1rem;
   }
 
   .imagen-elegimetro {
@@ -880,15 +921,15 @@ button:disabled {
 
   .bloque-zonas-presion-final {
     width: 300px;
-    min-height: 220px;
+    min-height: 200px;
     justify-content: center;
     padding: 1.5rem 1.5rem;
   }
 
   .bloque-svg-final {
     width: 300px;
-    min-height: 220px;
-    padding: 1.5rem;
+    min-height: 200px;
+    padding: 0rem;
   }
 }
 
@@ -948,51 +989,135 @@ button:disabled {
   align-items: center;
 }
 
-/* ---------- TRACK ------------------------------------------- */
+
+.error-card{
+  max-width:320px;
+  margin:1.5rem auto;
+  padding:1.5rem 1.25rem;
+  text-align:center;
+  background:#fff5f5;          /* rojo muy suave */
+  border:1px solid #f5c2c7;    /* borde rosado */
+  border-radius:12px;
+  box-shadow:0 2px 6px rgba(0,0,0,.05);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:1rem;
+}
+
+.error-icon{
+  color:#e63946;               /* rojo corporativo  cámbialo si usas otro */
+}
+
+.error-copy{
+  font-size:.9rem;
+  line-height:1.35;
+  font-weight:500;
+  color:#333;
+  margin:0;
+}
+
+.error-retry-btn{
+  background:#007442;          /* tu verde de marca */
+  color:#fff;
+  border:none;
+  padding:.55rem 1.4rem;
+  border-radius:9999px;
+  font-size:.85rem;
+  font-weight:600;
+  cursor:pointer;
+  transition:opacity .2s;
+}
+.error-retry-btn:hover{opacity:.88;}
+
+
+.talla-row{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:1rem;
+
+  /* nuevo estilo “cuadro” */
+  background:rgba(0,116,66,.08);          /* verde muy suave */
+  border:1px solid rgba(0,116,66,.20);
+  border-radius:12px;
+  padding:.75rem 1rem;
+  margin:.75rem 0 1.25rem;                /* espacio arriba y abajo */
+  height:auto;                            /* ya no forzamos 56 px */
+}
+
+.talla-elegida{
+  font-size:.85rem;
+  font-weight:500;
+  color:#333;
+  white-space:nowrap;
+}
+.talla-elegida strong{
+  color:#007442;                   /* solo el número en verde corporativo */
+}
+
+.link-cambiar-talla{
+  background:none;
+  border:none;
+  padding:0;
+  margin:0;
+  font-size:.85rem;                /* mismo tamaño que “Guía de tallas” */
+  font-weight:500;
+  color:#007442;
+  cursor:pointer;
+  text-align:right;
+  text-decoration:underline;
+  white-space:nowrap;
+}
+
+
 .pv-track{
   position:relative;
   width:100%;
   height:28px;
-  margin:0;
-  background:#f0f4f3;
   border-radius:16px;
-  border:1px solid #d4dad8;
+  background:#e5e7eb;
   overflow:hidden;
-  box-shadow:inset 0 1px 3px rgba(0,0,0,.10);
 }
 
-/* ---------- LIQUID ------------------------------------------ */
 .pv-fill{
   position:absolute; inset:0;
-  width:0;                 /* se anima vía style width */
-  background:linear-gradient(180deg,#0b8c57 0%,#007442 100%);
+  width:0;                /* React lo anima */
+  height:100%;
+  background:#007442;
   transition:width .4s ease-out;
-  overflow:hidden;
 }
 
-/* ---------- GLOW (sutil “IA”) ------------------------------- */
-.pv-glow{
-  position:absolute;
-  inset:0 -40%;            /* ancho extra para animar */
-  background:linear-gradient(
-    100deg,
-    transparent 20%,
-    rgba(255,255,255,.25) 45%,
-    rgba(255,255,255,.15) 55%,
-    transparent 80%);
-  animation:glide 2.8s linear infinite;
-  mix-blend-mode:overlay;  /* se funde con el verde */
-}
-@keyframes glide{ to{ transform:translateX(40%);} }
-
-/* ---------- LABEL ------------------------------------------- */
 .pv-label{
   position:absolute; inset:0;
   display:flex; align-items:center; justify-content:center;
-  font:700 14px/1 'DM Sans',sans-serif;
-  color:#ffffff;
-  text-shadow:0 1px 3px rgba(0,0,0,.45);
+  font:700 14px/1 'Poppins',sans-serif;
+  color:#f3f5f2;
   pointer-events:none;
-  z-index:2;               /* sobre el líquido y brillo */
+
+  text-shadow:
+      0 0 2px rgba(0,0,0,.40),   /* contorno más fino  */
+      0 0 4px rgba(0,0,0,.18);   /* difuminado ligero  */
+
+  pointer-events:none;
 }
 
+.pv-track::after{
+  content:'';
+  position:absolute; inset:0;
+  background:linear-gradient(120deg,
+            transparent 0 40%,
+            rgba(255,255,255,.35) 50%,
+            transparent 60%);
+  background-size:200% 100%;
+  animation:glint 1.5s linear infinite;
+  mix-blend-mode:overlay;          /* si no se soporta, el brillo se ve normal */
+  pointer-events:none;
+}
+
+@keyframes glint{ to{ background-position-x:-200%; } }
+
+
+.preview-dark{
+  filter: brightness(0.50);
+}
