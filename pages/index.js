@@ -6,6 +6,7 @@ import PieSVG from '../components/PieSVG';
 import { Camera, Plus, ScanLine, Lightbulb, CheckCircle, XCircle, Footprints, RefreshCcw } from 'lucide-react';
 import { motion } from "framer-motion";
 import { useOptimisticProgress } from 'hooks/useOptimisticProgress';
+import useExpiryCountdown from 'hooks/useExpiryCountdown';
 import LiquidBar from 'components/LiquidBar';
 
 export default function Home() {
@@ -21,7 +22,7 @@ export default function Home() {
   const [buttonDisabled, setButtonDisabled] = useState(false);
   const [progressStep, setProgressStep] = useState(0);
   const [imageAnalyzed, setImageAnalyzed] = useState(false);
-  const [escaneoEnCurso, setEscaneoEnCurso] = useState(false); // ✅ NUEVO
+  const [escaneoEnCurso, setEscaneoEnCurso] = useState(false);
   const [zonasDetectadas, setZonasDetectadas] = useState([]);
   const [estadoAnalisis, setEstadoAnalisis] = useState('');
   const [tipoPisada, setTipoPisada] = useState('');
@@ -37,10 +38,12 @@ export default function Home() {
   const [idVarianteCavo, setIdVarianteCavo] = useState('');
   const [idVariantePlano, setIdVariantePlano] = useState('');
   const [tallaSeleccionada, setTallaSeleccionada] = useState(null);
-  const [analisisExpirado, setAnalisisExpirado] = useState(false);
+  const analisisExpirado = useExpiryCountdown('analisisPisada');
   const [errorMsg, setErrorMsg] = useState('');
+  const [descartado, setDescartado] = useState(false);
+  const showTopLabel = !loading && !result;
   // ─── Barra de progreso adaptativa  ────────────────────────
-  const [avgLatency, setAvgLatency] = useState(4000);   // 4 s de arranque
+  const [avgLatency, setAvgLatency] = useState(4000);   // 5 s de arranque
   const { pct: progressPct, finish } = useOptimisticProgress(loading, avgLatency, 1);
 
 
@@ -48,10 +51,10 @@ export default function Home() {
   const [isHydrated, setIsHydrated] = useState(!persistenciaActiva);
 
   const steps = [
-    'Analizando imagen...',
-    'Detectando zonas de presión...',
-    'Identificando tipo de pisada...',
-    'Generando recomendación personalizada...'
+    'Analizando imagen',
+    'Detectando zonas de presión',
+    'Identificando tipo de pisada',
+    'Generando recomendación personalizada'
   ];
 
   const variantesPorTalla = {
@@ -133,14 +136,16 @@ export default function Home() {
   useEffect(() => {
     if (!loading) return;
 
-    const thresholds = [20, 40, 60, 80];          // % por paso
-    // Encuentra el índice del paso actual
+    const thresholds = [25, 55, 80];
     let idx = thresholds.findIndex(t => progressPct < t);
-    if (idx === -1) idx = steps.length - 1;       // 80-100 % → último paso
+    if (idx === -1) idx = steps.length - 1;
+
+    /* si la imagen fue descartada, nunca pasamos del segundo paso */
+    if (descartado) idx = Math.min(idx, 1);
 
     setEstadoAnalisis(steps[idx]);
-    setProgressStep(idx + 1);                     // para las “pastillas”
-  }, [progressPct, loading]);
+    setProgressStep(idx + 1);
+  }, [progressPct, loading, descartado]);
 
   useEffect(() => {
     if (mostrarDetalles) {
@@ -164,7 +169,7 @@ export default function Home() {
     console.log('[Persistencia] Intentando restaurar estado de análisis previo...');
     const saved = localStorage.getItem('analisisPisada');
     if (saved) {
-      try {
+      /*try {
         const parsed = JSON.parse(saved);
         const tiempoActual = Date.now();
         const mediaHora = 30 * 60 * 1000;
@@ -179,7 +184,7 @@ export default function Home() {
       } catch (e) {
         console.error('[Persistencia] Error al validar expiración:', e);
         localStorage.removeItem('analisisPisada');
-      }
+      }*/
       try {
         const {
           result: savedResult,
@@ -270,7 +275,7 @@ export default function Home() {
       const reader = new FileReader();
       reader.readAsDataURL(file);
       reader.onload = (event) => {
-        const img = new Image();
+        const img = new window.Image();
         img.src = event.target.result;
         img.onload = () => {
           const canvas = document.createElement('canvas');
@@ -343,11 +348,12 @@ export default function Home() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setDescartado(false);
     const originalFile = fileInputRef.current?.files[0];
     if (!originalFile) return;
 
     /* ─── Duración fija barra 4,3 s (1,3 s media + 3 s colchón) ── */
-    const TOTAL_MS = 4300;
+    const TOTAL_MS = 6000;
     setAvgLatency(TOTAL_MS);      // el hook ya sabe la duración
 
     /* marca de tiempo para medir lo que tarda la API */
@@ -398,19 +404,21 @@ export default function Home() {
       /* -------- sube la imagen y cronómetro en paralelo -------- */
       const uploadPromise = (async () => {
         const res = await fetch('/api/upload', { method: 'POST', body: formData });
-        return await res.json();          // devuelve el JSON
+        return await res.json();
       })();
 
-      const delayPromise = new Promise(r => {
+      const data = await uploadPromise;
+      const isDiscarded = data?.result?.startsWith('❌');
+      setDescartado(isDiscarded);
+
+      /* detenemos la animación larga SOLO si no hay descarte */
+      if (!isDiscarded) {
         const elapsed = Date.now() - t0;
-        /* espera lo que falte para TOTAL_MS, nunca < 0 */
-        setTimeout(r, Math.max(0, TOTAL_MS - elapsed));
-      });
+        await new Promise(r => setTimeout(r, Math.max(0, TOTAL_MS - elapsed)));
+      }
 
-      /* espera a que terminen AMBAS cosas */
-      const [data] = await Promise.all([uploadPromise, delayPromise]);
-
-      finish();                            // barra 98 % → 100 %
+      /* completamos la barra solo en éxito */
+      if (!isDiscarded) finish();
 
 
       /***** PROCESAR EL RESULTADO *****/
@@ -503,7 +511,7 @@ export default function Home() {
         )}
 
         <form onSubmit={handleSubmit}>
-          {!(result && zonasDetectadas.length > 0) && (
+          {showTopLabel && (
             <label
               htmlFor="file-upload"
               className="custom-file-upload"
@@ -513,7 +521,7 @@ export default function Home() {
               }}
               onClick={(e) => {
                 if (result && zonasDetectadas.length > 0) {
-                  e.preventDefault(); // Bloquea el clic
+                  e.preventDefault(); // mantiene bloqueo tras análisis OK
                 }
               }}
             >
@@ -529,10 +537,7 @@ export default function Home() {
                 </>
               )}
             </label>
-
           )}
-
-
 
           <input
             id="file-upload"
@@ -600,11 +605,11 @@ export default function Home() {
 
 
           {(preview || compressedPreview) && (
-            <div className="preview-wrapper">
+            <div className={`preview-wrapper ${loading ? 'loading' : ''}`}>
               <img
                 src={preview || compressedPreview}
                 alt="preview"
-                className="preview"
+                className={`preview ${loading ? 'preview-dark' : ''}`}
               />
               {loading && <div className="scan-line" />}
             </div>
@@ -616,19 +621,42 @@ export default function Home() {
               {/* ─── Selector de talla ó barra de carga ────────────────── */}
               <div style={{ minHeight: 56 /* alto del select, ajusta si cambia */ }}>
                 {loading ? (
-                  /* Muestra la barra SOLO mientras loading === true */
-                  <LiquidBar pct={progressPct} />
+                  <>
+                    <div className="estado-progreso">
+                      <span id="statusText">{estadoAnalisis}</span>
+                      <span className="dots"><span></span><span></span><span></span></span>
+                    </div>
+                    <LiquidBar pct={progressPct} />
+                  </>
                 ) : (
-                  /* Si no está cargando y no existe análisis previo,
-                     muestra el selector */
-                  !escaneoEnCurso && (
+                  escaneoEnCurso ? (
+                    tallaSeleccionada && (
+                      <div className="talla-row">
+                        <span className="talla-elegida">
+                          Talla seleccionada: <strong>{tallaSeleccionada}</strong>
+                        </span>
+
+                        <button
+                          type="button"
+                          className="link-cambiar-talla"
+                          onClick={() => {
+                            setEscaneoEnCurso(false); // vuelve a mostrar el selector
+                            setTallaSeleccionada(null);
+                          }}
+                        >
+                          Cambiar talla
+                        </button>
+                      </div>
+                    )
+                  ) : (
                     <CustomSelectTalla
                       onSelect={(tallaElegida) => {
-                        const variantes = variantesPorTalla[tallaElegida];
-                        if (variantes) {
-                          setIdVarianteCavo(variantes.cavo);
-                          setIdVariantePlano(variantes.plano);
+                        const v = variantesPorTalla[tallaElegida];
+                        if (v) {
+                          setIdVarianteCavo(v.cavo);
+                          setIdVariantePlano(v.plano);
                           setTallaSeleccionada(tallaElegida);
+                          setEscaneoEnCurso(true);      // oculta de nuevo el selector
                         }
                       }}
                     />
@@ -649,33 +677,6 @@ export default function Home() {
                   {buttonText}
                 </span>
               </button>
-              {/*
-              {loading && (
-                <>
-                  <div ref={refCargaInicio}></div>
-                  <div className="estado-progreso">
-                    <span className="spinner" />
-                    <span className="estado-analisis">{estadoAnalisis}</span>
-                  </div>
-                </>
-              )}
-              {/*
-              {loading && (
-                <div className="steps-container">
-                  <div className="steps">
-                    {steps.map((_, index) => (
-                      <div
-                        key={index}
-                        className={`step ${(index < progressStep || (index === 0 && loading)) ? 'active' : ''}`}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {loading && <LiquidBar pct={progressPct} />}
-*/}
-
             </>
           )}
         </form>
@@ -690,7 +691,7 @@ export default function Home() {
               <div className="bloque-superior">
                 {/* 1. ZONAS DE PRESIÓN */}
                 <motion.div
-                  className="bloque-zonas-presion-final"
+                  className="bloque-zonas-presion-final bg-success-soft"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.2, duration: 0.4 }}
@@ -725,7 +726,7 @@ export default function Home() {
 
               {/* 3. TENDENCIA + IMAGEN */}
               <motion.div
-                className="bloque-tendencia-final"
+                className="bloque-tendencia-final bg-success-soft"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2, duration: 0.4 }}
@@ -747,8 +748,19 @@ export default function Home() {
           </>
         ) : (
           result && zonasDetectadas.length === 0 && (
-            <div className="error-texto">
-              {result}
+            <div className="error-card">
+              <XCircle size={28} className="error-icon" />
+              <p className="error-copy">
+                {/* quitamos el “❌ ” que devuelve el backend */}
+                {result.replace(/^❌\s*/, '')}
+              </p>
+              <button
+                type="button"
+                className="error-retry-btn"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                Subir otra imagen
+              </button>
             </div>
           )
         )}
