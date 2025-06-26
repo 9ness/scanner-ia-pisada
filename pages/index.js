@@ -818,13 +818,17 @@ export default function Home() {
                         cursor: 'pointer',
                         fontWeight: 'bold',
                         fontSize: '0.95rem',
-                        display: 'inline-flex',
+
+                        /* — alineación y centrado — */
+                        display: 'flex',          // bloque de tipo flex
                         alignItems: 'center',
                         justifyContent: 'center',
-                        gap: '0.5rem', // ⬅️ ESPACIADO ENTRE ICONO Y TEXTO
-                        marginTop: '1rem',
-                        width: '100%',
-                        maxWidth: '300px'
+                        gap: '0.5rem',            // espacio icono-texto
+                        margin: '1rem auto 0',    // ← centra horizontalmente en la pantalla
+
+                        /* — tamaño — */
+                        width: '100%',            // ocupa ancho disponible en móvil
+                        maxWidth: '300px'         // pero nunca pasa de 300 px
                       }}
                     > <RefreshCcw size={18} />
                       Nuevo análisis GRATIS
