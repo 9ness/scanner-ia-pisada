@@ -765,7 +765,7 @@ button:disabled {
   flex-direction: column;
   align-items: flex-start;
   text-align: left;
-  min-height: 170px;
+  min-height: 200px;
   justify-content: center;
 }
 
@@ -780,7 +780,7 @@ button:disabled {
   /* pie con fondo blanco */
   border: 1.5px solid #e5e7eb;
   border-radius: 1rem;
-  padding: 1rem;
+  padding: 0rem;
   box-shadow: none;
   width: 260px;
   display: flex;
@@ -788,6 +788,13 @@ button:disabled {
   justify-content: center;
   height: auto;
   box-sizing: border-box;
+  min-height: 200px;
+}
+
+.bloque-svg-final svg{
+  width:100%;        /* ocupa todo el ancho interior */
+  height:auto;       /* mantiene proporción            */
+  max-height:180px;  /* evita que se pase en pantallas muy altas */
 }
 
 .bloque-tendencia-final {
@@ -872,7 +879,6 @@ button:disabled {
     flex: 1;
     max-width: 50%;
     box-sizing: border-box;
-    padding: 1rem;
   }
 
   .imagen-elegimetro {
@@ -915,15 +921,15 @@ button:disabled {
 
   .bloque-zonas-presion-final {
     width: 300px;
-    min-height: 220px;
+    min-height: 200px;
     justify-content: center;
     padding: 1.5rem 1.5rem;
   }
 
   .bloque-svg-final {
     width: 300px;
-    min-height: 220px;
-    padding: 1.5rem;
+    min-height: 200px;
+    padding: 0rem;
   }
 }
 
