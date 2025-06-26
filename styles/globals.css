@@ -754,7 +754,7 @@ button:disabled {
 }
 
 .bloque-zonas-presion-final {
-  background: rgba(0,116,66,.08);         /* verde muy suave */
+  background:rgba(1, 155, 88, 0.034);          /* verde muy suave */
   border: 1px solid rgba(0,116,66,.20);
   /* gris translúcido */
   border-radius: 1rem;
@@ -798,8 +798,8 @@ button:disabled {
 }
 
 .bloque-tendencia-final {
-  background: rgba(0,116,66,.08);   
-  border: 1px solid rgba(0,116,66,.20);
+  background:rgba(1, 155, 88, 0.034);          /* verde muy suave */
+  border:1px solid rgba(0,116,66,.20);
   border-radius: 1rem;
   box-shadow: none;
   display: flex;
@@ -1120,9 +1120,4 @@ button:disabled {
 
 .preview-dark{
   filter: brightness(0.50);
-}
-
-.bg-success-soft{
-  background:rgba(0,116,66,.08);     /*  ✅ rgba(0, 116, 66, 0.08) */
-  border:1px solid rgba(0,116,66,.20);
 }

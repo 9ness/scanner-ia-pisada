@@ -136,7 +136,7 @@ export default function Home() {
   useEffect(() => {
     if (!loading) return;
 
-    const thresholds = [25, 55, 80];
+    const thresholds = [35, 55, 80];
     let idx = thresholds.findIndex(t => progressPct < t);
     if (idx === -1) idx = steps.length - 1;
 
@@ -691,7 +691,7 @@ export default function Home() {
               <div className="bloque-superior">
                 {/* 1. ZONAS DE PRESIÓN */}
                 <motion.div
-                  className="bloque-zonas-presion-final bg-success-soft"
+                  className="bloque-zonas-presion-final"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.2, duration: 0.4 }}
@@ -726,7 +726,7 @@ export default function Home() {
 
               {/* 3. TENDENCIA + IMAGEN */}
               <motion.div
-                className="bloque-tendencia-final bg-success-soft"
+                className="bloque-tendencia-final"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2, duration: 0.4 }}
