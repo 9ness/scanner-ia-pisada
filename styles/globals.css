@@ -1244,7 +1244,7 @@ button:disabled {
 
 /*  Badge IA (posición y opacidades ya estaban)  */
 .ai-badge{
-  position:absolute; top:1.1rem; left:1.25rem;
+  position:absolute; top:1.1rem;left:50%; transform:translateX(-50%);
   display:inline-flex; align-items:center; gap:.3rem;
   font:600 .70rem/1 'Poppins',sans-serif;
   color:#007442; opacity:.85; pointer-events:none;
