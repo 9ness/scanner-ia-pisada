@@ -2,17 +2,19 @@ import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import CustomSelectTalla from 'components/CustomSelectTalla.js';
 import { useState, useRef, useEffect } from 'react';
-import PieSVG from '../components/PieSVG';
-import { Camera, Plus, ScanLine, Lightbulb, CheckCircle, XCircle, Footprints, RefreshCcw } from 'lucide-react';
+import PieSVG from 'components/PieSVG';
+import { Camera, Plus, ScanLine, Lightbulb, CheckCircle, XCircle, Footprints, RefreshCcw, User } from 'lucide-react';
 import { motion } from "framer-motion";
 import { useOptimisticProgress } from 'hooks/useOptimisticProgress';
 import useExpiryCountdown from 'hooks/useExpiryCountdown';
 import LiquidBar from 'components/LiquidBar';
+import { useScanCounter } from 'hooks/useScanCounter';
+import { useActiveScanners } from 'hooks/useActiveScanners';
 
 export default function Home() {
   const imagenTest = false;
   const persistenciaActiva = true; // ← cambiar a false si quiero desactivar persistencia de cuenta atrás
-  const mostrarBotonReset = false; // Cambiar a false para ocultarlo
+  const mostrarBotonReset = true; // Cambiar a false para ocultarlo
   const mostrarBotonReinicioExpirado = true; // ⬅️ Puedes poner en false para ocultar el botón aunque expire
   const [loading, setLoading] = useState(false);
   const [buttonText, setButtonText] = useState('Analizar pisada con IA');
@@ -45,7 +47,8 @@ export default function Home() {
   // ─── Barra de progreso adaptativa  ────────────────────────
   const [avgLatency, setAvgLatency] = useState(4000);   // 5 s de arranque
   const { pct: progressPct, finish } = useOptimisticProgress(loading, avgLatency, 1);
-
+  const { count: totalScans, refreshNow } = useScanCounter();
+  const activeUsers = useActiveScanners();
 
   // Estado para bloquear render de UI principal antes de restaurar:
   const [isHydrated, setIsHydrated] = useState(!persistenciaActiva);
@@ -423,10 +426,14 @@ export default function Home() {
 
       /***** PROCESAR EL RESULTADO *****/
       if (data.result) {
+
         setResult(data.result);
 
         /* extraer zonas tal como ya tenías */
         let zonas = extraerZonas(data.result);
+        if (zonas.length > 0) {
+          refreshNow();
+        }
         if (zonas.length > 0 && !zonas.includes('metatarsos') && !zonas.includes('arco')) {
           zonas.push('arco');
         }
@@ -509,7 +516,31 @@ export default function Home() {
             {errorMsg}
           </div>
         )}
+        <span className="ai-badge">
+          <strong data-text="VivaCore">VivaLens AI</strong>
+          <span className="ver">3.1</span>
+        </span>
+        {totalScans > 0 && (
+          <div className="stats-bar">
 
+            {/* total escaneos */}
+            <span className="stats-chip">
+              <strong>{totalScans.toLocaleString('es-ES')}</strong>
+              Escaneos totales
+            </span>
+
+            {/* separador punto vivo */}
+            <span className="live-dot" />
+
+            {/* personas en vivo */}
+            <span className="stats-chip">
+              <User size={14} color="#007442" strokeWidth={2} />
+              <strong>{activeUsers}</strong>
+            </span>
+
+          </div>
+
+        )}
         <form onSubmit={handleSubmit}>
           {showTopLabel && (
             <label
@@ -606,11 +637,13 @@ export default function Home() {
 
           {(preview || compressedPreview) && (
             <div className={`preview-wrapper ${loading ? 'loading' : ''}`}>
-              <img
-                src={preview || compressedPreview}
-                alt="preview"
-                className={`preview ${loading ? 'preview-dark' : ''}`}
-              />
+              <div className="img-shell">
+                <img
+                  src={preview || compressedPreview}
+                  alt="preview"
+                  className={`preview ${loading ? 'preview-dark' : ''}`}
+                />
+              </div>
               {loading && <div className="scan-line" />}
             </div>
           )}
@@ -683,10 +716,10 @@ export default function Home() {
 
         {result && zonasDetectadas.length > 0 ? (
           <>
-            <h3 className="titulo-analisis">
-              <CheckCircle size={22} color="#28a745" style={{ marginRight: '0.1rem' }} />
-              Análisis completado
+            <h3 className="badge-success">
+              <CheckCircle size={18} /> &nbsp;Análisis completado
             </h3>
+            <hr className="linea-separadora2" />
             <div className="bloque-resultado-final">
               <div className="bloque-superior">
                 {/* 1. ZONAS DE PRESIÓN */}

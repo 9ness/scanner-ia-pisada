@@ -86,6 +86,7 @@ export default async function handler(req, res) {
       const latency = Date.now() - t0;             // ms
       await kv.lpush('openai_latencies', latency);
       await kv.ltrim('openai_latencies', 0, 49);
+      await kv.incr('total_scans');
       console.log('[latency ms]', latency);
 
       let result = response.choices[0]?.message?.content || '';
