@@ -1220,6 +1220,7 @@ button:disabled {
   font-size:0.8rem;
   font-weight:600;
   color:#1b1b1b;
+  margin-top: 0rem;
 }
 .badge-success svg{
   color:#007442 !important;           /* icono en verde marca */
@@ -1247,6 +1248,7 @@ button:disabled {
   display:inline-flex; align-items:center; gap:.3rem;
   font:600 .70rem/1 'Poppins',sans-serif;
   color:#007442; opacity:.85; pointer-events:none;
+  pointer-events:auto;
 }
 .ai-badge .ver{ opacity:.55; }
 
@@ -1278,3 +1280,8 @@ button:disabled {
   100% { background-position:-50% 0; }
 }
 
+
+.bloque-mejoras{
+  display:flex;          /* convierte el wrapper en flex */
+  justify-content:center;/* y lo centra en su contenedor */
+}

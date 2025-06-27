@@ -1,7 +1,18 @@
 {
     "compilerOptions": {
-        "baseUrl": "."
+        /* 1)  Importaciones absolutas  ------------------------------------ */
+        "baseUrl": ".", // la raíz del proyecto
+        /* 2)  Alias de rutas  --------------------------------------------- */
+        "paths": {
+            "utils/*": [
+                "utils/*"
+            ], //  import ... from 'utils/archivo'
+            "components/*": [
+                "components/*"
+            ] //  import ... from 'components/Algo'
+        }
     },
+    /* 3)  Archivos que debe analizar VS Code / TypeScript  -------------- */
     "include": [
         "."
     ]

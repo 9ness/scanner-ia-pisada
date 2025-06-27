@@ -10,11 +10,13 @@ import useExpiryCountdown from 'hooks/useExpiryCountdown';
 import LiquidBar from 'components/LiquidBar';
 import { useScanCounter } from 'hooks/useScanCounter';
 import { useActiveScanners } from 'hooks/useActiveScanners';
+import BetterTips from 'components/BetterTips';
 
 export default function Home() {
   const imagenTest = false;
   const persistenciaActiva = true; // ← cambiar a false si quiero desactivar persistencia de cuenta atrás
   const mostrarBotonReset = false; // Cambiar a false para ocultarlo
+  const resetOcultoVersion = true;   // ← pon en false si no quieres que actúe como botón
   const mostrarBotonReinicioExpirado = true; // ⬅️ Puedes poner en false para ocultar el botón aunque expire
   const [loading, setLoading] = useState(false);
   const [buttonText, setButtonText] = useState('Analizar pisada con IA');
@@ -32,6 +34,7 @@ export default function Home() {
   const analizarRef = useRef(null);
   const analisisRef = useRef(null);
   const progresoRef = useRef(null);
+  const lastSecretTap = useRef(0);
   const scrollDestinoRef = useRef(null);
   const refCargaInicio = useRef(null);
   const [esPieIzquierdo, setEsPieIzquierdo] = useState(false);
@@ -516,7 +519,20 @@ export default function Home() {
             {errorMsg}
           </div>
         )}
-        <span className="ai-badge">
+        <span
+          className="ai-badge"
+          onClick={() => {
+            if (!resetOcultoVersion) return;
+
+            const now = Date.now();
+            if (now - lastSecretTap.current < 400) {        // 2 toques < 400 ms
+              localStorage.removeItem('analisisPisada');
+              window.location.reload();
+            }
+            lastSecretTap.current = now;
+          }}
+          style={resetOcultoVersion ? { cursor: 'pointer' } : {}}
+        >
           <strong data-text="VivaCore">VivaLens AI</strong>
           <span className="ver">3.1</span>
         </span>
@@ -635,7 +651,7 @@ export default function Home() {
           )}
 
 
-          {(preview || compressedPreview) && (
+          {(preview || compressedPreview) && !result && (
             <div className={`preview-wrapper ${loading ? 'loading' : ''}`}>
               <div className="img-shell">
                 <img
@@ -716,6 +732,19 @@ export default function Home() {
 
         {result && zonasDetectadas.length > 0 ? (
           <>
+
+            <motion.div
+              className="bloque-mejoras"
+              initial={{ x: 120, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ delay: 0.4, duration: 0.45, type: 'spring', stiffness: 65 }}
+            >
+              <BetterTips
+                trendText={tendenciaTexto}
+                previewUrl={compressedPreview || preview}
+              />
+            </motion.div>
+
             <h3 className="badge-success">
               <CheckCircle size={18} /> &nbsp;Análisis completado
             </h3>
