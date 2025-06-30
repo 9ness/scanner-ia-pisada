@@ -1185,7 +1185,7 @@ button:disabled {
   padding: .35rem .9rem;
   width: fit-content;          /* se adapta al texto */
   max-width: 90vw;             /* nunca pasa de la pantalla */
-  margin: .8rem auto;
+  margin: 1.3rem auto;
   display:flex; align-items:center; gap:.9rem;
   font-size:.8rem; font-weight:500; color:#3D431C;
   line-height:1; white-space:nowrap;
