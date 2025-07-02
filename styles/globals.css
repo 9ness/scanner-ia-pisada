@@ -1596,5 +1596,19 @@ padding-left: 0rem !important;
   gap:1rem;
 }
 
+.linea-separadora {
+  border: none;
+  height: 1px;
+  background-color: #e5e7eb;
+  width: 90%;
+}
+
+.linea-separadora2 {
+  border: none;
+  height: 1px;
+  background-color: #e5e7eb;
+  width: 90%;
+}
+
 
 }
