@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 
 export function useScanCounter() {
-    const [count, setCount] = useState(0);
+    const [count, setCount] = useState(null);
 
     useEffect(() => {
         const fetchCount = async () => {

@@ -40,7 +40,7 @@ export default function CustomSelectTalla({ onSelect }) {
 
   return (
     <>
-      <div style={{
+      <div className="bloque-talla" style={{
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'flex-end', // ✅ alinea los dos abajo
@@ -48,7 +48,7 @@ export default function CustomSelectTalla({ onSelect }) {
         marginBottom: '0.3rem',
         width: '100%'
       }}>
-        <div style={{
+        <div className="bloque-talla2" style={{
           width: '100%', // ✅ le damos más espacio real
           fontWeight: '500',
           fontSize: '0.80rem',
@@ -61,6 +61,7 @@ export default function CustomSelectTalla({ onSelect }) {
 
         <button
           type="button"
+          className="guia-tallas"
           onClick={() => setMostrarGuiaTallas(true)}
           style={{
             background: 'none',

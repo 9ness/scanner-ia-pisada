@@ -11,7 +11,7 @@ import { useEffect, useState } from 'react';
  */
 export default function useExpiryCountdown(
     storageKey = 'analisisPisada',
-    durationMs = 10 * 60 * 1000,   // 10 min
+    durationMs = 30 * 60 * 1000,   // 30 min
     checkEveryMs = 30 * 1000       // 30 s
 ) {
     const [expired, setExpired] = useState(false);

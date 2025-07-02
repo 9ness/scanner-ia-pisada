@@ -175,22 +175,7 @@ export default function Home() {
     console.log('[Persistencia] Intentando restaurar estado de análisis previo...');
     const saved = localStorage.getItem('analisisPisada');
     if (saved) {
-      /*try {
-        const parsed = JSON.parse(saved);
-        const tiempoActual = Date.now();
-        const mediaHora = 30 * 60 * 1000;
-        //const mediaHora = 3 * 1000; // 3 segundos (para pruebas);
 
-        if (parsed.timestamp && tiempoActual - parsed.timestamp > mediaHora) {
-          console.log('[Persistencia] Datos expirados (más de 3 horas)');
-          if (mostrarBotonReinicioExpirado) {
-            setAnalisisExpirado(true); // ⬅️ Solo marcamos como expirado si se habilita el botón
-          }
-        }
-      } catch (e) {
-        console.error('[Persistencia] Error al validar expiración:', e);
-        localStorage.removeItem('analisisPisada');
-      }*/
       try {
         const {
           result: savedResult,
@@ -536,27 +521,37 @@ export default function Home() {
           <strong data-text="VivaCore">VivaLens AI</strong>
           <span className="ver">3.1</span>
         </span>
-        {totalScans > 0 && (
-          <div className="stats-bar">
+        <div className="stats-bar">
 
-            {/* total escaneos */}
-            <span className="stats-chip">
-              <strong>{totalScans.toLocaleString('es-ES')}</strong>
-              Escaneos totales
-            </span>
+          {/* total escaneos */}
+          <span className="stats-chip">
+            <strong>
+              {totalScans !== null ? (
+                <motion.span
+                  key={totalScans}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.4 }}
+                >
+                  {totalScans.toLocaleString('es-ES')}
+                </motion.span>
+              ) : '...'}
+            </strong>
+            Escaneos totales
+          </span>
 
-            {/* separador punto vivo */}
-            <span className="live-dot" />
+          {/* separador punto vivo */}
+          <span className="live-dot" />
 
-            {/* personas en vivo */}
-            <span className="stats-chip">
-              <User size={14} color="#007442" strokeWidth={2} />
-              <strong>{activeUsers}</strong>
-            </span>
+          {/* personas en vivo */}
+          <span className="stats-chip">
+            <User size={14} color="#007442" strokeWidth={2} />
+            <strong>{activeUsers}</strong>
+          </span>
 
-          </div>
+        </div>
 
-        )}
+
         <form onSubmit={handleSubmit}>
           {showTopLabel && (
             <label
