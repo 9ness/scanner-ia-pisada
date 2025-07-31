@@ -129,7 +129,7 @@ export default function CameraScanner({ onCapture, onClose }) {
             <img src="/plantilla_silueta.png" alt="Silueta guía" className="foot-overlay" />
 
             {/* BOTÓN de cerrar */}
-            <button onClick={onClose} className="close-btn">✖</button>
+            <button onClick={onClose} className="close-btn">✖✖</button>
 
             {/* CANVAS oculto para procesar los frames */}
             <canvas ref={canvasRef} style={{ display: "none" }}></canvas>
