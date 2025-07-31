@@ -1610,54 +1610,57 @@ padding-left: 0rem !important;
   width: 90%;
 }
 
+
+
 .camera-wrapper {
-  position: fixed;
-  top: 0; left: 0;
+  position: fixed;       /* cubre toda la pantalla */
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100vh;
   background: black;
   z-index: 9999;
+  overflow: hidden;      /* evita scroll accidental */
 }
 
 .camera-feed {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: cover;     /* rellena la pantalla sin dejar franjas */
 }
 
+/* 🔽 Aquí la magia: la silueta se posiciona sobre el vídeo */
 .foot-overlay {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 65%;
+  width: 60%;            /* ajusta este % según lo grande que quieras la silueta */
   transform: translate(-50%, -50%);
-  opacity: 0.4;
-  pointer-events: none;
+  opacity: 0.5;          /* ✅ opacidad al 50% */
+  pointer-events: none;  /* para no bloquear la cámara */
+  max-width: 100%;
+  height: auto;
 }
 
 .close-btn {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  background: rgba(0,0,0,0.6);
+  position: absolute;      /* 🔥 ESTO FALTABA */
+  top: 16px;
+  right: 16px;
+  background: rgba(0, 0, 0, 0.6); /* fondo semitransparente */
   color: white;
   border: none;
-  padding: 10px;
+  padding: 10px 14px;
   border-radius: 50%;
-  font-size: 18px;
+  font-size: 22px;
   cursor: pointer;
+  z-index: 10000; /* siempre encima de la silueta */
+  background: rgba(0, 0, 0, 0.6); /* fondo semitransparente */
+box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
-.foot-overlay {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 65%;
-  transform: translate(-50%, -50%);
-  opacity: 0.5;   /* 🔥 50% opacidad como pediste */
-  pointer-events: none;
+.close-btn:hover {
+  background: rgba(0, 0, 0, 0.8);
 }
-
 
 
 }

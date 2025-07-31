@@ -120,8 +120,8 @@ export default function CameraScanner({ onCapture, onClose }) {
         <div className="camera-wrapper">
             <video ref={videoRef} autoPlay playsInline muted className="camera-feed" />
             <img src="/plantilla_silueta.png" alt="Silueta guía" className="foot-overlay" />
-            <canvas ref={canvasRef} style={{ display: "none" }}></canvas>
             <button onClick={onClose} className="close-btn">✖</button>
+            <canvas ref={canvasRef} style={{ display: "none" }}></canvas>
         </div>
     );
 }
