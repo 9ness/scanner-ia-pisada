@@ -1610,52 +1610,72 @@ padding-left: 0rem !important;
   width: 90%;
 }
 
-
-
+/* 🔳 Contenedor de la cámara */
 .camera-wrapper {
-  position: fixed;       /* cubre toda la pantalla */
+  position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100vh;
   background: black;
   z-index: 9999;
-  overflow: hidden;      /* evita scroll accidental */
+  overflow: hidden;
 }
 
+/* 🎥 El vídeo ocupa toda la pantalla */
 .camera-feed {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;     /* rellena la pantalla sin dejar franjas */
+  object-fit: cover;
 }
 
-/* 🔽 Aquí la magia: la silueta se posiciona sobre el vídeo */
+/* 👣 La silueta */
 .foot-overlay {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 60%;            /* ajusta este % según lo grande que quieras la silueta */
   transform: translate(-50%, -50%);
-  opacity: 0.5;          /* ✅ opacidad al 50% */
-  pointer-events: none;  /* para no bloquear la cámara */
-  max-width: 100%;
-  height: auto;
+
+  /* Escala base en móviles grandes */
+  width: 55vw;       /* ancho relativo al viewport (no % del video) */
+  max-width: 80%;    /* evita que se pase en pantallas muy estrechas */
+  opacity: 0.5;
+  pointer-events: none;
 }
 
+/* 📱 Ajuste fino en móviles muy pequeños */
+@media (max-width: 480px) {
+  .foot-overlay {
+    width: 70vw;
+  }
+}
+
+/* 💻 Ajuste en tablets o pantallas grandes */
+@media (min-width: 900px) {
+  .foot-overlay {
+    width: 35vw;
+  }
+}
+
+
+
 .close-btn {
-  position: absolute;      /* 🔥 ESTO FALTABA */
+  position: absolute;
   top: 16px;
   right: 16px;
-  background: rgba(0, 0, 0, 0.6); /* fondo semitransparente */
+  background: rgba(0, 0, 0, 0.6);
   color: white;
   border: none;
   padding: 10px 14px;
   border-radius: 50%;
   font-size: 22px;
   cursor: pointer;
-  z-index: 10000; /* siempre encima de la silueta */
-  background: rgba(0, 0, 0, 0.6); /* fondo semitransparente */
-box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  z-index: 10000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  transition: background-color 0.2s ease-in-out;
 }
 
 .close-btn:hover {

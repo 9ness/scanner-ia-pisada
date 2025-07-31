@@ -1,4 +1,3 @@
-// components/CameraScanner.js
 import { useEffect, useRef, useState } from "react";
 
 export default function CameraScanner({ onCapture, onClose }) {
@@ -7,27 +6,34 @@ export default function CameraScanner({ onCapture, onClose }) {
     const [opencvReady, setOpencvReady] = useState(false);
     const [templateContours, setTemplateContours] = useState(null);
 
-    // 🔵 Iniciar cámara y cargar OpenCV
     useEffect(() => {
+        // 1️⃣ Abrir cámara
         navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
             .then(stream => {
+                console.log("✅ Cámara iniciada", stream);
                 if (videoRef.current) videoRef.current.srcObject = stream;
             })
             .catch(err => console.error("❌ Error abriendo cámara", err));
 
-        const script = document.createElement("script");
-        script.src = "https://docs.opencv.org/4.7.0/opencv.js";
-        script.onload = () => setOpencvReady(true);
-        document.body.appendChild(script);
+        // 2️⃣ Esperar a que OpenCV esté cargado desde _app.js
+        const checkOpenCV = setInterval(() => {
+            if (window.cv) {
+                setOpencvReady(true);
+                clearInterval(checkOpenCV);
+            }
+        }, 100);
 
+        // 3️⃣ Cleanup: parar la cámara y limpiar intervalos
         return () => {
             if (videoRef.current?.srcObject) {
                 videoRef.current.srcObject.getTracks().forEach(track => track.stop());
             }
+            clearInterval(checkOpenCV);
         };
     }, []);
 
-    // 🔵 Cargar silueta de pie y extraer contorno una vez que OpenCV esté listo
+
+    // 🔵 Cargar silueta como referencia
     useEffect(() => {
         if (!opencvReady) return;
 
@@ -99,9 +105,7 @@ export default function CameraScanner({ onCapture, onClose }) {
             // 🔍 Comparar forma detectada con la silueta
             let similarity = cv.matchShapes(templateContours, biggest, cv.CONTOURS_MATCH_I1, 0);
 
-            console.log("👉 Similitud:", similarity);
-            if (similarity < 0.15) {  // cuanto más bajo, más similar
-                console.log("✅ Plantilla alineada → Foto capturada");
+            if (similarity < 0.15) {  // Ajusta el umbral si dispara demasiado pronto
                 capturarFoto();
             }
         }
@@ -118,9 +122,16 @@ export default function CameraScanner({ onCapture, onClose }) {
 
     return (
         <div className="camera-wrapper">
+            {/* VIDEO de la cámara */}
             <video ref={videoRef} autoPlay playsInline muted className="camera-feed" />
+
+            {/* SILUETA sobre el vídeo */}
             <img src="/plantilla_silueta.png" alt="Silueta guía" className="foot-overlay" />
+
+            {/* BOTÓN de cerrar */}
             <button onClick={onClose} className="close-btn">✖</button>
+
+            {/* CANVAS oculto para procesar los frames */}
             <canvas ref={canvasRef} style={{ display: "none" }}></canvas>
         </div>
     );
