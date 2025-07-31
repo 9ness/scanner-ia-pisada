@@ -122,15 +122,18 @@ export default function CameraScanner({ onCapture, onClose }) {
 
     return (
         <div className="camera-wrapper">
-            {/* VIDEO de la cámara */}
-            <video ref={videoRef} autoPlay playsInline muted className="camera-feed"></video>
+            {/* 🎥 VIDEO de la cámara */}
+            <video ref={videoRef} autoPlay playsInline muted className="camera-feed" />
 
-            {/* SILUETA sobre el vídeo */}
+            {/* 👣 CANVAS oculto (necesario para OpenCV, no se ve en pantalla) */}
+            <canvas ref={canvasRef} style={{ display: "none" }}></canvas>
+
+            {/* 👣 SILUETA siempre centrada y responsive */}
             <img src="/plantilla_silueta.png" alt="Silueta guía" className="foot-overlay" />
 
-            {/* BOTÓN de cerrar */}
+            {/* ❌ BOTÓN cerrar */}
             <button className="close-btn" onClick={onClose}>✖</button>
-
         </div>
     );
+
 }

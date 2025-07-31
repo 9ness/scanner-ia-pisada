@@ -1610,7 +1610,6 @@ padding-left: 0rem !important;
   width: 90%;
 }
 
-/* 🔳 Contenedor de la cámara */
 .camera-wrapper {
   position: fixed;
   top: 0;
@@ -1622,7 +1621,6 @@ padding-left: 0rem !important;
   overflow: hidden;
 }
 
-/* 🎥 El vídeo ocupa toda la pantalla */
 .camera-feed {
   position: absolute;
   top: 0;
@@ -1632,42 +1630,30 @@ padding-left: 0rem !important;
   object-fit: cover;
 }
 
-/* 👣 La silueta */
+/* 👣 Silueta RESPONSIVE y centrada */
 .foot-overlay {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-
-  /* 🔥 Escala relativa al video */
-  width: 45%;
-  height: auto;
-
-  /* 🔲 Opacidad al 50% para ver debajo */
+  width: 50%;            /* Escala al ancho de la cámara */
+  max-width: 80vw;       /* Nunca se sale del viewport */
   opacity: 0.5;
-
-  /* ❌ Evita que la silueta interfiera con clics */
   pointer-events: none;
-
-  /* 🔝 Siempre sobre el video */
-  z-index: 10001;
+  z-index: 1001;
 }
 
-/* 📱 Ajuste en móviles */
 @media (max-width: 480px) {
   .foot-overlay {
-    width: 60%;
+    width: 65%;
   }
 }
 
-/* 💻 Ajuste en pantallas grandes */
 @media (min-width: 900px) {
   .foot-overlay {
-    width: 30%;
+    width: 35%;
   }
 }
-
-
 
 .close-btn {
   position: absolute;
@@ -1680,14 +1666,7 @@ padding-left: 0rem !important;
   border-radius: 50%;
   font-size: 22px;
   cursor: pointer;
-  z-index: 10000;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-  transition: background-color 0.2s ease-in-out;
+  z-index: 2000;
 }
-
-.close-btn:hover {
-  background: rgba(0, 0, 0, 0.8);
-}
-
 
 }
