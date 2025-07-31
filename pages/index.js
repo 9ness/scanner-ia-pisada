@@ -11,6 +11,7 @@ import LiquidBar from 'components/LiquidBar';
 import { useScanCounter } from 'hooks/useScanCounter';
 import { useActiveScanners } from 'hooks/useActiveScanners';
 import BetterTips from 'components/BetterTips';
+import CameraScanner from 'components/CameraScanner';
 
 export default function Home() {
   const imagenTest = false;
@@ -53,8 +54,28 @@ export default function Home() {
   const { count: totalScans, refreshNow } = useScanCounter();
   const activeUsers = useActiveScanners();
 
+  const [modoCamara, setModoCamara] = useState(false);   // ⬅️ NUEVO ESTADO
+
+  const handleCameraCapture = (blob) => {
+    const file = new File([blob], "captura.jpg", { type: "image/jpeg" });
+
+    // 👉 Creamos un DataTransfer para simular que el usuario subió la foto
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    fileInputRef.current.files = dt.files;
+
+    // 👉 Llamamos a tu flujo normal de selección de imagen
+    handleFileChange({ target: fileInputRef.current });
+
+    // 👉 Cerramos la cámara
+    setModoCamara(false);
+  };
+
+
   // Estado para bloquear render de UI principal antes de restaurar:
   const [isHydrated, setIsHydrated] = useState(!persistenciaActiva);
+
+
 
   const steps = [
     'Analizando imagen',
@@ -498,6 +519,12 @@ export default function Home() {
   return (
     <>
 
+      {modoCamara && (
+        <CameraScanner
+          onCapture={handleCameraCapture}
+          onClose={() => setModoCamara(false)}
+        />
+      )}
       <div className="container">
         {errorMsg && (
           <div className="error-banner">
@@ -579,6 +606,17 @@ export default function Home() {
                 </>
               )}
             </label>
+          )}
+
+          {showTopLabel && (
+            <button
+              type="button"
+              className="custom-file-upload"
+              style={{ marginTop: '10px' }}
+              onClick={() => setModoCamara(true)}
+            >
+              📷 Detectar con cámara
+            </button>
           )}
 
           <input
