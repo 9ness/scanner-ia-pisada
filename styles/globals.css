@@ -1639,24 +1639,31 @@ padding-left: 0rem !important;
   left: 50%;
   transform: translate(-50%, -50%);
 
-  /* Escala base en móviles grandes */
-  width: 55vw;       /* ancho relativo al viewport (no % del video) */
-  max-width: 80%;    /* evita que se pase en pantallas muy estrechas */
+  /* 🔥 Escala relativa al video */
+  width: 45%;
+  height: auto;
+
+  /* 🔲 Opacidad al 50% para ver debajo */
   opacity: 0.5;
+
+  /* ❌ Evita que la silueta interfiera con clics */
   pointer-events: none;
+
+  /* 🔝 Siempre sobre el video */
+  z-index: 10001;
 }
 
-/* 📱 Ajuste fino en móviles muy pequeños */
+/* 📱 Ajuste en móviles */
 @media (max-width: 480px) {
   .foot-overlay {
-    width: 70vw;
+    width: 60%;
   }
 }
 
-/* 💻 Ajuste en tablets o pantallas grandes */
+/* 💻 Ajuste en pantallas grandes */
 @media (min-width: 900px) {
   .foot-overlay {
-    width: 35vw;
+    width: 30%;
   }
 }
 

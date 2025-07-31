@@ -123,16 +123,14 @@ export default function CameraScanner({ onCapture, onClose }) {
     return (
         <div className="camera-wrapper">
             {/* VIDEO de la cámara */}
-            <video ref={videoRef} autoPlay playsInline muted className="camera-feed" />
+            <video ref={videoRef} autoPlay playsInline muted className="camera-feed"></video>
 
             {/* SILUETA sobre el vídeo */}
             <img src="/plantilla_silueta.png" alt="Silueta guía" className="foot-overlay" />
 
             {/* BOTÓN de cerrar */}
-            <button onClick={onClose} className="close-btn">✖✖</button>
+            <button className="close-btn" onClick={onClose}>✖</button>
 
-            {/* CANVAS oculto para procesar los frames */}
-            <canvas ref={canvasRef} style={{ display: "none" }}></canvas>
         </div>
     );
 }
