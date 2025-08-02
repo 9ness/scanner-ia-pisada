@@ -180,7 +180,7 @@ export default function CameraScanner({ onCapture, onClose }) {
                     zIndex: 1001
                 }}
             >
-                ✕
+                ✕✕
             </button>
         </div>
     );
