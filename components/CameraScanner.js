@@ -1,9 +1,11 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export default function CameraScanner({ onCapture, onClose }) {
     const videoRef = useRef(null);
     const streamRef = useRef(null);
+    const [opencvReady, setOpencvReady] = useState(false);
 
+    // ✅ 1. Arranca la cámara con resolución adaptable (HD si puede, si no baja)
     useEffect(() => {
         console.log("[CameraScanner] 🔄 Inicializando cámara...");
         let stream;
@@ -12,12 +14,11 @@ export default function CameraScanner({ onCapture, onClose }) {
             try {
                 stream = await navigator.mediaDevices.getUserMedia({
                     video: {
-                        facingMode: { ideal: "environment" },   // 📲 trasera
-                        width: { ideal: 1920 },                 // 📈 resolución ideal 1080p
-                        height: { ideal: 1080 }
+                        facingMode: { ideal: "environment" }, // 📲 cámara trasera
+                        width: { ideal: 1280 },               // 📈 pide HD (más seguro que 1920 directo)
+                        height: { ideal: 720 }
                     }
-                })
-                    ;
+                });
                 if (videoRef.current) {
                     videoRef.current.srcObject = stream;
                     streamRef.current = stream;
@@ -29,6 +30,7 @@ export default function CameraScanner({ onCapture, onClose }) {
 
         startCamera();
 
+        // ✅ Limpieza al cerrar
         return () => {
             console.log("[CameraScanner] 🛑 Cerrando cámara...");
             if (streamRef.current) {
@@ -37,48 +39,78 @@ export default function CameraScanner({ onCapture, onClose }) {
         };
     }, []);
 
+    // ✅ 2. Carga OpenCV.js una vez
+    useEffect(() => {
+        console.log("[CameraScanner] ⬇️ Cargando OpenCV...");
+        const script = document.createElement("script");
+        script.src = "https://docs.opencv.org/4.7.0/opencv.js";
+        script.async = true;
+        script.onload = () => {
+            console.log("✅ OpenCV cargado");
+            setOpencvReady(true);
+        };
+        document.body.appendChild(script);
+        return () => {
+            document.body.removeChild(script);
+        };
+    }, []);
+
+    // ✅ 3. Detección automática (muy simple de momento)
     useEffect(() => {
         if (!opencvReady) return;
-        console.log("✅ OpenCV cargado, iniciando detección automática");
+        console.log("[CameraScanner] 🚀 OpenCV listo, arrancando detección automática...");
 
         const video = videoRef.current;
         const canvas = document.createElement("canvas");
         const ctx = canvas.getContext("2d");
 
         const checkFrame = () => {
-            if (!video) return;
+            if (!video || video.readyState < 2) {
+                setTimeout(checkFrame, 500);
+                return;
+            }
 
-            // Dibujamos frame en canvas
+            // 📸 Capturamos frame en canvas
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-            // Aquí simplificamos: convertimos a escala de grises y detectamos bordes
-            const src = new cv.Mat(canvas.height, canvas.width, cv.CV_8UC4);
-            const dst = new cv.Mat();
-            cv.imread(canvas, src);
-            cv.cvtColor(src, src, cv.COLOR_RGBA2GRAY);
-            cv.Canny(src, dst, 50, 150);
+            // ⚙️ OpenCV: bordes rápidos (esto luego lo refinamos)
+            const src = cv.imread(canvas);
+            const gray = new cv.Mat();
+            const edges = new cv.Mat();
+            cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+            cv.Canny(gray, edges, 50, 150);
 
-            // 📌 En este punto podríamos buscar la silueta (template matching)
-            // de momento solo hacemos un contador simple de bordes
-            let whitePixels = cv.countNonZero(dst);
+            let whitePixels = cv.countNonZero(edges);
 
-            if (whitePixels > 15000) {  // umbral ajustable
-                console.log("📸 DETECCIÓN CORRECTA → foto tomada");
-                takePhoto();   // tu función para sacar la foto
+            console.log("📊 Bordes detectados:", whitePixels);
+
+            if (whitePixels > 15000) {   // 🔥 si hay suficiente borde, tomamos foto
+                console.log("📸 DETECCIÓN CORRECTA → FOTO AUTOMÁTICA");
+                takePhoto();
+                src.delete(); gray.delete(); edges.delete();
                 return;
             }
 
-            src.delete(); dst.delete();
-
-            // 🔄 chequea cada 500 ms
-            setTimeout(checkFrame, 500);
+            src.delete(); gray.delete(); edges.delete();
+            setTimeout(checkFrame, 800); // vuelve a analizar cada 0.8s
         };
 
         checkFrame();
     }, [opencvReady]);
 
+    // ✅ 4. Función para sacar foto y enviarla al index
+    const takePhoto = () => {
+        if (!videoRef.current) return;
+        const canvas = document.createElement("canvas");
+        canvas.width = videoRef.current.videoWidth;
+        canvas.height = videoRef.current.videoHeight;
+        canvas.getContext("2d").drawImage(videoRef.current, 0, 0);
+        canvas.toBlob((blob) => {
+            onCapture(blob);
+        }, "image/jpeg", 0.9);
+    };
 
     return (
         <div
@@ -112,7 +144,7 @@ export default function CameraScanner({ onCapture, onClose }) {
                 }}
             />
 
-            {/* SILUETA 🔥 */}
+            {/* SILUETA (más grande) */}
             <img
                 src="/plantilla_silueta.png"
                 alt="Silueta de plantilla"
@@ -122,13 +154,12 @@ export default function CameraScanner({ onCapture, onClose }) {
                     left: "50%",
                     transform: "translate(-50%, -50%)",
                     width: "auto",
-                    height: "70%",       // ⬅️ usa el 70% de la pantalla
+                    height: "85%",   // 🔥 Más grande para móviles
                     opacity: 0.5,
                     pointerEvents: "none",
                     zIndex: 1000
                 }}
             />
-
 
             {/* BOTÓN DE CERRAR */}
             <button
@@ -137,20 +168,20 @@ export default function CameraScanner({ onCapture, onClose }) {
                     position: "absolute",
                     top: "20px",
                     right: "20px",
-                    width: "40px",
-                    height: "40px",
+                    width: "45px",
+                    height: "45px",
                     borderRadius: "50%",
-                    background: "rgba(0, 0, 0, 0.5)",   // fondo discreto
+                    background: "rgba(0, 0, 0, 0.6)",
                     color: "white",
                     fontSize: "24px",
-                    border: "1px solid rgba(255, 255, 255, 0.8)",  // borde fino
+                    fontWeight: "bold",
+                    border: "1px solid rgba(255, 255, 255, 0.7)",
                     cursor: "pointer",
                     zIndex: 1001
                 }}
             >
-                ✕✕
+                ✕
             </button>
-
         </div>
     );
 }
