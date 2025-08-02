@@ -5,18 +5,28 @@ export default function CameraScanner({ onCapture, onClose }) {
     const streamRef = useRef(null);
     const [opencvReady, setOpencvReady] = useState(false);
 
-    // ✅ 1. Arranca la cámara con resolución adaptable (HD si puede, si no baja)
+    // ✅ 1. Cargar OpenCV
     useEffect(() => {
-        console.log("[CameraScanner] 🔄 Inicializando cámara...");
-        let stream;
+        console.log("[CameraScanner] 📥 Cargando OpenCV...");
+        const script = document.createElement("script");
+        script.src = "https://docs.opencv.org/4.7.0/opencv.js";
+        script.async = true;
+        script.onload = () => {
+            console.log("✅ OpenCV cargado");
+            setOpencvReady(true);
+        };
+        document.body.appendChild(script);
+    }, []);
 
+    // ✅ 2. Iniciar cámara (ideal 1080p)
+    useEffect(() => {
         const startCamera = async () => {
             try {
-                stream = await navigator.mediaDevices.getUserMedia({
+                const stream = await navigator.mediaDevices.getUserMedia({
                     video: {
-                        facingMode: { ideal: "environment" }, // 📲 cámara trasera
-                        width: { ideal: 1280 },               // 📈 pide HD (más seguro que 1920 directo)
-                        height: { ideal: 720 }
+                        facingMode: { ideal: "environment" },
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
                     }
                 });
                 if (videoRef.current) {
@@ -27,44 +37,43 @@ export default function CameraScanner({ onCapture, onClose }) {
                 console.error("❌ Error al abrir cámara:", err);
             }
         };
-
         startCamera();
 
-        // ✅ Limpieza al cerrar
         return () => {
-            console.log("[CameraScanner] 🛑 Cerrando cámara...");
             if (streamRef.current) {
-                streamRef.current.getTracks().forEach((track) => track.stop());
+                streamRef.current.getTracks().forEach(track => track.stop());
             }
         };
     }, []);
 
-    // ✅ 2. Carga OpenCV.js una vez
-    useEffect(() => {
-        console.log("[CameraScanner] ⬇️ Cargando OpenCV...");
-        const script = document.createElement("script");
-        script.src = "https://docs.opencv.org/4.7.0/opencv.js";
-        script.async = true;
-        script.onload = () => {
-            console.log("✅ OpenCV cargado");
-            setOpencvReady(true);
-        };
-        document.body.appendChild(script);
-        return () => {
-            document.body.removeChild(script);
-        };
-    }, []);
+    // ✅ 3. Función para tomar la foto
+    const takePhoto = () => {
+        const video = videoRef.current;
+        if (!video) return;
 
-    // ✅ 3. Detección automática (muy simple de momento)
+        const canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(video, 0, 0);
+
+        canvas.toBlob(blob => {
+            console.log("📸 Foto tomada automáticamente");
+            onCapture(blob);
+        }, "image/jpeg");
+    };
+
+    // ✅ 4. Template Matching (detección automática)
     useEffect(() => {
         if (!opencvReady) return;
-        console.log("[CameraScanner] 🚀 OpenCV listo, arrancando detección automática...");
+
+        console.log("[CameraScanner] 🚀 OpenCV listo, iniciando detección automática...");
 
         const video = videoRef.current;
         const canvas = document.createElement("canvas");
         const ctx = canvas.getContext("2d");
 
-        // 📥 Cargamos la silueta de referencia UNA sola vez
+        // 📥 Cargar la imagen de referencia (silueta)
         const refImg = new Image();
         refImg.src = "/plantilla_silueta.png";
         refImg.onload = () => {
@@ -72,20 +81,21 @@ export default function CameraScanner({ onCapture, onClose }) {
             refCanvas.width = refImg.width;
             refCanvas.height = refImg.height;
             refCanvas.getContext("2d").drawImage(refImg, 0, 0);
+
             const refMat = cv.imread(refCanvas);
             cv.cvtColor(refMat, refMat, cv.COLOR_RGBA2GRAY);
 
-            // 🔁 Función que comprueba cada 700ms
+            // 🔁 Comprobar cada 800 ms si hay coincidencia
             const checkFrame = () => {
                 if (!video || video.readyState < 2) {
-                    setTimeout(checkFrame, 700);
+                    setTimeout(checkFrame, 800);
                     return;
                 }
 
-                // 🎥 Capturamos frame de la cámara
+                // 🎥 Capturar frame
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                ctx.drawImage(video, 0, 0);
 
                 const frame = cv.imread(canvas);
                 cv.cvtColor(frame, frame, cv.COLOR_RGBA2GRAY);
@@ -101,34 +111,21 @@ export default function CameraScanner({ onCapture, onClose }) {
 
                 cv.minMaxLoc(result, minVal, maxVal, minLoc, maxLoc);
 
-                console.log("📈 Similitud:", maxVal.value);
+                console.log("📈 Nivel de coincidencia:", maxVal.value);
 
-                if (maxVal.value > 0.70) { // 🎯 70% de coincidencia
-                    console.log("✅ PLANTILLA DETECTADA → FOTO");
+                if (maxVal.value > 0.70) { // 🎯 Ajusta el umbral (0.70 está bien para empezar)
+                    console.log("✅ Plantilla detectada con suficiente coincidencia");
                     takePhoto();
                     frame.delete(); result.delete(); return;
                 }
 
                 frame.delete(); result.delete();
-                setTimeout(checkFrame, 700);
+                setTimeout(checkFrame, 800);
             };
 
             checkFrame();
         };
     }, [opencvReady]);
-
-
-    // ✅ 4. Función para sacar foto y enviarla al index
-    const takePhoto = () => {
-        if (!videoRef.current) return;
-        const canvas = document.createElement("canvas");
-        canvas.width = videoRef.current.videoWidth;
-        canvas.height = videoRef.current.videoHeight;
-        canvas.getContext("2d").drawImage(videoRef.current, 0, 0);
-        canvas.toBlob((blob) => {
-            onCapture(blob);
-        }, "image/jpeg", 0.9);
-    };
 
     return (
         <div
@@ -146,7 +143,7 @@ export default function CameraScanner({ onCapture, onClose }) {
                 overflow: "hidden"
             }}
         >
-            {/* VIDEO DE LA CÁMARA */}
+            {/* 🎥 VIDEO DE LA CÁMARA */}
             <video
                 ref={videoRef}
                 autoPlay
@@ -162,7 +159,7 @@ export default function CameraScanner({ onCapture, onClose }) {
                 }}
             />
 
-            {/* SILUETA (más grande) */}
+            {/* 🔲 SILUETA */}
             <img
                 src="/plantilla_silueta.png"
                 alt="Silueta de plantilla"
@@ -171,34 +168,35 @@ export default function CameraScanner({ onCapture, onClose }) {
                     top: "50%",
                     left: "50%",
                     transform: "translate(-50%, -50%)",
-                    width: "auto",
-                    maxWidth: "70vw",    // 📏 No más del 70% del ancho de la pantalla
-                    maxHeight: "70vh",   // 📏 No más del 70% de la altura
+                    maxWidth: "70vw",
+                    maxHeight: "70vh",
                     opacity: 0.5,
                     pointerEvents: "none",
                     zIndex: 1000
                 }}
             />
 
-
-            {/* BOTÓN DE CERRAR */}
+            {/* ❌ BOTÓN CERRAR – AHORA ESTÁ “LIMPIO” Y ENCUDRADO */}
             <button
                 onClick={onClose}
                 style={{
                     position: "absolute",
                     top: "20px",
                     right: "20px",
-                    width: "45px",
-                    height: "45px",
-                    borderRadius: "50%",
-                    background: "rgba(0, 0, 0, 0.6)",
-                    color: "white",
-                    fontSize: "24px",
+                    padding: "8px 14px",
+                    background: "rgba(255, 255, 255, 0.9)",
+                    color: "#000",
+                    fontSize: "22px",
                     fontWeight: "bold",
-                    border: "1px solid rgba(255, 255, 255, 0.7)",
+                    border: "none",
+                    borderRadius: "8px",
+                    boxShadow: "0 2px 6px rgba(0, 0, 0, 0.3)",
                     cursor: "pointer",
-                    zIndex: 1001
+                    zIndex: 1001,
+                    transition: "background 0.2s ease-in-out"
                 }}
+                onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,1)"}
+                onMouseLeave={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.9)"}
             >
                 ✕
             </button>
