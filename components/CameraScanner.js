@@ -5,7 +5,7 @@ export default function CameraScanner({ onCapture, onClose }) {
     const streamRef = useRef(null);
     const [opencvReady, setOpencvReady] = useState(false);
 
-    // ✅ 1. Cargar OpenCV
+    // ✅ 1. Cargar OpenCV una vez
     useEffect(() => {
         console.log("[CameraScanner] 📥 Cargando OpenCV...");
         const script = document.createElement("script");
@@ -24,7 +24,7 @@ export default function CameraScanner({ onCapture, onClose }) {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: {
-                        facingMode: { ideal: "environment" },
+                        facingMode: { ideal: "environment" }, // cámara trasera
                         width: { ideal: 1920 },
                         height: { ideal: 1080 }
                     }
@@ -46,7 +46,7 @@ export default function CameraScanner({ onCapture, onClose }) {
         };
     }, []);
 
-    // ✅ 3. Función para tomar la foto
+    // ✅ 3. Tomar foto desde el stream
     const takePhoto = () => {
         const video = videoRef.current;
         if (!video) return;
@@ -63,17 +63,17 @@ export default function CameraScanner({ onCapture, onClose }) {
         }, "image/jpeg");
     };
 
-    // ✅ 4. Template Matching (detección automática)
+    // ✅ 4. Detección automática con OpenCV Template Matching
     useEffect(() => {
         if (!opencvReady) return;
 
-        console.log("[CameraScanner] 🚀 OpenCV listo, iniciando detección automática...");
+        console.log("[CameraScanner] 🚀 OpenCV listo → activando detección");
 
         const video = videoRef.current;
         const canvas = document.createElement("canvas");
         const ctx = canvas.getContext("2d");
 
-        // 📥 Cargar la imagen de referencia (silueta)
+        // 📥 Cargar la silueta como imagen de referencia
         const refImg = new Image();
         refImg.src = "/plantilla_silueta.png";
         refImg.onload = () => {
@@ -85,14 +85,14 @@ export default function CameraScanner({ onCapture, onClose }) {
             const refMat = cv.imread(refCanvas);
             cv.cvtColor(refMat, refMat, cv.COLOR_RGBA2GRAY);
 
-            // 🔁 Comprobar cada 800 ms si hay coincidencia
+            // 🔄 Función de comprobación continua
             const checkFrame = () => {
                 if (!video || video.readyState < 2) {
                     setTimeout(checkFrame, 800);
                     return;
                 }
 
-                // 🎥 Capturar frame
+                // 🎥 Capturar frame de la cámara
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
                 ctx.drawImage(video, 0, 0);
@@ -100,7 +100,7 @@ export default function CameraScanner({ onCapture, onClose }) {
                 const frame = cv.imread(canvas);
                 cv.cvtColor(frame, frame, cv.COLOR_RGBA2GRAY);
 
-                // 📊 Template Matching
+                // 🔍 Template Matching
                 const result = new cv.Mat();
                 cv.matchTemplate(frame, refMat, result, cv.TM_CCOEFF_NORMED);
 
@@ -108,19 +108,22 @@ export default function CameraScanner({ onCapture, onClose }) {
                 let maxVal = { value: 0 };
                 let minLoc = { x: 0, y: 0 };
                 let maxLoc = { x: 0, y: 0 };
-
                 cv.minMaxLoc(result, minVal, maxVal, minLoc, maxLoc);
 
-                console.log("📈 Nivel de coincidencia:", maxVal.value);
+                console.log("📊 Nivel de coincidencia:", maxVal.value.toFixed(2));
 
-                if (maxVal.value > 0.70) { // 🎯 Ajusta el umbral (0.70 está bien para empezar)
-                    console.log("✅ Plantilla detectada con suficiente coincidencia");
+                // 🎯 Si pasa del umbral (0.70), dispara foto
+                if (maxVal.value > 0.70) {
+                    console.log("✅ Plantilla detectada (MATCH > 0.70)");
                     takePhoto();
-                    frame.delete(); result.delete(); return;
+                    frame.delete();
+                    result.delete();
+                    return;
                 }
 
-                frame.delete(); result.delete();
-                setTimeout(checkFrame, 800);
+                frame.delete();
+                result.delete();
+                setTimeout(checkFrame, 800); // volver a comprobar
             };
 
             checkFrame();
@@ -159,7 +162,7 @@ export default function CameraScanner({ onCapture, onClose }) {
                 }}
             />
 
-            {/* 🔲 SILUETA */}
+            {/* 🔲 SILUETA – MÁS GRANDE (80% de la pantalla) */}
             <img
                 src="/plantilla_silueta.png"
                 alt="Silueta de plantilla"
@@ -168,35 +171,34 @@ export default function CameraScanner({ onCapture, onClose }) {
                     top: "50%",
                     left: "50%",
                     transform: "translate(-50%, -50%)",
-                    maxWidth: "70vw",
-                    maxHeight: "70vh",
-                    opacity: 0.5,
+                    maxWidth: "80vw",
+                    maxHeight: "80vh",
+                    opacity: 0.55,
                     pointerEvents: "none",
                     zIndex: 1000
                 }}
             />
 
-            {/* ❌ BOTÓN CERRAR – AHORA ESTÁ “LIMPIO” Y ENCUDRADO */}
+            {/* ❌ BOTÓN CERRAR (pegado a la esquina) */}
             <button
                 onClick={onClose}
                 style={{
                     position: "absolute",
-                    top: "20px",
-                    right: "20px",
-                    padding: "8px 14px",
-                    background: "rgba(255, 255, 255, 0.9)",
-                    color: "#000",
+                    top: "12px",
+                    right: "12px",
+                    width: "40px",
+                    height: "40px",
+                    borderRadius: "50%",
+                    background: "rgba(0, 0, 0, 0.6)",
+                    color: "#fff",
                     fontSize: "22px",
-                    fontWeight: "bold",
                     border: "none",
-                    borderRadius: "8px",
-                    boxShadow: "0 2px 6px rgba(0, 0, 0, 0.3)",
                     cursor: "pointer",
-                    zIndex: 1001,
-                    transition: "background 0.2s ease-in-out"
+                    zIndex: 2000,
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,1)"}
-                onMouseLeave={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.9)"}
             >
                 ✕
             </button>
