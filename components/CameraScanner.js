@@ -58,8 +58,13 @@ export default function CameraScanner({ onCapture, onClose }) {
         ctx.drawImage(video, 0, 0);
 
         canvas.toBlob((blob) => {
-            console.log("📸 FOTO AUTOMÁTICA REALIZADA");
+            console.log("📸 FOTO AUTOMÁTICA REALIZADA ✔");
+            // 🔊 Aviso visual y vibración
+            if (navigator.vibrate) navigator.vibrate(150);
+            // 🚀 Mandamos la foto a la página principal
             onCapture(blob);
+            // ❌ Cerramos la cámara después de mandar la foto
+            onClose();
         }, "image/jpeg");
     };
 
@@ -116,13 +121,9 @@ export default function CameraScanner({ onCapture, onClose }) {
 
                 // 🎯 Ajusta el umbral según pruebas (0.50-0.70)
                 if (maxVal.value > 0.55) {
-                    console.log("✅ Plantilla detectada dentro de la silueta → TOMANDO FOTO");
-                    takePhoto();
-
-                    // 🧹 Liberamos memoria y detenemos la detección
-                    frame.delete();
-                    result.delete();
-                    return;
+                    console.log("✅ Plantilla detectada → disparando foto y cerrando cámara");
+                    takePhoto(); // 🚀 Saca foto y cierra
+                    return; // ✋ Detenemos el loop
                 }
 
                 frame.delete();
@@ -177,8 +178,8 @@ export default function CameraScanner({ onCapture, onClose }) {
                     top: "50%",
                     left: "50%",
                     transform: "translate(-50%, -50%)",
-                    maxWidth: "75vw",
-                    maxHeight: "75vh",
+                    maxWidth: "78vw",
+                    maxHeight: "78vh",
                     opacity: 0.5,
                     pointerEvents: "none",
                     zIndex: 1000,
@@ -190,14 +191,14 @@ export default function CameraScanner({ onCapture, onClose }) {
                 onClick={onClose}
                 style={{
                     position: "absolute",
-                    top: "12px",
-                    right: "12px",
-                    width: "40px",
-                    height: "40px",
+                    top: "15px",
+                    right: "15px",
+                    width: "38px",
+                    height: "38px",
                     borderRadius: "50%",
                     background: "rgba(0, 0, 0, 0.6)",
                     color: "#fff",
-                    fontSize: "22px",
+                    fontSize: "20px",
                     border: "none",
                     cursor: "pointer",
                     zIndex: 2000,
