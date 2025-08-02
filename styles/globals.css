@@ -1610,63 +1610,55 @@ padding-left: 0rem !important;
   width: 90%;
 }
 
-.camera-wrapper {
+/* === MODO CÁMARA AISLADO === */
+.camera-modal {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
-  height: 100vh;
+  height: 100%;
   background: black;
-  z-index: 9999;
-  overflow: hidden;
+  z-index: 99999; /* siempre por encima */
 }
 
-.camera-feed {
-  position: absolute;
-  top: 0;
-  left: 0;
+.camera-video {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  position: absolute;
+  top: 0;
+  left: 0;
 }
 
-/* 👣 Silueta RESPONSIVE y centrada */
-.foot-overlay {
+.camera-overlay {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 50%;            /* Escala al ancho de la cámara */
-  max-width: 80vw;       /* Nunca se sale del viewport */
+  width: 55vw;       /* escala automática */
+  max-width: 350px;  /* nunca más de 350px en móviles */
   opacity: 0.5;
   pointer-events: none;
-  z-index: 1001;
-}
-
-@media (max-width: 480px) {
-  .foot-overlay {
-    width: 65%;
-  }
-}
-
-@media (min-width: 900px) {
-  .foot-overlay {
-    width: 35%;
-  }
 }
 
 .close-btn {
   position: absolute;
-  top: 16px;
-  right: 16px;
-  background: rgba(0, 0, 0, 0.6);
+  top: 15px;
+  right: 15px;
+  background: rgba(0,0,0,0.6);
   color: white;
   border: none;
-  padding: 10px 14px;
   border-radius: 50%;
   font-size: 22px;
+  padding: 10px;
   cursor: pointer;
-  z-index: 2000;
+  z-index: 100000;
+  transition: background-color 0.2s ease-in-out;
 }
+
+.close-btn:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
 
 }
