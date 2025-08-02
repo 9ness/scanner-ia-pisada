@@ -5,9 +5,8 @@ export default function CameraScanner({ onCapture, onClose }) {
     const streamRef = useRef(null);
     const [opencvReady, setOpencvReady] = useState(false);
 
-    // ✅ 1. Cargar OpenCV una vez
     useEffect(() => {
-        console.log("[CameraScanner] 📥 Cargando OpenCV...");
+        // 📥 Cargar OpenCV
         const script = document.createElement("script");
         script.src = "https://docs.opencv.org/4.7.0/opencv.js";
         script.async = true;
@@ -18,16 +17,16 @@ export default function CameraScanner({ onCapture, onClose }) {
         document.body.appendChild(script);
     }, []);
 
-    // ✅ 2. Iniciar cámara (ideal 1080p)
     useEffect(() => {
+        // 🎥 Encender cámara trasera
         const startCamera = async () => {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: {
-                        facingMode: { ideal: "environment" }, // cámara trasera
-                        width: { ideal: 1920 },
-                        height: { ideal: 1080 }
-                    }
+                        facingMode: { ideal: "environment" },
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                    },
                 });
                 if (videoRef.current) {
                     videoRef.current.srcObject = stream;
@@ -39,14 +38,15 @@ export default function CameraScanner({ onCapture, onClose }) {
         };
         startCamera();
 
+        // 🛑 Apagar cámara al cerrar
         return () => {
             if (streamRef.current) {
-                streamRef.current.getTracks().forEach(track => track.stop());
+                streamRef.current.getTracks().forEach((track) => track.stop());
             }
         };
     }, []);
 
-    // ✅ 3. Tomar foto desde el stream
+    // 📸 Tomar foto
     const takePhoto = () => {
         const video = videoRef.current;
         if (!video) return;
@@ -57,26 +57,26 @@ export default function CameraScanner({ onCapture, onClose }) {
         const ctx = canvas.getContext("2d");
         ctx.drawImage(video, 0, 0);
 
-        canvas.toBlob(blob => {
-            console.log("📸 Foto tomada automáticamente");
+        canvas.toBlob((blob) => {
+            console.log("📸 FOTO AUTOMÁTICA REALIZADA");
             onCapture(blob);
         }, "image/jpeg");
     };
 
-    // ✅ 4. Detección automática con OpenCV Template Matching
     useEffect(() => {
         if (!opencvReady) return;
 
-        console.log("[CameraScanner] 🚀 OpenCV listo → activando detección");
+        console.log("[CameraScanner] 🚀 Detección activada (modo DNI)");
 
         const video = videoRef.current;
         const canvas = document.createElement("canvas");
         const ctx = canvas.getContext("2d");
 
-        // 📥 Cargar la silueta como imagen de referencia
+        // 📥 Cargar la silueta (template)
         const refImg = new Image();
         refImg.src = "/plantilla_silueta.png";
         refImg.onload = () => {
+            console.log("✅ Silueta cargada");
             const refCanvas = document.createElement("canvas");
             refCanvas.width = refImg.width;
             refCanvas.height = refImg.height;
@@ -85,25 +85,27 @@ export default function CameraScanner({ onCapture, onClose }) {
             const refMat = cv.imread(refCanvas);
             cv.cvtColor(refMat, refMat, cv.COLOR_RGBA2GRAY);
 
-            // 🔄 Función de comprobación continua
+            // 🔄 Loop de comprobación
             const checkFrame = () => {
                 if (!video || video.readyState < 2) {
-                    setTimeout(checkFrame, 800);
+                    setTimeout(checkFrame, 500);
                     return;
                 }
 
-                // 🎥 Capturar frame de la cámara
+                // 📸 Capturamos frame actual
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
                 ctx.drawImage(video, 0, 0);
 
+                // 🔍 Convertimos a escala de grises
                 const frame = cv.imread(canvas);
                 cv.cvtColor(frame, frame, cv.COLOR_RGBA2GRAY);
 
-                // 🔍 Template Matching
+                // 📐 MatchTemplate para ver si encaja con la silueta
                 const result = new cv.Mat();
                 cv.matchTemplate(frame, refMat, result, cv.TM_CCOEFF_NORMED);
 
+                // 📊 Obtenemos mejor coincidencia
                 let minVal = { value: 0 };
                 let maxVal = { value: 0 };
                 let minLoc = { x: 0, y: 0 };
@@ -112,10 +114,12 @@ export default function CameraScanner({ onCapture, onClose }) {
 
                 console.log("📊 Nivel de coincidencia:", maxVal.value.toFixed(2));
 
-                // 🎯 Si pasa del umbral (0.70), dispara foto
-                if (maxVal.value > 0.70) {
-                    console.log("✅ Plantilla detectada (MATCH > 0.70)");
+                // 🎯 Ajusta el umbral según pruebas (0.50-0.70)
+                if (maxVal.value > 0.55) {
+                    console.log("✅ Plantilla detectada dentro de la silueta → TOMANDO FOTO");
                     takePhoto();
+
+                    // 🧹 Liberamos memoria y detenemos la detección
                     frame.delete();
                     result.delete();
                     return;
@@ -123,7 +127,9 @@ export default function CameraScanner({ onCapture, onClose }) {
 
                 frame.delete();
                 result.delete();
-                setTimeout(checkFrame, 800); // volver a comprobar
+
+                // 🔄 Repetimos cada 700ms
+                setTimeout(checkFrame, 700);
             };
 
             checkFrame();
@@ -143,10 +149,10 @@ export default function CameraScanner({ onCapture, onClose }) {
                 display: "flex",
                 justifyContent: "center",
                 alignItems: "center",
-                overflow: "hidden"
+                overflow: "hidden",
             }}
         >
-            {/* 🎥 VIDEO DE LA CÁMARA */}
+            {/* 🎥 VIDEO */}
             <video
                 ref={videoRef}
                 autoPlay
@@ -162,7 +168,7 @@ export default function CameraScanner({ onCapture, onClose }) {
                 }}
             />
 
-            {/* 🔲 SILUETA – MÁS GRANDE (80% de la pantalla) */}
+            {/* 🦶 SILUETA */}
             <img
                 src="/plantilla_silueta.png"
                 alt="Silueta de plantilla"
@@ -171,15 +177,15 @@ export default function CameraScanner({ onCapture, onClose }) {
                     top: "50%",
                     left: "50%",
                     transform: "translate(-50%, -50%)",
-                    maxWidth: "80vw",
-                    maxHeight: "80vh",
-                    opacity: 0.55,
+                    maxWidth: "75vw",
+                    maxHeight: "75vh",
+                    opacity: 0.5,
                     pointerEvents: "none",
-                    zIndex: 1000
+                    zIndex: 1000,
                 }}
             />
 
-            {/* ❌ BOTÓN CERRAR (pegado a la esquina) */}
+            {/* ❌ BOTÓN DE CERRAR */}
             <button
                 onClick={onClose}
                 style={{
