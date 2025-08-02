@@ -64,41 +64,59 @@ export default function CameraScanner({ onCapture, onClose }) {
         const canvas = document.createElement("canvas");
         const ctx = canvas.getContext("2d");
 
-        const checkFrame = () => {
-            if (!video || video.readyState < 2) {
-                setTimeout(checkFrame, 500);
-                return;
-            }
+        // 📥 Cargamos la silueta de referencia UNA sola vez
+        const refImg = new Image();
+        refImg.src = "/plantilla_silueta.png";
+        refImg.onload = () => {
+            const refCanvas = document.createElement("canvas");
+            refCanvas.width = refImg.width;
+            refCanvas.height = refImg.height;
+            refCanvas.getContext("2d").drawImage(refImg, 0, 0);
+            const refMat = cv.imread(refCanvas);
+            cv.cvtColor(refMat, refMat, cv.COLOR_RGBA2GRAY);
 
-            // 📸 Capturamos frame en canvas
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            // 🔁 Función que comprueba cada 700ms
+            const checkFrame = () => {
+                if (!video || video.readyState < 2) {
+                    setTimeout(checkFrame, 700);
+                    return;
+                }
 
-            // ⚙️ OpenCV: bordes rápidos (esto luego lo refinamos)
-            const src = cv.imread(canvas);
-            const gray = new cv.Mat();
-            const edges = new cv.Mat();
-            cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-            cv.Canny(gray, edges, 50, 150);
+                // 🎥 Capturamos frame de la cámara
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-            let whitePixels = cv.countNonZero(edges);
+                const frame = cv.imread(canvas);
+                cv.cvtColor(frame, frame, cv.COLOR_RGBA2GRAY);
 
-            console.log("📊 Bordes detectados:", whitePixels);
+                // 📊 Template Matching
+                const result = new cv.Mat();
+                cv.matchTemplate(frame, refMat, result, cv.TM_CCOEFF_NORMED);
 
-            if (whitePixels > 15000) {   // 🔥 si hay suficiente borde, tomamos foto
-                console.log("📸 DETECCIÓN CORRECTA → FOTO AUTOMÁTICA");
-                takePhoto();
-                src.delete(); gray.delete(); edges.delete();
-                return;
-            }
+                let minVal = { value: 0 };
+                let maxVal = { value: 0 };
+                let minLoc = { x: 0, y: 0 };
+                let maxLoc = { x: 0, y: 0 };
 
-            src.delete(); gray.delete(); edges.delete();
-            setTimeout(checkFrame, 800); // vuelve a analizar cada 0.8s
+                cv.minMaxLoc(result, minVal, maxVal, minLoc, maxLoc);
+
+                console.log("📈 Similitud:", maxVal.value);
+
+                if (maxVal.value > 0.70) { // 🎯 70% de coincidencia
+                    console.log("✅ PLANTILLA DETECTADA → FOTO");
+                    takePhoto();
+                    frame.delete(); result.delete(); return;
+                }
+
+                frame.delete(); result.delete();
+                setTimeout(checkFrame, 700);
+            };
+
+            checkFrame();
         };
-
-        checkFrame();
     }, [opencvReady]);
+
 
     // ✅ 4. Función para sacar foto y enviarla al index
     const takePhoto = () => {
@@ -154,12 +172,14 @@ export default function CameraScanner({ onCapture, onClose }) {
                     left: "50%",
                     transform: "translate(-50%, -50%)",
                     width: "auto",
-                    height: "85%",   // 🔥 Más grande para móviles
+                    maxWidth: "70vw",    // 📏 No más del 70% del ancho de la pantalla
+                    maxHeight: "70vh",   // 📏 No más del 70% de la altura
                     opacity: 0.5,
                     pointerEvents: "none",
                     zIndex: 1000
                 }}
             />
+
 
             {/* BOTÓN DE CERRAR */}
             <button
@@ -180,7 +200,7 @@ export default function CameraScanner({ onCapture, onClose }) {
                     zIndex: 1001
                 }}
             >
-                ✕✕
+                ✕
             </button>
         </div>
     );
