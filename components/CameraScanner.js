@@ -11,8 +11,13 @@ export default function CameraScanner({ onCapture, onClose }) {
         const startCamera = async () => {
             try {
                 stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: "environment" }
-                });
+                    video: {
+                        facingMode: { ideal: "environment" },   // 📲 trasera
+                        width: { ideal: 1920 },                 // 📈 resolución ideal 1080p
+                        height: { ideal: 1080 }
+                    }
+                })
+                    ;
                 if (videoRef.current) {
                     videoRef.current.srcObject = stream;
                     streamRef.current = stream;
