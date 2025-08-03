@@ -3,12 +3,12 @@ import { useEffect, useRef, useState } from "react";
 export default function CameraScanner({ onCapture, onClose }) {
   const videoRef = useRef(null);
   const processCanvasRef = useRef(null);
+  const overlayCanvasRef = useRef(null);
   const maskCanvasRef = useRef(null);
   const streamRef = useRef(null);
   const siluetaImgRef = useRef(null);
 
   const [stats, setStats] = useState({ bordes: 0, dentro: 0, fuera: 0 });
-  const [highlight, setHighlight] = useState(false);
 
   useEffect(() => {
     async function startCamera() {
@@ -37,6 +37,7 @@ export default function CameraScanner({ onCapture, onClose }) {
 
       const video = videoRef.current;
       const processCanvas = processCanvasRef.current;
+      const overlayCanvas = overlayCanvasRef.current;
       const maskCanvas = maskCanvasRef.current;
 
       const ctx = processCanvas.getContext("2d");
@@ -54,37 +55,46 @@ export default function CameraScanner({ onCapture, onClose }) {
       cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
       cv.Canny(gray, edges, 50, 150);
 
-      // --- DIBUJAR MÁSCARA OSCURA ---
-      const maskCtx = maskCanvas.getContext("2d");
+      // --- DIBUJAR OVERLAY OSCURO ---
+      const oCtx = overlayCanvas.getContext("2d");
+      overlayCanvas.width = video.videoWidth;
+      overlayCanvas.height = video.videoHeight;
+
+      oCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+      // Fondo oscuro completo
+      oCtx.fillStyle = "rgba(0,0,0,0.6)";
+      oCtx.fillRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+      // Recortamos el interior de la silueta
+      const siluetaWidth = overlayCanvas.height * 0.70;
+      const siluetaHeight = overlayCanvas.height * 0.70;
+      const siluetaX = overlayCanvas.width / 2 - siluetaWidth / 2;
+      const siluetaY = overlayCanvas.height * 0.15;
+
+      oCtx.globalCompositeOperation = "destination-out";
+      oCtx.drawImage(siluetaImgRef.current, siluetaX, siluetaY, siluetaWidth, siluetaHeight);
+      oCtx.globalCompositeOperation = "source-over";
+
+      // --- PREPARAR MÁSCARA (solo para detección)
+      const mCtx = maskCanvas.getContext("2d");
       maskCanvas.width = video.videoWidth;
       maskCanvas.height = video.videoHeight;
-
-      // Fondo oscuro
-      maskCtx.fillStyle = "rgba(0,0,0,0.6)";
-      maskCtx.fillRect(0, 0, maskCanvas.width, maskCanvas.height);
-
-      // Recorte de la silueta
-      maskCtx.globalCompositeOperation = "destination-out";
-      maskCtx.drawImage(siluetaImgRef.current, 
-        maskCanvas.width/2 - (maskCanvas.height*0.35), // centrado
-        maskCanvas.height*0.15,
-        maskCanvas.height*0.70,
-        maskCanvas.height*0.70
-      );
-      maskCtx.globalCompositeOperation = "source-over";
+      mCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+      mCtx.drawImage(siluetaImgRef.current, siluetaX, siluetaY, siluetaWidth, siluetaHeight);
+      const maskData = mCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height).data;
 
       // --- DETECCIÓN REAL ---
-      const maskData = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height).data;
-
       let dentro = 0;
       let fuera = 0;
 
       for (let y = 0; y < edges.rows; y++) {
         for (let x = 0; x < edges.cols; x++) {
           if (edges.ucharPtr(y, x)[0] > 0) {
-            const idx = (y * edges.cols + x) * 4 + 3; // canal alfa
+            const idx = (y * edges.cols + x) * 4 + 3; // alfa del pixel
             const alpha = maskData[idx];
-            if (alpha === 0) {
+            if (alpha > 10) {
+              // el pixel de la silueta tiene algo de opacidad
               dentro++;
             } else {
               fuera++;
@@ -96,12 +106,8 @@ export default function CameraScanner({ onCapture, onClose }) {
       setStats({ bordes: dentro + fuera, dentro, fuera });
 
       // --- CAPTURA AUTOMÁTICA ---
-      if (dentro > 1200 && fuera < 3000) {
-        setHighlight(true);
-        setTimeout(() => {
-          takePhoto();
-          setHighlight(false);
-        }, 400);
+      if (dentro > 1000 && fuera < 500) {
+        takePhoto();
       }
 
       src.delete(); gray.delete(); edges.delete();
@@ -126,11 +132,12 @@ export default function CameraScanner({ onCapture, onClose }) {
     <div style={styles.container}>
       <video ref={videoRef} autoPlay playsInline style={styles.video} />
 
-      {/* CANVAS PROCESO Y MÁSCARA */}
+      {/* CANVAS PROCESO Y OVERLAY */}
       <canvas ref={processCanvasRef} style={{ display: "none" }} />
-      <canvas ref={maskCanvasRef} style={styles.mask} />
+      <canvas ref={overlayCanvasRef} style={styles.overlay} />
+      <canvas ref={maskCanvasRef} style={{ display: "none" }} />
 
-      {/* PNG DE LA SILUETA (oculto para recorte) */}
+      {/* PNG DE LA SILUETA (oculto) */}
       <img
         ref={siluetaImgRef}
         src="/plantilla_silueta.png"
@@ -155,7 +162,7 @@ export default function CameraScanner({ onCapture, onClose }) {
 const styles = {
   container: { position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", background: "black", zIndex: 9999 },
   video: { width: "100%", height: "100%", objectFit: "cover", position: "absolute" },
-  mask: { width: "100%", height: "100%", position: "absolute", top: 0, left: 0, pointerEvents: "none" },
+  overlay: { width: "100%", height: "100%", position: "absolute", top: 0, left: 0, pointerEvents: "none" },
   closeBtn: { position: "absolute", top: 20, right: 20, width: 40, height: 40, borderRadius: "50%", background: "rgba(0,0,0,0.6)", color: "white", fontSize: 24, border: "1px solid white", cursor: "pointer", zIndex: 1000 },
   statsBox: { position: "absolute", top: 20, left: 20, padding: "8px 12px", background: "rgba(0,0,0,0.7)", color: "white", fontSize: "14px", borderRadius: "8px", zIndex: 1000, lineHeight: "18px" }
 };
