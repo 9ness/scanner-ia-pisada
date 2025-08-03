@@ -2,23 +2,21 @@ import { useEffect, useRef, useState } from "react";
 
 export default function CameraScanner({ onCapture, onClose }) {
     const videoRef = useRef(null);
-    const canvasRef = useRef(null);
     const streamRef = useRef(null);
 
-    // 🟢 Estado de debug para mostrar en pantalla
-    const [borderCount, setBorderCount] = useState(0);
-    const [statusText, setStatusText] = useState("🔍 Buscando plantilla…");
+    const [debugText, setDebugText] = useState("🔍 Buscando plantilla...");
+    const [matchValue, setMatchValue] = useState(0);
+    const [highlight, setHighlight] = useState(false);
 
     useEffect(() => {
         let stream;
-
         const startCamera = async () => {
             try {
                 stream = await navigator.mediaDevices.getUserMedia({
                     video: {
                         facingMode: { ideal: "environment" },
-                        width: { ideal: 1920 },
-                        height: { ideal: 1080 }
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
                     }
                 });
                 if (videoRef.current) {
@@ -27,10 +25,9 @@ export default function CameraScanner({ onCapture, onClose }) {
                 }
             } catch (err) {
                 console.error("❌ Error al abrir cámara:", err);
-                setStatusText("❌ Error al abrir cámara");
+                setDebugText("❌ Error al abrir cámara");
             }
         };
-
         startCamera();
 
         return () => {
@@ -40,10 +37,9 @@ export default function CameraScanner({ onCapture, onClose }) {
         };
     }, []);
 
-    // 📸 Captura automática
     useEffect(() => {
         if (!window.cv) {
-            setStatusText("⚠️ OpenCV no cargado");
+            setDebugText("⚠️ OpenCV no cargado");
             return;
         }
 
@@ -51,65 +47,87 @@ export default function CameraScanner({ onCapture, onClose }) {
         const canvas = document.createElement("canvas");
         const ctx = canvas.getContext("2d");
 
-        const checkFrame = () => {
-            if (!video || video.readyState !== 4) {
-                requestAnimationFrame(checkFrame);
-                return;
-            }
-
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-            // 🔍 Procesar con OpenCV
-            let src = new cv.Mat(canvas.height, canvas.width, cv.CV_8UC4);
-            cv.imread(canvas, src);
-            cv.cvtColor(src, src, cv.COLOR_RGBA2GRAY);
-
-            let edges = new cv.Mat();
-            cv.Canny(src, edges, 50, 150);
-
-            // 📊 Contamos píxeles blancos (bordes detectados)
-            let whitePixels = cv.countNonZero(edges);
-            setBorderCount(whitePixels);
-
-            // 🟢 UMBRAL para considerar que hay “suficiente borde”
-            if (whitePixels > 25000) {
-                setStatusText("✅ Plantilla detectada, tomando foto...");
-                takePhoto();
-                src.delete();
-                edges.delete();
-                return; // ⛔ Deja de analizar frames
-            } else {
-                setStatusText("🔍 Buscando plantilla…");
-            }
-
-            src.delete();
-            edges.delete();
-
-            // 🔄 Repite cada 500ms
-            setTimeout(checkFrame, 500);
-        };
-
-        const takePhoto = () => {
-            // 📸 Saca la foto actual
-            const captureCanvas = document.createElement("canvas");
-            captureCanvas.width = video.videoWidth;
-            captureCanvas.height = video.videoHeight;
-            const captureCtx = captureCanvas.getContext("2d");
-            captureCtx.drawImage(video, 0, 0, captureCanvas.width, captureCanvas.height);
-
-            captureCanvas.toBlob((blob) => {
-                if (onCapture) {
-                    onCapture(blob);
+        // ⚠️ Cargar la silueta como plantilla
+        const templateImg = new Image();
+        templateImg.src = "/plantilla_silueta.png";
+        templateImg.onload = () => {
+            const checkFrame = () => {
+                if (!video || video.readyState !== 4) {
+                    requestAnimationFrame(checkFrame);
+                    return;
                 }
-            }, "image/jpeg", 0.95);
 
-            // 🔴 Cierra la cámara después de tomar la foto
-            if (onClose) onClose();
+                // 🖼️ Capturar frame actual
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                // 📥 Crear Mat de OpenCV
+                let src = cv.imread(canvas);
+                cv.cvtColor(src, src, cv.COLOR_RGBA2GRAY);
+
+                // 📥 Crear Mat de la silueta
+                let templCanvas = document.createElement("canvas");
+                templCanvas.width = templateImg.width;
+                templCanvas.height = templateImg.height;
+                const tctx = templCanvas.getContext("2d");
+                tctx.drawImage(templateImg, 0, 0);
+                let templ = cv.imread(templCanvas);
+                cv.cvtColor(templ, templ, cv.COLOR_RGBA2GRAY);
+
+                // 🔍 Matching con OpenCV
+                let result = new cv.Mat();
+                let mask = new cv.Mat();
+                cv.matchTemplate(src, templ, result, cv.TM_CCOEFF_NORMED, mask);
+                let minMax = cv.minMaxLoc(result, mask);
+                let maxVal = minMax.maxVal;
+                let maxLoc = minMax.maxLoc;
+
+                setMatchValue((maxVal * 100).toFixed(1));
+
+                // ✅ Si supera umbral, capturamos
+                if (maxVal > 0.55) {
+                    setDebugText(`✅ Coincidencia alta: ${(maxVal * 100).toFixed(1)}%`);
+                    setHighlight(true);
+
+                    setTimeout(() => {
+                        takePhoto();
+                        setHighlight(false);
+                    }, 500); // Parpadeo en verde antes de sacar foto
+
+                    src.delete(); templ.delete(); result.delete(); mask.delete();
+                    return;
+                } else {
+                    setDebugText(`🔍 Coincidencia: ${(maxVal * 100).toFixed(1)}%`);
+                }
+
+                // 🧹 Limpieza
+                src.delete();
+                templ.delete();
+                result.delete();
+                mask.delete();
+
+                // ⏳ Volver a chequear
+                setTimeout(checkFrame, 500);
+            };
+
+            const takePhoto = () => {
+                // 📸 Captura frame final
+                const captureCanvas = document.createElement("canvas");
+                captureCanvas.width = video.videoWidth;
+                captureCanvas.height = video.videoHeight;
+                const captureCtx = captureCanvas.getContext("2d");
+                captureCtx.drawImage(video, 0, 0, captureCanvas.width, captureCanvas.height);
+
+                captureCanvas.toBlob((blob) => {
+                    if (onCapture) onCapture(blob);
+                }, "image/jpeg", 0.95);
+
+                if (onClose) onClose();
+            };
+
+            checkFrame();
         };
-
-        checkFrame();
     }, [onCapture, onClose]);
 
     return (
@@ -124,8 +142,7 @@ export default function CameraScanner({ onCapture, onClose }) {
                 zIndex: 9999,
                 display: "flex",
                 justifyContent: "center",
-                alignItems: "center",
-                overflow: "hidden"
+                alignItems: "center"
             }}
         >
             {/* 🎥 VIDEO */}
@@ -154,8 +171,10 @@ export default function CameraScanner({ onCapture, onClose }) {
                     left: "50%",
                     transform: "translate(-50%, -50%)",
                     height: "70%",
-                    opacity: 0.5,
+                    opacity: highlight ? 1 : 0.5,
+                    filter: highlight ? "drop-shadow(0 0 15px lime)" : "none",
                     pointerEvents: "none",
+                    transition: "all 0.3s ease",
                     zIndex: 2
                 }}
             />
@@ -178,10 +197,10 @@ export default function CameraScanner({ onCapture, onClose }) {
                     zIndex: 3
                 }}
             >
-                ✕✕
+                ✕
             </button>
 
-            {/* 🟢 DEBUG BOX (ESQUINA SUPERIOR IZQUIERDA) */}
+            {/* 📊 DEBUG */}
             <div
                 style={{
                     position: "absolute",
@@ -196,8 +215,8 @@ export default function CameraScanner({ onCapture, onClose }) {
                     zIndex: 4
                 }}
             >
-                <div>{statusText}</div>
-                <div>📊 Bordes: {borderCount}</div>
+                <div>{debugText}</div>
+                <div>📈 Match: {matchValue}%</div>
             </div>
         </div>
     );
