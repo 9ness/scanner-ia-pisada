@@ -46,41 +46,70 @@ export default function CameraScanner({ onCapture, onClose }) {
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
 
+    // 🔥 Pre-cargar silueta como máscara
+    const siluetaImg = new Image();
+    siluetaImg.src = "/plantilla_silueta.png";
+    siluetaImg.onload = () => {
+      console.log("✅ Silueta cargada para máscara");
+    };
+
     const checkFrame = () => {
       if (!video || video.readyState !== 4) {
         requestAnimationFrame(checkFrame);
         return;
       }
 
-      // 🖼️ Capturar frame
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      // 🏷️ Definir área de detección (mitad de la pantalla)
-      const detectX = canvas.width * 0.25;
-      const detectY = canvas.height * 0.15;
-      const detectWidth = canvas.width * 0.50;
-      const detectHeight = canvas.height * 0.70;
-
-      // 📥 Crear Mat y recortar solo el área de detección
+      // 📥 Convertimos a Mat
       let src = cv.imread(canvas);
-      let roi = src.roi(new cv.Rect(detectX, detectY, detectWidth, detectHeight));
+      cv.cvtColor(src, src, cv.COLOR_RGBA2GRAY);
 
-      // 🔍 Detección de bordes
-      cv.cvtColor(roi, roi, cv.COLOR_RGBA2GRAY);
-      cv.GaussianBlur(roi, roi, new cv.Size(5, 5), 0);
-      cv.Canny(roi, roi, 50, 150);
+      // 🎭 Creamos una máscara del tamaño de la pantalla
+      const maskCanvas = document.createElement("canvas");
+      maskCanvas.width = canvas.width;
+      maskCanvas.height = canvas.height;
+      const maskCtx = maskCanvas.getContext("2d");
 
-      // 📊 Contar bordes blancos
-      let whitePixels = cv.countNonZero(roi);
-      setBorders(whitePixels);
-      setDebugText(`📊 Bordes detectados: ${whitePixels}`);
+      // 👉 Dibujamos la silueta en el centro como área blanca
+      const siluetaHeight = canvas.height * 0.7;
+      const siluetaWidth = siluetaHeight * 0.35; // proporción aprox.
+      const siluetaX = (canvas.width - siluetaWidth) / 2;
+      const siluetaY = (canvas.height - siluetaHeight) / 2;
 
-      // ✅ Si hay suficientes bordes, consideramos que hay plantilla
-      if (whitePixels > 10000) {
+      maskCtx.fillStyle = "black";
+      maskCtx.fillRect(0, 0, maskCanvas.width, maskCanvas.height);
+      maskCtx.drawImage(siluetaImg, siluetaX, siluetaY, siluetaWidth, siluetaHeight);
+
+      // 🔄 Leemos la máscara en OpenCV
+      let mask = cv.imread(maskCanvas);
+      cv.cvtColor(mask, mask, cv.COLOR_RGBA2GRAY);
+      cv.threshold(mask, mask, 1, 255, cv.THRESH_BINARY);
+
+      // 🏷️ Detección de bordes en todo el frame
+      cv.GaussianBlur(src, src, new cv.Size(5, 5), 0);
+      cv.Canny(src, src, 50, 150);
+
+      // 📊 Contar bordes DENTRO y FUERA de la máscara
+      let insideMat = new cv.Mat();
+      let outsideMat = new cv.Mat();
+
+      cv.bitwise_and(src, mask, insideMat);
+      cv.bitwise_not(mask, mask);
+      cv.bitwise_and(src, mask, outsideMat);
+
+      const insideEdges = cv.countNonZero(insideMat);
+      const outsideEdges = cv.countNonZero(outsideMat);
+
+      setBorders(insideEdges);
+      setDebugText(`📊 Dentro: ${insideEdges} | Fuera: ${outsideEdges}`);
+
+      // ✅ Condición de disparo: bordes dentro altos + bordes fuera bajos
+      if (insideEdges > 9000 && outsideEdges < 2500) {
         setHighlight(true);
-        setDebugText("✅ Plantilla detectada, capturando foto...");
+        setDebugText("✅ Coincidencia → Capturando foto…");
 
         setTimeout(() => {
           takePhoto();
@@ -88,13 +117,17 @@ export default function CameraScanner({ onCapture, onClose }) {
         }, 500);
 
         src.delete();
-        roi.delete();
+        mask.delete();
+        insideMat.delete();
+        outsideMat.delete();
         return;
       }
 
       // 🧹 Limpieza
       src.delete();
-      roi.delete();
+      mask.delete();
+      insideMat.delete();
+      outsideMat.delete();
 
       setTimeout(checkFrame, 500);
     };
@@ -183,7 +216,7 @@ export default function CameraScanner({ onCapture, onClose }) {
           zIndex: 3,
         }}
       >
-        ✕✕
+        ✕
       </button>
 
       {/* 📊 DEBUG */}
@@ -202,7 +235,7 @@ export default function CameraScanner({ onCapture, onClose }) {
         }}
       >
         <div>{debugText}</div>
-        <div>📈 Bordes: {borders}</div>
+        <div>📈 Bordes dentro: {borders}</div>
       </div>
     </div>
   );
