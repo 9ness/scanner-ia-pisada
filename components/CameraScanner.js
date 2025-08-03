@@ -2,31 +2,30 @@ import { useEffect, useRef, useState } from "react";
 
 export default function CameraScanner({ onCapture, onClose }) {
   const videoRef = useRef(null);
+  const canvasRef = useRef(null);
   const streamRef = useRef(null);
-  const [statusText, setStatusText] = useState("📷 Escanea tu plantilla");
-  const [testInfo, setTestInfo] = useState({ bordes: 0, dentro: 0, fuera: 0 });
+
+  const [stats, setStats] = useState({ bordes: 0, dentro: 0, fuera: 0 });
+  const [highlight, setHighlight] = useState(false);
 
   useEffect(() => {
     let stream;
-    const startCamera = async () => {
+    async function startCamera() {
       try {
         stream = await navigator.mediaDevices.getUserMedia({
           video: {
-            facingMode: { ideal: "environment" },
+            facingMode: "environment",
             width: { ideal: 1920 },
             height: { ideal: 1080 },
           },
         });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          streamRef.current = stream;
-        }
+        videoRef.current.srcObject = stream;
+        streamRef.current = stream;
       } catch (err) {
-        console.error("❌ Error al abrir cámara:", err);
+        console.error("❌ Error cámara:", err);
       }
-    };
+    }
     startCamera();
-
     return () => {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
@@ -34,134 +33,195 @@ export default function CameraScanner({ onCapture, onClose }) {
     };
   }, []);
 
-  // Simulación de detección automática para TEST
   useEffect(() => {
-    const checkFrame = () => {
-      // 🔢 Simulación de detección: genera números aleatorios para test
-      const bordes = Math.floor(Math.random() * 7000);
-      const dentro = Math.floor(Math.random() * 5000);
-      const fuera = Math.floor(Math.random() * 15000);
+    let interval;
+    const processFrame = () => {
+      if (!videoRef.current) return;
 
-      setTestInfo({ bordes, dentro, fuera });
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext("2d");
 
-      // Repetir cada medio segundo
-      setTimeout(checkFrame, 500);
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+
+      // Dibuja frame de la cámara en el canvas
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      // ---- OpenCV DETECCIÓN ----
+      const src = new cv.Mat(canvas.height, canvas.width, cv.CV_8UC4);
+      const gray = new cv.Mat();
+      const edges = new cv.Mat();
+
+      cv.imread(canvas, src);
+      cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+      cv.Canny(gray, edges, 50, 150);
+
+      // ----- CONTEO DE PIXELES -----
+      let dentro = 0;
+      let fuera = 0;
+      for (let y = 0; y < edges.rows; y++) {
+        for (let x = 0; x < edges.cols; x++) {
+          if (edges.ucharPtr(y, x)[0] > 0) {
+            // calculamos si está dentro de la silueta
+            if (isInsideSilhouette(x, y, edges.cols, edges.rows)) {
+              dentro++;
+            } else {
+              fuera++;
+            }
+          }
+        }
+      }
+
+      setStats({ bordes: dentro + fuera, dentro, fuera });
+
+      // ---- DISPARO AUTOMÁTICO ----
+      if (dentro > 1200 && fuera < 2500) {
+        setHighlight(true);
+        setTimeout(() => {
+          takePhoto();
+          setHighlight(false);
+        }, 500);
+      }
+
+      src.delete(); gray.delete(); edges.delete();
     };
-    checkFrame();
+
+    interval = setInterval(processFrame, 700);
+    return () => clearInterval(interval);
   }, []);
 
+  function isInsideSilhouette(x, y, w, h) {
+    // simulamos silueta: ocupa centro, 60% ancho y 70% alto
+    const sx = w * 0.2;
+    const ex = w * 0.8;
+    const sy = h * 0.15;
+    const ey = h * 0.85;
+    return x > sx && x < ex && y > sy && y < ey;
+  }
+
+  function takePhoto() {
+    const canvas = document.createElement("canvas");
+    canvas.width = videoRef.current.videoWidth;
+    canvas.height = videoRef.current.videoHeight;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(videoRef.current, 0, 0);
+    const imageData = canvas.toDataURL("image/jpeg");
+    onCapture(imageData);
+    onClose();
+  }
+
   return (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        width: "100vw",
-        height: "100vh",
-        background: "black",
-        zIndex: 9999,
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        overflow: "hidden",
-      }}
-    >
-      {/* 🎥 VIDEO EN TIEMPO REAL */}
-      <video
-        ref={videoRef}
-        autoPlay
-        playsInline
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
-          zIndex: 1,
-        }}
-      />
+    <div style={styles.container}>
+      {/* VIDEO */}
+      <video ref={videoRef} autoPlay playsInline style={styles.video} />
 
-      {/* 🕶️ CAPA OSCURA CON MÁSCARA DE LA PLANTILLA */}
+      {/* CANVAS AUX PARA PROCESO */}
+      <canvas ref={canvasRef} style={{ display: "none" }} />
+
+      {/* MÁSCARA OSCURA */}
       <div
         style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          width: "100%",
-          height: "100%",
-          background: "rgba(0, 0, 0, 0.65)", // oscurece TODO
-          WebkitMaskImage: "url('/plantilla_silueta.png')",
-          WebkitMaskRepeat: "no-repeat",
-          WebkitMaskPosition: "center",
-          WebkitMaskSize: "60vw auto", // tamaño relativo de la plantilla
-          maskImage: "url('/plantilla_silueta.png')",
-          maskRepeat: "no-repeat",
-          maskPosition: "center",
-          maskSize: "60vw auto",
-          maskComposite: "exclude",
-          zIndex: 2,
-        }}
-      />
-
-      {/* 🔲 PNG DE LA SILUETA EN BLANCO (para que el usuario la vea) */}
-      <img
-        src="/plantilla_silueta.png"
-        alt="Silueta"
-        style={{
-          position: "absolute",
-          top: "50%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          width: "60vw",
-          maxWidth: "350px",
-          opacity: 1,
-          pointerEvents: "none",
-          zIndex: 3,
-        }}
-      />
-
-      {/* 📊 TEST INFO – NÚMEROS EN PANTALLA */}
-      <div
-        style={{
-          position: "absolute",
-          top: "15px",
-          left: "15px",
-          background: "rgba(0, 0, 0, 0.7)",
-          color: "white",
-          padding: "8px 12px",
-          borderRadius: "8px",
-          fontSize: "14px",
-          lineHeight: "18px",
-          zIndex: 4,
+          ...styles.overlay,
+          backgroundColor: highlight ? "rgba(0,255,0,0.2)" : "rgba(0,0,0,0.5)",
         }}
       >
-        <div>📊 <b>TEST INFO</b></div>
-        <div>🔢 Bordes: {testInfo.bordes}</div>
-        <div>✅ Dentro: {testInfo.dentro}</div>
-        <div>❌ Fuera: {testInfo.fuera}</div>
+        <div style={styles.cutout}></div>
       </div>
 
-      {/* ❌ BOTÓN DE CERRAR */}
-      <button
-        onClick={onClose}
-        style={{
-          position: "absolute",
-          top: "20px",
-          right: "20px",
-          width: "40px",
-          height: "40px",
-          borderRadius: "50%",
-          background: "rgba(0, 0, 0, 0.7)",
-          color: "white",
-          fontSize: "24px",
-          border: "none",
-          cursor: "pointer",
-          zIndex: 5,
-        }}
-      >
+      {/* PNG DE SILUETA */}
+      <img
+        src="/plantilla_silueta.png"
+        alt="Silueta plantilla"
+        style={styles.silueta}
+      />
+
+      {/* BOTÓN CERRAR */}
+      <button onClick={onClose} style={styles.closeBtn}>
         ✕
       </button>
+
+      {/* CAJA DE TEST */}
+      <div style={styles.statsBox}>
+        📊 <b>TEST INFO</b>
+        <br />
+        📏 Bordes: {stats.bordes}
+        <br />
+        ✅ Dentro: {stats.dentro}
+        <br />
+        ❌ Fuera: {stats.fuera}
+      </div>
     </div>
   );
 }
+
+const styles = {
+  container: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    width: "100vw",
+    height: "100vh",
+    background: "black",
+    zIndex: 9999,
+  },
+  video: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    position: "absolute",
+  },
+  overlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: "100%",
+    backdropFilter: "none",
+  },
+  cutout: {
+    position: "absolute",
+    top: "15%",
+    left: "20%",
+    width: "60%",
+    height: "70%",
+    boxShadow: "0 0 0 9999px rgba(0,0,0,0.5)",
+    borderRadius: "40% / 50%",
+    pointerEvents: "none",
+  },
+  silueta: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    transform: "translate(-50%, -50%)",
+    height: "70%",
+    zIndex: 10,
+    opacity: 0.6,
+  },
+  closeBtn: {
+    position: "absolute",
+    top: 20,
+    right: 20,
+    width: 40,
+    height: 40,
+    borderRadius: "50%",
+    background: "rgba(0, 0, 0, 0.6)",
+    color: "white",
+    fontSize: 24,
+    border: "1px solid white",
+    cursor: "pointer",
+    zIndex: 1000,
+  },
+  statsBox: {
+    position: "absolute",
+    top: 20,
+    left: 20,
+    padding: "8px 12px",
+    background: "rgba(0,0,0,0.7)",
+    color: "white",
+    fontSize: "14px",
+    borderRadius: "8px",
+    zIndex: 1000,
+    lineHeight: "18px",
+  },
+};
