@@ -6,7 +6,7 @@ export default function CameraScanner({ onCapture, onClose }) {
   const [opencvReady, setOpencvReady] = useState(false);
 
   useEffect(() => {
-    // 📥 Cargar OpenCV
+    // 📥 Cargar OpenCV solo una vez
     const script = document.createElement("script");
     script.src = "https://docs.opencv.org/4.7.0/opencv.js";
     script.async = true;
@@ -39,13 +39,14 @@ export default function CameraScanner({ onCapture, onClose }) {
     startCamera();
 
     return () => {
+      // 🔴 Apaga la cámara al desmontar
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
       }
     };
   }, []);
 
-  // 📸 Foto directa del vídeo
+  // 📸 FUNCIÓN: Tomar foto actual y mandarla al flujo normal
   const takePhoto = () => {
     const video = videoRef.current;
     if (!video) return;
@@ -56,18 +57,20 @@ export default function CameraScanner({ onCapture, onClose }) {
     const ctx = canvas.getContext("2d");
     ctx.drawImage(video, 0, 0);
 
+    // 🔥 Simula “Seleccionar imagen”
     canvas.toBlob((blob) => {
-      console.log("📸 FOTO AUTOMÁTICA REALIZADA ✔");
-      if (navigator.vibrate) navigator.vibrate(200);
-      onCapture(blob);
-      onClose();
+      console.log("📸 FOTO AUTOMÁTICA HECHA ✔");
+      if (navigator.vibrate) navigator.vibrate(200); // vibración móvil
+      onCapture(blob); // 🔄 la pasa al flujo principal (como si fuera de galería)
+      onClose(); // 🚪 cierra la cámara
     }, "image/jpeg");
   };
 
+  // 🔍 DETECCIÓN
   useEffect(() => {
     if (!opencvReady) return;
 
-    console.log("[CameraScanner] 🔍 Activando detección de bordes (modo DNI)");
+    console.log("[CameraScanner] 🔍 Modo detección activo");
 
     const video = videoRef.current;
     const canvas = document.createElement("canvas");
@@ -75,16 +78,15 @@ export default function CameraScanner({ onCapture, onClose }) {
 
     const checkFrame = () => {
       if (!video || video.readyState < 2) {
-        setTimeout(checkFrame, 500);
+        setTimeout(checkFrame, 400);
         return;
       }
 
-      // Dibujamos frame
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       ctx.drawImage(video, 0, 0);
 
-      // 🔍 Procesamos con OpenCV
+      // 🔄 Procesamiento con OpenCV
       const src = cv.imread(canvas);
       const gray = new cv.Mat();
       const edges = new cv.Mat();
@@ -93,33 +95,30 @@ export default function CameraScanner({ onCapture, onClose }) {
       cv.GaussianBlur(gray, gray, new cv.Size(5, 5), 0);
       cv.Canny(gray, edges, 50, 150);
 
-      // 📦 Definimos la “zona central” (50% de la pantalla)
-      const x = Math.floor(edges.cols * 0.25);
-      const y = Math.floor(edges.rows * 0.25);
-      const w = Math.floor(edges.cols * 0.5);
-      const h = Math.floor(edges.rows * 0.5);
+      // 📦 ZONA CENTRAL (donde está la silueta)
+      const x = Math.floor(edges.cols * 0.2);
+      const y = Math.floor(edges.rows * 0.2);
+      const w = Math.floor(edges.cols * 0.6);
+      const h = Math.floor(edges.rows * 0.6);
       const roi = edges.roi(new cv.Rect(x, y, w, h));
 
-      // 📊 Contamos bordes en esa zona
+      // 📊 Contamos bordes
       const whitePixels = cv.countNonZero(roi);
-      console.log("📊 Bordes detectados en zona central:", whitePixels);
+      console.log("📊 Bordes detectados:", whitePixels);
 
-      // 🎯 Umbral ajustable (baja para disparar antes)
+      // 🎯 UMBRAL (ajústalo, baja a 1500 si quieres más sensibilidad)
       if (whitePixels > 2500) {
-        console.log("✅ Plantilla detectada (bordes suficientes) → FOTO");
+        console.log("✅ Plantilla detectada → ¡FOTO!");
         takePhoto();
+        // 🧹 limpieza
         src.delete(); gray.delete(); edges.delete(); roi.delete();
-        return; // ✋ Detenemos loop
+        return; // 🚪 paramos el loop
       }
 
-      // 🧹 Limpieza
-      src.delete();
-      gray.delete();
-      edges.delete();
-      roi.delete();
+      // 🧹 limpieza
+      src.delete(); gray.delete(); edges.delete(); roi.delete();
 
-      // 🔄 Revisamos cada 500 ms
-      setTimeout(checkFrame, 500);
+      setTimeout(checkFrame, 400);
     };
 
     checkFrame();
@@ -157,7 +156,7 @@ export default function CameraScanner({ onCapture, onClose }) {
         }}
       />
 
-      {/* 🦶 SILUETA */}
+      {/* 🦶 SILUETA (más grande y centrada) */}
       <img
         src="/plantilla_silueta.png"
         alt="Silueta de plantilla"
@@ -166,8 +165,8 @@ export default function CameraScanner({ onCapture, onClose }) {
           top: "50%",
           left: "50%",
           transform: "translate(-50%, -50%)",
-          maxWidth: "78vw",
-          maxHeight: "78vh",
+          maxWidth: "80vw",
+          maxHeight: "80vh",
           opacity: 0.5,
           pointerEvents: "none",
           zIndex: 1000,
@@ -181,10 +180,10 @@ export default function CameraScanner({ onCapture, onClose }) {
           position: "absolute",
           top: "15px",
           right: "15px",
-          width: "38px",
-          height: "38px",
+          width: "42px",
+          height: "42px",
           borderRadius: "50%",
-          background: "rgba(0, 0, 0, 0.6)",
+          background: "rgba(0, 0, 0, 0.7)",
           color: "#fff",
           fontSize: "20px",
           border: "none",
@@ -195,7 +194,7 @@ export default function CameraScanner({ onCapture, onClose }) {
           alignItems: "center",
         }}
       >
-        ✕
+        ✕✕
       </button>
     </div>
   );
