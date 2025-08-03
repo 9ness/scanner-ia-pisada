@@ -1,163 +1,168 @@
-// components/CameraScanner.jsx
-import { useEffect, useRef, useState } from "react";
+// components/CameraScanner.js
+import { useEffect, useRef } from "react";
 
 export default function CameraScanner({ onCapture, onClose }) {
-  /* ---------------- refs ---------------- */
-  const video  = useRef(null);
-  const over   = useRef(null);     // overlay visible
-  const maskCV = useRef(null);     // canvas binario para la detección
-  const sRef   = useRef(null);     // stream
+  const videoRef   = useRef(null);
+  const streamRef  = useRef(null);
+  const overlayRef = useRef(null);     // canvas para dibujar overlay
+  const path2DRef  = useRef(null);     // Path2D de la silueta
+  const scaleRef   = useRef(1);
+  const offXRef    = useRef(0);
+  const offYRef    = useRef(0);
 
-  /* ---------------- estado debug ---------------- */
-  const [stats, setStats] = useState({ b: 0, in: 0, out: 0 });
-  const showStats = true;          // ← pon false si no quieres verlos
+  /* ---------- 1. Cargar OpenCV una sola vez ---------- */
+  useEffect(() => {
+    if (window.cv) return;        // ya estaba
+    const s = document.createElement("script");
+    s.src   = "https://docs.opencv.org/4.7.0/opencv.js";
+    document.body.appendChild(s);
+  }, []);
 
-  /* ---------------- silueta (puntos normalizados) ----------------
-     Extraído de tu SVG: contorno 22 puntos, simplificado a 14       */
-  const path = [
-      [0.50,0.00],[0.63,0.07],[0.72,0.25],[0.70,0.40],
-      [0.66,0.57],[0.67,0.73],[0.71,0.87],[0.63,1.00],
-      [0.37,1.00],[0.29,0.87],[0.33,0.73],[0.34,0.57],
-      [0.30,0.40],[0.28,0.25],[0.37,0.07]
-  ]; // cierra solo
+  /* ---------- 2. Cargar SVG y construir Path2D ------- */
+  useEffect(() => {
+    fetch("/silueta.svg")
+      .then(r => r.text())
+      .then(text => {
+        const svg   = new DOMParser().parseFromString(text, "image/svg+xml");
+        const path  = svg.querySelector("path");
+        const vb    = svg.querySelector("svg").getAttribute("viewBox").split(/\s+/);
+        const vbH   = parseFloat(vb[3]);            // alto original
+        path2DRef.current = new Path2D(path.getAttribute("d"));
+        scaleRef.current  = vbH;                    // guardamos para luego
+      })
+      .catch(console.error);
+  }, []);
 
-  /* ---------------- start / stop cámara ---------------- */
+  /* ---------- 3. Encender cámara --------------------- */
   useEffect(() => {
     (async () => {
       try {
-        const s = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode:"environment", width:{ideal:1280}, height:{ideal:720} }
+        const st = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode:{ideal:"environment"}, width:{ideal:1920}, height:{ideal:1080} }
         });
-        video.current.srcObject = s;
-        sRef.current = s;
-      } catch(e){ console.error("cam",e); onClose(); }
+        streamRef.current = st;
+        if (videoRef.current) videoRef.current.srcObject = st;
+      } catch (e) { console.error("❌ Cámara:", e); }
     })();
-    return () => sRef.current?.getTracks().forEach(t=>t.stop());
+    return () => streamRef.current?.getTracks().forEach(t=>t.stop());
   }, []);
 
-  /* ---------------- main loop cada 200 ms ---------------- */
+  /* ---------- 4. Bucle de detección ------------------ */
   useEffect(() => {
-    const id = setInterval(analyse, 200);
-    return () => clearInterval(id);
-  });
-
-  function analyse() {
-    if (!video.current || video.current.readyState<2) return;
-
-    const vw = video.current.videoWidth;
-    const vh = video.current.videoHeight;
-
-    /* ===== 1. asegura canvases ===== */
-    if (over.current.width!==vw){
-      [over.current,maskCV.current].forEach(c => {
-        c.width = vw; c.height = vh;
+    const idDebug = "testInfo";
+    if (!document.getElementById(idDebug)) {
+      const dbg = document.createElement("div");
+      dbg.id = idDebug;
+      Object.assign(dbg.style, {
+        position:"absolute",top:"18px",left:"18px",zIndex:10002,
+        fontFamily:"monospace",fontSize:"15px",
+        background:"rgba(0,0,0,.55)",color:"#fff",padding:"6px 10px",
+        borderRadius:"8px",whiteSpace:"pre"
       });
+      document.body.appendChild(dbg);
     }
 
-    /* ===== 2. dibuja overlay ===== */
-    drawOverlay(vw,vh);
+    let running = true;
+    const loop = () => {
+      if (!running) return;
+      const vid  = videoRef.current;
+      const cv   = window.cv;
+      const p2d  = path2DRef.current;
+      const ov   = overlayRef.current;
+      if (!vid || !cv || !p2d || vid.readyState<2) {
+        requestAnimationFrame(loop); return;
+      }
 
-    /* ===== 3. máscara binaria ===== */
-    const mCtx = maskCV.current.getContext("2d");
-    mCtx.clearRect(0,0,vw,vh);
-    drawSilhouette(mCtx, vw, vh, true);     // rellena en blanco
+      /* --- preparar canvas tamaño vídeo --- */
+      const W = vid.videoWidth , H = vid.videoHeight;
+      ov.width  = W; ov.height = H;
+      const ctx = ov.getContext("2d");
 
-    const mData = mCtx.getImageData(0,0,vw,vh).data;
+      /* --------- dibujar overlay ------------- */
+      ctx.clearRect(0,0,W,H);
+      ctx.fillStyle = "rgba(0,0,0,.55)";
+      ctx.fillRect(0,0,W,H);
 
-    /* ===== 4. bordes con OpenCV ===== */
-    const tmp = document.createElement("canvas");
-    tmp.width = vw; tmp.height = vh;
-    tmp.getContext("2d").drawImage(video.current,0,0);
-    const src = cv.imread(tmp); const g=new cv.Mat(); const e=new cv.Mat();
-    cv.cvtColor(src,g,cv.COLOR_RGBA2GRAY); cv.Canny(g,e,50,120);
+      /* cálculo de escala+offset sólo 1ª vez */
+      if (scaleRef.current && !offXRef.current) {
+        const scl = (H*0.7)/scaleRef.current;   // 70 % de alto visible
+        scaleRef.current = scl;
+        offYRef.current  = H*0.15;
+        offXRef.current  = (W - scaleRef.current*scaleRef.current)/2; // viewBox cuadrado
+      }
+      ctx.save();
+      ctx.translate(offXRef.current, offYRef.current);
+      ctx.scale(scaleRef.current, scaleRef.current);
+      ctx.globalCompositeOperation="destination-out";
+      ctx.fill(p2d);              // agujero
+      ctx.globalCompositeOperation="source-over";
+      ctx.lineWidth = 6/scaleRef.current;
+      ctx.strokeStyle="#00ff80";
+      ctx.stroke(p2d);
+      ctx.restore();
 
-    let inside=0,outside=0;
-    for (let y=0, p=0; y<vh; y++){
-      for (let x=0; x<vw; x++, p++){
-        if (e.ucharPtr(y,x)[0]){
-          (mData[p*4+3] ? inside++ : outside++);
+      /* --------- máscara blanca para conteo -------- */
+      const mask = ctx.getImageData(0,0,W,H).data; // 4-component RGBA
+
+      /* --------- frame → OpenCV -------------------- */
+      const frame = cv.imread(vid);          // RGBA
+      const gray  = new cv.Mat(); cv.cvtColor(frame, gray, cv.COLOR_RGBA2GRAY);
+      const edges = new cv.Mat(); cv.Canny(gray, edges, 60,120);
+      frame.delete(); gray.delete();
+
+      /* ---- contar bordes dentro / fuera ---------- */
+      const edgeData = edges.data;
+      let total=0, inside=0;
+      for (let i=0;i<edgeData.length;i++) {
+        if (edgeData[i]) {
+          total++;
+          if (mask[i*4]===0) inside++;          // transparente => interior
         }
       }
-    }
-    setStats({ b:inside+outside, in:inside, out:outside });
+      edges.delete();
 
-    /* ===== 5. disparo ===== */
-    if (inside>2000 && outside<1200){
-      flashGreen();
-      snap(vw,vh);
-    }
+      const outside = total - inside;
+      document.getElementById(idDebug).textContent =
+        `📈 TEST INFO\n📏 Bordes: ${total}\n✅ Dentro: ${inside}\n❌ Fuera: ${outside}`;
 
-    src.delete(); g.delete(); e.delete();
-  }
+      /* --- decisión --- */
+      if (total>120 && inside/total > 0.70) {
+        // flash verde
+        ctx.save();
+        ctx.translate(offXRef.current, offYRef.current);
+        ctx.scale(scaleRef.current, scaleRef.current);
+        ctx.lineWidth = 14/scaleRef.current;
+        ctx.strokeStyle="#00ff55";
+        ctx.stroke(p2d);
+        ctx.restore();
 
-  /* ---------- capturar --------- */
-  function snap(w,h){
-    const c=document.createElement("canvas");
-    c.width=w; c.height=h;
-    c.getContext("2d").drawImage(video.current,0,0);
-    onCapture(c.toDataURL("image/jpeg"));
-    onClose();
-  }
+        // snapshot
+        const snap = document.createElement("canvas");
+        snap.width = W; snap.height = H;
+        snap.getContext("2d").drawImage(vid,0,0);
+        snap.toBlob(onCapture,"image/jpeg",0.88);
+        running = false; return;
+      }
+      requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
 
-  function flashGreen(){
-    const ctx = over.current.getContext("2d");
-    ctx.save();
-    ctx.strokeStyle="lime"; ctx.lineWidth=8;
-    drawSilhouette(ctx, over.current.width, over.current.height, false);
-    ctx.restore();
-    setTimeout(drawOverlay, 350, over.current.width, over.current.height);
-  }
+    return () => { running=false; };
+  }, [onCapture]);
 
-  /* ---------- overlay + silueta ---------- */
-  function drawOverlay(w,h){
-    const ctx = over.current.getContext("2d");
-    ctx.clearRect(0,0,w,h);
-    ctx.fillStyle="rgba(0,0,0,0.55)";
-    ctx.fillRect(0,0,w,h);
-    ctx.globalCompositeOperation="destination-out";
-    drawSilhouette(ctx,w,h,false);
-    ctx.globalCompositeOperation="source-over";
-  }
-  function drawSilhouette(ctx,w,h,fill){
-    const S = h*0.70;               // alto = 70 %
-    const offX = w/2 - S/2;
-    const offY = h*0.15;
-    ctx.beginPath();
-    path.forEach(([px,py],i)=>{
-      const X = offX + px*S;
-      const Y = offY + py*S;
-      i?ctx.lineTo(X,Y):ctx.moveTo(X,Y);
-    });
-    ctx.closePath();
-    fill?ctx.fill():ctx.stroke();
-  }
-
-  /* ---------- render ---------- */
-  return(
-    <div style={st.wrap}>
-      <video ref={video} autoPlay playsInline style={st.vid}/>
-      <canvas ref={over} style={st.ov}/>
-      <canvas ref={maskCV} style={{display:"none"}}/>
-      {showStats && (
-        <div style={st.box}>
-          📊 <b>TEST INFO</b><br/>
-          📏 Bordes: {stats.b}<br/>
-          ✅ Dentro: {stats.in}<br/>
-          ❌ Fuera: {stats.out}
-        </div>
-      )}
-      <button onClick={onClose} style={st.close}>✕</button>
+  /* ---------- render --------------------------------- */
+  return (
+    <div style={{position:"fixed",inset:0,zIndex:9999}}>
+      <video ref={videoRef}
+             autoPlay playsInline
+             style={{width:"100%",height:"100%",objectFit:"cover"}} />
+      <canvas ref={overlayRef}
+              style={{position:"absolute",inset:0,pointerEvents:"none"}} />
+      <button onClick={onClose}
+              style={{position:"absolute",top:15,right:15,width:42,height:42,
+                      borderRadius:"50%",background:"rgba(0,0,0,.55)",
+                      color:"#fff",fontSize:26,border:"1px solid #fff",
+                      zIndex:10003}}>✕</button>
     </div>
   );
 }
-
-/* ---------- estilos ---------- */
-const st = {
-  wrap : {position:"fixed",inset:0,zIndex:9999,background:"#000"},
-  vid  : {width:"100%",height:"100%",objectFit:"cover",position:"absolute"},
-  ov   : {position:"absolute",inset:0,pointerEvents:"none"},
-  close: {position:"absolute",top:15,right:15,width:40,height:40,borderRadius:"50%",
-          background:"rgba(0,0,0,0.55)",color:"#fff",fontSize:24,border:"1px solid #fff",zIndex:1000},
-  box  : {position:"absolute",top:15,left:15,background:"rgba(0,0,0,0.7)",
-          color:"#fff",padding:"6px 10px",borderRadius:8,fontSize:14,lineHeight:"18px",zIndex:1000}
-};
