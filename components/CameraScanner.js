@@ -3,20 +3,19 @@ import { useEffect, useRef, useState } from "react";
 export default function CameraScanner({ onCapture, onClose }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
-  const [ctxOverlay, setCtxOverlay] = useState(null);
+  const [statusText, setStatusText] = useState("📷 Escanea tu plantilla");
+  const [testInfo, setTestInfo] = useState({ bordes: 0, dentro: 0, fuera: 0 });
 
   useEffect(() => {
-    console.log("[CameraScanner] 🔄 Inicializando cámara...");
     let stream;
-
     const startCamera = async () => {
       try {
         stream = await navigator.mediaDevices.getUserMedia({
           video: {
-            facingMode: { ideal: "environment" }, // 📲 trasera
+            facingMode: { ideal: "environment" },
             width: { ideal: 1920 },
-            height: { ideal: 1080 }
-          }
+            height: { ideal: 1080 },
+          },
         });
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
@@ -26,73 +25,30 @@ export default function CameraScanner({ onCapture, onClose }) {
         console.error("❌ Error al abrir cámara:", err);
       }
     };
-
     startCamera();
 
     return () => {
-      console.log("[CameraScanner] 🛑 Cerrando cámara...");
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
       }
     };
   }, []);
 
-  // 🟢 Efecto parpadeo verde al detectar
-  const flashGreen = () => {
-    if (!ctxOverlay) return;
-    ctxOverlay.save();
-    ctxOverlay.strokeStyle = "lime";
-    ctxOverlay.lineWidth = 6;
-    ctxOverlay.strokeRect(
-      window.innerWidth * 0.225,
-      window.innerHeight * 0.15,
-      window.innerWidth * 0.55,
-      window.innerHeight * 0.7
-    );
-    setTimeout(() => drawOverlay(ctxOverlay), 500);
-  };
+  // Simulación de detección automática para TEST
+  useEffect(() => {
+    const checkFrame = () => {
+      // 🔢 Simulación de detección: genera números aleatorios para test
+      const bordes = Math.floor(Math.random() * 7000);
+      const dentro = Math.floor(Math.random() * 5000);
+      const fuera = Math.floor(Math.random() * 15000);
 
-  // 🎯 Dibuja el overlay oscuro con agujero
-  const drawOverlay = (ctx) => {
-    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      setTestInfo({ bordes, dentro, fuera });
 
-    // 🔳 Fondo oscuro
-    ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
-    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-
-    // 🕳 Silueta (rectángulo central)
-    const siluetaWidth = ctx.canvas.width * 0.55;
-    const siluetaHeight = ctx.canvas.height * 0.7;
-    const siluetaX = (ctx.canvas.width - siluetaWidth) / 2;
-    const siluetaY = (ctx.canvas.height - siluetaHeight) / 2;
-
-    // “Agujero” transparente
-    ctx.globalCompositeOperation = "destination-out";
-    ctx.fillStyle = "rgba(0,0,0,1)";
-    ctx.fillRect(siluetaX, siluetaY, siluetaWidth, siluetaHeight);
-
-    // Volvemos a normal
-    ctx.globalCompositeOperation = "source-over";
-
-    // Borde blanco fino
-    ctx.strokeStyle = "white";
-    ctx.lineWidth = 3;
-    ctx.strokeRect(siluetaX, siluetaY, siluetaWidth, siluetaHeight);
-  };
-
-  // 🖼 Captura manual (puedes llamarla cuando haya coincidencia real)
-  const takePhoto = () => {
-    if (!videoRef.current) return;
-    const canvas = document.createElement("canvas");
-    canvas.width = videoRef.current.videoWidth;
-    canvas.height = videoRef.current.videoHeight;
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-    const imgData = canvas.toDataURL("image/jpeg");
-    onCapture(imgData);
-    flashGreen();
-    onClose(); // 🔥 Sale de la cámara tras capturar
-  };
+      // Repetir cada medio segundo
+      setTimeout(checkFrame, 500);
+    };
+    checkFrame();
+  }, []);
 
   return (
     <div
@@ -107,10 +63,10 @@ export default function CameraScanner({ onCapture, onClose }) {
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
-        overflow: "hidden"
+        overflow: "hidden",
       }}
     >
-      {/* 🎥 VIDEO */}
+      {/* 🎥 VIDEO EN TIEMPO REAL */}
       <video
         ref={videoRef}
         autoPlay
@@ -122,30 +78,69 @@ export default function CameraScanner({ onCapture, onClose }) {
           width: "100%",
           height: "100%",
           objectFit: "cover",
-          zIndex: 1
+          zIndex: 1,
         }}
       />
 
-      {/* 🔲 CANVAS OVERLAY OSCURO */}
-      <canvas
-        ref={(canvas) => {
-          if (!canvas) return;
-          canvas.width = window.innerWidth;
-          canvas.height = window.innerHeight;
-          const ctx = canvas.getContext("2d");
-          setCtxOverlay(ctx);
-          drawOverlay(ctx);
-        }}
+      {/* 🕶️ CAPA OSCURA CON MÁSCARA DE LA PLANTILLA */}
+      <div
         style={{
           position: "absolute",
           top: 0,
           left: 0,
-          zIndex: 1000,
-          width: "100vw",
-          height: "100vh",
-          pointerEvents: "none"
+          width: "100%",
+          height: "100%",
+          background: "rgba(0, 0, 0, 0.65)", // oscurece TODO
+          WebkitMaskImage: "url('/plantilla_silueta.png')",
+          WebkitMaskRepeat: "no-repeat",
+          WebkitMaskPosition: "center",
+          WebkitMaskSize: "60vw auto", // tamaño relativo de la plantilla
+          maskImage: "url('/plantilla_silueta.png')",
+          maskRepeat: "no-repeat",
+          maskPosition: "center",
+          maskSize: "60vw auto",
+          maskComposite: "exclude",
+          zIndex: 2,
         }}
       />
+
+      {/* 🔲 PNG DE LA SILUETA EN BLANCO (para que el usuario la vea) */}
+      <img
+        src="/plantilla_silueta.png"
+        alt="Silueta"
+        style={{
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: "60vw",
+          maxWidth: "350px",
+          opacity: 1,
+          pointerEvents: "none",
+          zIndex: 3,
+        }}
+      />
+
+      {/* 📊 TEST INFO – NÚMEROS EN PANTALLA */}
+      <div
+        style={{
+          position: "absolute",
+          top: "15px",
+          left: "15px",
+          background: "rgba(0, 0, 0, 0.7)",
+          color: "white",
+          padding: "8px 12px",
+          borderRadius: "8px",
+          fontSize: "14px",
+          lineHeight: "18px",
+          zIndex: 4,
+        }}
+      >
+        <div>📊 <b>TEST INFO</b></div>
+        <div>🔢 Bordes: {testInfo.bordes}</div>
+        <div>✅ Dentro: {testInfo.dentro}</div>
+        <div>❌ Fuera: {testInfo.fuera}</div>
+      </div>
 
       {/* ❌ BOTÓN DE CERRAR */}
       <button
@@ -157,35 +152,15 @@ export default function CameraScanner({ onCapture, onClose }) {
           width: "40px",
           height: "40px",
           borderRadius: "50%",
-          background: "rgba(0, 0, 0, 0.6)",
+          background: "rgba(0, 0, 0, 0.7)",
           color: "white",
-          fontSize: "22px",
-          fontWeight: "bold",
-          border: "1px solid white",
+          fontSize: "24px",
+          border: "none",
           cursor: "pointer",
-          zIndex: 2000
+          zIndex: 5,
         }}
       >
         ✕
-      </button>
-
-      {/* 📸 BOTÓN DE TEST CAPTURA (puedes quitarlo luego) */}
-      <button
-        onClick={takePhoto}
-        style={{
-          position: "absolute",
-          bottom: "30px",
-          background: "limegreen",
-          color: "white",
-          padding: "12px 20px",
-          border: "none",
-          borderRadius: "8px",
-          fontSize: "18px",
-          fontWeight: "bold",
-          zIndex: 2000
-        }}
-      >
-        CAPTURAR TEST
       </button>
     </div>
   );
