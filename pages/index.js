@@ -70,7 +70,7 @@ const handleCameraCapture = (blob) => {
     handleFileChange({ target: fileInputRef.current });
   }, 100);  // 100 ms suele ser suficiente, puedes ajustar (50–200 ms)
 
-  // 3) Cerramos la cámara
+  // 3) Cerramos la cámaras
   setModoCamara(false);
 };
 
