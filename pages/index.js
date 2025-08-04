@@ -57,21 +57,24 @@ export default function Home() {
   const [modoCamara, setModoCamara] = useState(false);   // ⬅️ NUEVO ESTADO
 
 const handleCameraCapture = (blob) => {
+  // 1. Creamos el File y lo asignamos al input
   const file = new File([blob], "captura.jpg", { type: "image/jpeg" });
   const dt = new DataTransfer();
   dt.items.add(file);
+
+  // 2. Limpiamos el input file antes de poner el nuevo archivo
+  fileInputRef.current.value = "";
+
+  // 3. Asignamos el archivo
   fileInputRef.current.files = dt.files;
 
-  setModoCamara(false); // 1º cerrar cámara/modal
-
-  // 2º después de 150 ms, lanzamos el flujo de análisis
+  // 4. Llamamos a handleFileChange (con pequeño timeout para asegurar el render)
   setTimeout(() => {
     handleFileChange({ target: fileInputRef.current });
-  }, 150);
+    // 5. Cerramos la cámara solo después
+    setModoCamara(false);
+  }, 100);
 };
-
-
-
 
   // Estado para bloquear render de UI principal antes de restaurar:
   const [isHydrated, setIsHydrated] = useState(!persistenciaActiva);
