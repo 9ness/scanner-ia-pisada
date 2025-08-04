@@ -1,168 +1,164 @@
-// components/CameraScanner.js
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from 'react';
 
 export default function CameraScanner({ onCapture, onClose }) {
-  const videoRef   = useRef(null);
-  const streamRef  = useRef(null);
-  const overlayRef = useRef(null);     // canvas para dibujar overlay
-  const path2DRef  = useRef(null);     // Path2D de la silueta
-  const scaleRef   = useRef(1);
-  const offXRef    = useRef(0);
-  const offYRef    = useRef(0);
+  /* ───── referencias ───── */
+  const videoRef = useRef(null);
+  const stream   = useRef(null);
+  const dbgBox   = useRef(null);
 
-  /* ---------- 1. Cargar OpenCV una sola vez ---------- */
+  /* ───── openCV listo ───── */
+  const [cvReady, setCvReady] = useState(false);
   useEffect(() => {
-    if (window.cv) return;        // ya estaba
-    const s = document.createElement("script");
-    s.src   = "https://docs.opencv.org/4.7.0/opencv.js";
+    if (window.cv) { setCvReady(true); return; }          // ya cargado
+    const s = document.createElement('script');
+    s.src = 'https://docs.opencv.org/4.x/opencv.js';
+    s.onload = () => setCvReady(true);
     document.body.appendChild(s);
   }, []);
 
-  /* ---------- 2. Cargar SVG y construir Path2D ------- */
-  useEffect(() => {
-    fetch("/silueta.svg")
-      .then(r => r.text())
-      .then(text => {
-        const svg   = new DOMParser().parseFromString(text, "image/svg+xml");
-        const path  = svg.querySelector("path");
-        const vb    = svg.querySelector("svg").getAttribute("viewBox").split(/\s+/);
-        const vbH   = parseFloat(vb[3]);            // alto original
-        path2DRef.current = new Path2D(path.getAttribute("d"));
-        scaleRef.current  = vbH;                    // guardamos para luego
-      })
-      .catch(console.error);
-  }, []);
-
-  /* ---------- 3. Encender cámara --------------------- */
+  /* ───── abrir cámara ───── */
   useEffect(() => {
     (async () => {
       try {
         const st = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode:{ideal:"environment"}, width:{ideal:1920}, height:{ideal:1080} }
+          video: { facingMode: { ideal:'environment' }, width:1280, height:720 }
         });
-        streamRef.current = st;
+        stream.current = st;
         if (videoRef.current) videoRef.current.srcObject = st;
-      } catch (e) { console.error("❌ Cámara:", e); }
+      } catch (e) {
+        alert('No se pudo abrir la cámara');
+        onClose();
+      }
     })();
-    return () => streamRef.current?.getTracks().forEach(t=>t.stop());
-  }, []);
+    return () => stream.current?.getTracks().forEach(t=>t.stop());
+  }, [onClose]);
 
-  /* ---------- 4. Bucle de detección ------------------ */
+  /* ───── detección ───── */
   useEffect(() => {
-    const idDebug = "testInfo";
-    if (!document.getElementById(idDebug)) {
-      const dbg = document.createElement("div");
-      dbg.id = idDebug;
-      Object.assign(dbg.style, {
-        position:"absolute",top:"18px",left:"18px",zIndex:10002,
-        fontFamily:"monospace",fontSize:"15px",
-        background:"rgba(0,0,0,.55)",color:"#fff",padding:"6px 10px",
-        borderRadius:"8px",whiteSpace:"pre"
-      });
-      document.body.appendChild(dbg);
-    }
+    if (!cvReady) return;
 
-    let running = true;
-    const loop = () => {
-      if (!running) return;
-      const vid  = videoRef.current;
-      const cv   = window.cv;
-      const p2d  = path2DRef.current;
-      const ov   = overlayRef.current;
-      if (!vid || !cv || !p2d || vid.readyState<2) {
-        requestAnimationFrame(loop); return;
-      }
+    const video  = videoRef.current;
+    const canv   = document.createElement('canvas');
+    const ctx    = canv.getContext('2d');
 
-      /* --- preparar canvas tamaño vídeo --- */
-      const W = vid.videoWidth , H = vid.videoHeight;
-      ov.width  = W; ov.height = H;
-      const ctx = ov.getContext("2d");
+    const loop   = () => {
+      if (!video || video.readyState < 2) { requestAnimationFrame(loop); return; }
 
-      /* --------- dibujar overlay ------------- */
-      ctx.clearRect(0,0,W,H);
-      ctx.fillStyle = "rgba(0,0,0,.55)";
-      ctx.fillRect(0,0,W,H);
+      /* capturamos frame */
+      const { videoWidth:w, videoHeight:h } = video;
+      canv.width = w; canv.height = h;
+      ctx.drawImage(video,0,0,w,h);
 
-      /* cálculo de escala+offset sólo 1ª vez */
-      if (scaleRef.current && !offXRef.current) {
-        const scl = (H*0.7)/scaleRef.current;   // 70 % de alto visible
-        scaleRef.current = scl;
-        offYRef.current  = H*0.15;
-        offXRef.current  = (W - scaleRef.current*scaleRef.current)/2; // viewBox cuadrado
-      }
-      ctx.save();
-      ctx.translate(offXRef.current, offYRef.current);
-      ctx.scale(scaleRef.current, scaleRef.current);
-      ctx.globalCompositeOperation="destination-out";
-      ctx.fill(p2d);              // agujero
-      ctx.globalCompositeOperation="source-over";
-      ctx.lineWidth = 6/scaleRef.current;
-      ctx.strokeStyle="#00ff80";
-      ctx.stroke(p2d);
-      ctx.restore();
+      /* Canny */
+      const src = cv.imread(canv);                               // eslint-disable-line no-undef
+      const gray = new cv.Mat();
+      cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+      const edges = new cv.Mat();
+      cv.Canny(gray, edges, 50, 150);
+      gray.delete(); src.delete();
 
-      /* --------- máscara blanca para conteo -------- */
-      const mask = ctx.getImageData(0,0,W,H).data; // 4-component RGBA
+      /* bounding-box aproximado de la silueta (60 vw × 70 vh) */
+      const boxW = w * 0.60;
+      const boxH = h * 0.70;
+      const boxX = (w - boxW)/2;
+      const boxY = (h - boxH)/2;
 
-      /* --------- frame → OpenCV -------------------- */
-      const frame = cv.imread(vid);          // RGBA
-      const gray  = new cv.Mat(); cv.cvtColor(frame, gray, cv.COLOR_RGBA2GRAY);
-      const edges = new cv.Mat(); cv.Canny(gray, edges, 60,120);
-      frame.delete(); gray.delete();
-
-      /* ---- contar bordes dentro / fuera ---------- */
-      const edgeData = edges.data;
       let total=0, inside=0;
-      for (let i=0;i<edgeData.length;i++) {
-        if (edgeData[i]) {
-          total++;
-          if (mask[i*4]===0) inside++;          // transparente => interior
+      for (let y=0; y<edges.rows; y++){
+        for (let x=0; x<edges.cols; x++){
+          if (edges.ucharPtr(y,x)[0]!==0){
+            total++;
+            if (x>=boxX && x<=boxX+boxW && y>=boxY && y<=boxY+boxH) inside++;
+          }
         }
       }
       edges.delete();
 
       const outside = total - inside;
-      document.getElementById(idDebug).textContent =
-        `📈 TEST INFO\n📏 Bordes: ${total}\n✅ Dentro: ${inside}\n❌ Fuera: ${outside}`;
+      if (dbgBox.current){
+        dbgBox.current.innerText =
+`TEST INFO
+Bordes:  ${total}
+Dentro:   ${inside}
+Fuera:    ${outside}`;
+      }
 
-      /* --- decisión --- */
-      if (total>120 && inside/total > 0.70) {
+      /* regla de disparo */
+      if (total>2500 && inside/total > 0.70){
         // flash verde
-        ctx.save();
-        ctx.translate(offXRef.current, offYRef.current);
-        ctx.scale(scaleRef.current, scaleRef.current);
-        ctx.lineWidth = 14/scaleRef.current;
-        ctx.strokeStyle="#00ff55";
-        ctx.stroke(p2d);
-        ctx.restore();
+        document.body.classList.add('flash-green');
+        setTimeout(()=>document.body.classList.remove('flash-green'),140);
 
-        // snapshot
-        const snap = document.createElement("canvas");
-        snap.width = W; snap.height = H;
-        snap.getContext("2d").drawImage(vid,0,0);
-        snap.toBlob(onCapture,"image/jpeg",0.88);
-        running = false; return;
+        /* foto */
+        canv.toBlob(blob => {
+          onCapture(blob);
+        }, 'image/jpeg', 0.9);
+        return; // detener loop
       }
       requestAnimationFrame(loop);
     };
     requestAnimationFrame(loop);
+  }, [cvReady, onCapture]);
 
-    return () => { running=false; };
-  }, [onCapture]);
-
-  /* ---------- render --------------------------------- */
+  /* ───── vista ───── */
   return (
-    <div style={{position:"fixed",inset:0,zIndex:9999}}>
-      <video ref={videoRef}
-             autoPlay playsInline
-             style={{width:"100%",height:"100%",objectFit:"cover"}} />
-      <canvas ref={overlayRef}
-              style={{position:"absolute",inset:0,pointerEvents:"none"}} />
-      <button onClick={onClose}
-              style={{position:"absolute",top:15,right:15,width:42,height:42,
-                      borderRadius:"50%",background:"rgba(0,0,0,.55)",
-                      color:"#fff",fontSize:26,border:"1px solid #fff",
-                      zIndex:10003}}>✕</button>
+    <div className="cam-modal">
+      <video ref={videoRef} autoPlay playsInline muted className="cam-video"/>
+
+      {/* máscara oscura con agujero */}
+      <div className="mask-layer" />
+
+      {/* silueta visible */}
+      <img src="/plantilla_silueta.svg" alt="silueta" className="silueta-img"/>
+
+      {/* debug */}
+      <pre ref={dbgBox} className="debug-box"/>
+
+      {/* cerrar */}
+      <button className="close-btn" onClick={onClose}>✕</button>
+
+      {/* ───── CSS in-component ───── */}
+      <style jsx global>{`
+        .cam-modal{position:fixed;inset:0;z-index:99999;background:#000;overflow:hidden;}
+        .cam-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
+
+        /* agujero con mask-composite */
+        .mask-layer{
+          position:absolute;inset:0;background:rgba(0,0,0,.6);
+          -webkit-mask:url('/plantilla_silueta.svg') center/60vw no-repeat;
+                  mask:url('/plantilla_silueta.svg') center/60vw no-repeat;
+          -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
+          -webkit-mask-composite:destination-out;mask-composite:exclude;
+          pointer-events:none;
+        }
+
+        /* contorno guía */
+        .silueta-img{
+          position:absolute;top:50%;left:50%;
+          width:60vw;max-width:380px;transform:translate(-50%,-50%);
+          opacity:.85;pointer-events:none;
+        }
+
+        .close-btn{
+          position:absolute;top:18px;right:18px;z-index:10001;
+          width:42px;height:42px;border-radius:50%;
+          background:rgba(0,0,0,.45);border:1px solid #fff;
+          color:#fff;font-size:24px;line-height:38px;text-align:center;
+          cursor:pointer;
+        }
+        .debug-box{
+          position:absolute;top:18px;left:18px;z-index:10001;
+          background:rgba(0,0,0,.55);color:#fff;font-size:13px;
+          padding:6px 10px;border-radius:4px;line-height:1.25;
+          pointer-events:none;
+        }
+
+        /* destello verde al detectar */
+        .flash-green .mask-layer{
+          background:rgba(0,128,0,.55);
+          transition:background 120ms;
+        }
+      `}</style>
     </div>
   );
 }
