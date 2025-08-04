@@ -7,6 +7,7 @@ export default function CameraScanner({ onCapture, onClose }) {
   const streamRef = useRef(null);
   const [metadataReady, setMetadataReady] = useState(false);
   const [maskD, setMaskD] = useState(null);
+  const [captured, setCaptured] = useState(false);
   const [lockCnt, setLockCnt] = useState(0);
 
   // ─── 0. Cargar la silueta desde public/plantilla_silueta.svg ─────────
@@ -115,7 +116,14 @@ export default function CameraScanner({ onCapture, onClose }) {
     c.width = v.videoWidth;
     c.height = v.videoHeight;
     c.getContext("2d").drawImage(v, 0, 0);
-    c.toBlob(blob => blob && onCapture(blob), "image/jpeg", 0.8);
+    c.toBlob(blob => {
+      if (blob) {
+       setCaptured(true);
+       setTimeout(() => setCaptured(false), 800);
+        onCapture(blob);
+        onClose();
+      }
+    }, "image/jpeg", 0.8);
   };
 
   return (
@@ -156,6 +164,11 @@ export default function CameraScanner({ onCapture, onClose }) {
 
       <button className="cls-btn" onClick={onClose}>✕</button>
       <pre id="dbg" className="dbg" />
+          {captured && (
+       <div className="capture-notice">
+         📸 Captura realizada
+       </div>
+     )}
 
       <style jsx>{`
         .cam-wrapper {
@@ -177,6 +190,19 @@ export default function CameraScanner({ onCapture, onClose }) {
           height: 100%;
           pointer-events: none;
         }
+          .capture-notice {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0,0,0,0.7);
+  color: #fff;
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  font-size: 1.2rem;
+  pointer-events: none;
+}
+
         .cls-btn {
           position: absolute;
           top: 16px;
