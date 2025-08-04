@@ -99,24 +99,27 @@ export default function CameraScanner({ onCapture, onClose }) {
 
   // 3) Captura y envía al padre
   const takePhoto = () => {
-    if (capturingRef.current) return;
-    capturingRef.current = true;
-
-    const v = videoRef.current;
-    const c = document.createElement("canvas");
-    c.width = v.videoWidth; c.height = v.videoHeight;
-    c.getContext("2d").drawImage(v, 0, 0);
-
-    c.toBlob(blob => {
-      if (!blob) return;
+  const v = videoRef.current;
+  const c = document.createElement("canvas");
+  c.width = v.videoWidth;
+  c.height = v.videoHeight;
+  c.getContext("2d").drawImage(v, 0, 0);
+  c.toBlob(blob => {
+    if (blob) {
       setCaptured(true);
-      setTimeout(() => setCaptured(false), 800);
 
+      // 1º Llama a onCapture (esto actualiza el estado en el padre)
       onCapture(blob);
-      setLockCnt(0);
-      setTimeout(() => onClose(), 300);
-    }, "image/jpeg", 0.8);
-  };
+
+      // 2º Cierra la cámara/modal SÓLO DESPUÉS (así React actualiza bien el estado del padre)
+      setTimeout(() => {
+        setCaptured(false);
+        onClose();
+      }, 350); // Deja la notificación un poco y cierra modal
+    }
+  }, "image/jpeg", 0.8);
+};
+
 
   return (
     <div className="cam-wrapper">

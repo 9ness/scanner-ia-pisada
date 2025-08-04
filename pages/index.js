@@ -62,11 +62,14 @@ const handleCameraCapture = (blob) => {
   dt.items.add(file);
   fileInputRef.current.files = dt.files;
 
+  setModoCamara(false); // 1º cerrar cámara/modal
+
+  // 2º después de 150 ms, lanzamos el flujo de análisis
   setTimeout(() => {
     handleFileChange({ target: fileInputRef.current });
-    setModoCamara(false);   // <- solo aquí
   }, 150);
 };
+
 
 
 
