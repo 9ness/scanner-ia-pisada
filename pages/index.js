@@ -56,8 +56,24 @@ export default function Home() {
 
   const [modoCamara, setModoCamara] = useState(false);   // ⬅️ NUEVO ESTADO
 
-  const handleCameraCapture = (blob) => {
-    const file = new File([blob], "captura.jpg", { type: "image/jpeg" });
+  // en tu index.js
+
+const handleCameraCapture = (blob) => {
+  // 1) Creamos el File y lo asignamos al input
+  const file = new File([blob], "captura.jpg", { type: "image/jpeg" });
+  const dt = new DataTransfer();
+  dt.items.add(file);
+  fileInputRef.current.files = dt.files;
+
+  // 2) Damos un pequeño timeout antes de invocar handleFileChange
+  setTimeout(() => {
+    handleFileChange({ target: fileInputRef.current });
+  }, 100);  // 100 ms suele ser suficiente, puedes ajustar (50–200 ms)
+
+  // 3) Cerramos la cámara
+  setModoCamara(false);
+};
+
 
     // 👉 Creamos un DataTransfer para simular que el usuario subió la foto
     const dt = new DataTransfer();
