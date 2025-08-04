@@ -11,7 +11,7 @@ export default function CameraScanner({ onCapture, onClose }) {
   const [lockCnt, setLockCnt]   = useState(0);
   const [captured, setCaptured] = useState(false);
 
-  // 0) Carga tu SVG
+  // 0) Carga el SVG de la silueta
   useEffect(() => {
     fetch("/plantilla_silueta.svg")
       .then(r => r.text())
@@ -23,7 +23,7 @@ export default function CameraScanner({ onCapture, onClose }) {
       .catch(() => console.warn("No se pudo cargar la silueta"));
   }, []);
 
-  // 1) Arranca cámara y espera metadata
+  // 1) Arranca la cámara y espera metadata
   useEffect(() => {
     (async () => {
       try {
@@ -41,7 +41,7 @@ export default function CameraScanner({ onCapture, onClose }) {
     return () => streamRef.current?.getTracks().forEach(t => t.stop());
   }, [onClose]);
 
-  // 2) Detección cada 400 ms
+  // 2) Loop de detección cada 400ms
   useEffect(() => {
     if (!ready || !maskD) return;
 
@@ -51,11 +51,12 @@ export default function CameraScanner({ onCapture, onClose }) {
     canvas.width = W; canvas.height = H;
     const ctx = canvas.getContext("2d");
 
-    // Prepara la máscara escalada
+    // Prepara máscara escalada
     const vb = { width: 1365.333, height: 1365.333 };
     const scaleX = W / vb.width, scaleY = H / vb.height;
-    const raw = new Path2D(maskD), maskPath = new Path2D();
-    maskPath.addPath(raw, new DOMMatrix().scale(scaleX, scaleY));
+    const rawPath = new Path2D(maskD);
+    const maskPath = new Path2D();
+    maskPath.addPath(rawPath, new DOMMatrix().scale(scaleX, scaleY));
 
     let id;
     const tick = () => {
@@ -64,20 +65,22 @@ export default function CameraScanner({ onCapture, onClose }) {
         return;
       }
       ctx.drawImage(video, 0, 0, W, H);
-      const d = ctx.getImageData(0, 0, W, H).data;
+      const data = ctx.getImageData(0, 0, W, H).data;
       let inCnt = 0, outCnt = 0, edgeCnt = 0;
-      for (let y = 0; y < H; y += 4) for (let x = 0; x < W; x += 4) {
-        const i = (y * W + x) * 4;
-        const l1 = d[i] + d[i+1] + d[i+2];
-        const l2 = d[i+16] + d[i+17] + d[i+18];
-        if (Math.abs(l1 - l2) > 80) {
-          edgeCnt++;
-          if (ctx.isPointInPath(maskPath, x, y)) inCnt++;
-          else outCnt++;
+      for (let y = 0; y < H; y += 4) {
+        for (let x = 0; x < W; x += 4) {
+          const i = (y * W + x) * 4;
+          const lum1 = data[i] + data[i+1] + data[i+2];
+          const lum2 = data[i+16] + data[i+17] + data[i+18];
+          if (Math.abs(lum1 - lum2) > 80) {
+            edgeCnt++;
+            if (ctx.isPointInPath(maskPath, x, y)) inCnt++;
+            else outCnt++;
+          }
         }
       }
-      const fillPct = inCnt / (edgeCnt||1) * 100;
-      const outsidePct = outCnt / (edgeCnt||1) * 100;
+      const fillPct = inCnt / (edgeCnt || 1) * 100;
+      const outsidePct = outCnt / (edgeCnt || 1) * 100;
       document.getElementById("dbg").textContent =
         `Bordes: ${edgeCnt}\nDentro: ${inCnt}\nFuera: ${outCnt}\nFill%: ${fillPct.toFixed(1)}`;
 
@@ -94,9 +97,9 @@ export default function CameraScanner({ onCapture, onClose }) {
     return () => clearTimeout(id);
   }, [ready, maskD]);
 
-  // 3) Captura + callback
+  // 3) Captura y envía al padre
   const takePhoto = () => {
-    if (capturingRef.current) return;     // evita dobles llamadas
+    if (capturingRef.current) return;
     capturingRef.current = true;
 
     const v = videoRef.current;
@@ -110,8 +113,8 @@ export default function CameraScanner({ onCapture, onClose }) {
       setTimeout(() => setCaptured(false), 800);
 
       onCapture(blob);
-      setLockCnt(0);                      // resetea detección
-      setTimeout(() => onClose(), 300);   // deja 300 ms para pintar preview
+      setLockCnt(0);
+      setTimeout(() => onClose(), 300);
     }, "image/jpeg", 0.8);
   };
 
