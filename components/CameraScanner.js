@@ -1,106 +1,120 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from 'react';
 
 export default function CameraScanner({ onCapture, onClose }) {
   const videoRef   = useRef(null);
+  const canvasRef  = useRef(null);
   const streamRef  = useRef(null);
-  const [opencvOK, setOpencvOK]   = useState(false);
-  const [maskReady, setMaskReady] = useState(false);   // svg cargado
-  const [flash, setFlash]         = useState(false);   // destello
-  const [testTxt, setTestTxt]     = useState("cargando…");
+  const [maskReady,setMaskReady] = useState(false);
+  const [flash,setFlash] = useState(false);
+  const [debug,setDebug] = useState({b:0, inside:0, out:0, pct:0});
 
-  /* ---------- 1. Cargar OpenCV asíncrono ---------- */
-  useEffect(() => {
-    if (window.cv) { setOpencvOK(true); return; }
-    const s = document.createElement("script");
-    s.src = "https://docs.opencv.org/4.x/opencv.js";
-    s.async = true;
-    s.onload = () => cv['onRuntimeInitialized']=() => setOpencvOK(true);
-    document.body.appendChild(s);
-  }, []);
-
-  /* ---------- 2. Pre-cargar la silueta SVG ---------- */
+  /* ============ cargar SVG antes de mostrar máscara ============ */
   useEffect(()=>{
-    const img = new Image();
-    img.src = "/plantilla_silueta.svg";
-    img.onload = () => setMaskReady(true);
+    const img=new Image();
+    img.src='/plantilla_silueta.svg';
+    img.onload = ()=> setMaskReady(true);
   },[]);
 
-  /* ---------- 3. Iniciar / parar cámara ---------- */
+  /* ============ abrir cámara ============ */
   useEffect(()=>{
-    let stream;
-    (async ()=>{
+    (async()=>{
       try{
-        stream = await navigator.mediaDevices.getUserMedia({
-          video:{ facingMode:{ideal:"environment"}, width:{ideal:1280}, height:{ideal:720}}
+        const s = await navigator.mediaDevices.getUserMedia({
+          video:{ facingMode:{ideal:'environment'} }
         });
+        streamRef.current=s;
         if(videoRef.current){
-          videoRef.current.srcObject = stream;
-          streamRef.current = stream;
+          videoRef.current.srcObject=s;
         }
-      }catch(e){ console.error("No cam:",e); }
+      }catch(e){ console.error('cam error',e); }
     })();
-    return ()=> stream && stream.getTracks().forEach(t=>t.stop());
+    return ()=> streamRef.current?.getTracks().forEach(t=>t.stop());
   },[]);
 
-  /* ---------- 4. Detección simplificada ---------- */
+  /* ============ detección sencilla ============ */
   useEffect(()=>{
-    if(!opencvOK) return;
-    const video  = videoRef.current;
-    const canvas = document.createElement("canvas");
-    const ctx    = canvas.getContext("2d");
+    if(!maskReady) return;
+    const v = videoRef.current;
+    const c = canvasRef.current;
+    const ctx=c.getContext('2d');
 
-    const check = () =>{
-      if(!video || video.readyState<2){ requestAnimationFrame(check); return; }
+    const loop = ()=>{
+      if(!v.videoWidth){ requestAnimationFrame(loop); return; }
 
-      /* volcado frame */
-      canvas.width  = video.videoWidth;
-      canvas.height = video.videoHeight;
-      ctx.drawImage(video,0,0,canvas.width,canvas.height);
+      c.width=v.videoWidth; c.height=v.videoHeight;
+      ctx.drawImage(v,0,0,c.width,c.height);
 
-      /* analiza color interior de silueta: sample en el centro */
-      const { width:hW, height:hH } = canvas;
-      const cx = hW/2, cy = hH/2;
-      const data = ctx.getImageData(cx-5,cy-5,10,10).data;
+      // leer algunos píxeles dentro de una elipse central (aprox)
+      const imgData = ctx.getImageData(c.width*0.4,c.height*0.2,
+                                       c.width*0.2,c.height*0.6).data;
       let bright=0;
-      for(let i=0;i<data.length;i+=4) bright += data[i]+data[i+1]+data[i+2];
-      const avg = bright/(data.length/4);   // 0-765
-
-      /* detección muy simplificada:
-         – si la zona está claramente ‘verde’ (plantilla),
-         – y contraste > umbral, dispara.  */
-      const isGreen = avg>120 && data[1]>data[0] && data[1]>data[2];  // verde dominante
-      const fillPct = Math.round(avg/765*100);
-
-      setTestTxt(`TEST INFO\nBrilloMed: ${Math.round(avg)}\nFill%: ${fillPct}`);
-
-      if(isGreen && fillPct>15){
-        /* destello */
-        setFlash(true);
-        setTimeout(()=>setFlash(false),150);
-
-        /* captura */
-        canvas.toBlob(b=>{
-          if(b) onCapture(b);
-        },"image/jpeg",0.9);
-        return; // terminar
+      for(let i=0;i<imgData.length;i+=4){  // R,G,B
+        const y = 0.2126*imgData[i]+0.7152*imgData[i+1]+0.0722*imgData[i+2];
+        if(y>80) bright++;                 // umbral sencillísimo
       }
-      requestAnimationFrame(check);
+      const pct   = Math.round(100*bright/(imgData.length/4));
+
+      setDebug({b:imgData.length/4,inside:bright,out:imgData.length/4-bright,pct});
+
+      if(pct>8){                //  --- disparo si 8 % de zona central brillante
+        snapshot();             //  (ajusta el 8 según tus pruebas)
+        return;                 //  sale del loop
+      }
+      requestAnimationFrame(loop);
     };
-    check();
+    requestAnimationFrame(loop);
 
-  },[opencvOK,onCapture]);
+    const snapshot=()=>{
+      setFlash(true);
+      setTimeout(()=>setFlash(false),150);
 
-  /* ---------- 5. Render ---------- */
-  return(
-    <div id="camera-cover">
-      <video ref={videoRef} autoPlay playsInline muted />
+      const snap=document.createElement('canvas');
+      snap.width=c.width; snap.height=c.height;
+      snap.getContext('2d').drawImage(v,0,0,c.width,c.height);
+      snap.toBlob(b=> onCapture && onCapture(b),'image/jpeg',0.9);
+    };
+  },[maskReady]);
 
-      {/* máscara solo cuando svg cargado  */}
-      {maskReady && <div id="mask-layer" className={flash?'flash':''}/>}
+  /* ============ estilos in-component ============ */
+  const style=`
+  #camera-cover{position:fixed;inset:0;z-index:9999;display:flex;
+    justify-content:center;align-items:center;background:#000;}
+  #camera-cover video{position:absolute;inset:0;width:100%;height:100%;
+    object-fit:cover;}
+  #mask-layer{position:absolute;inset:0;pointer-events:none;
+    background:#000;opacity:.55;
+    mask:url('/plantilla_silueta.svg') center/70% no-repeat;
+    -webkit-mask:url('/plantilla_silueta.svg') center/70% no-repeat;
+    transition:background .15s;}
+  #mask-layer.flash{background:#00e000;opacity:.35;}
+  #testBox{position:absolute;top:20px;left:20px;z-index:3;background:rgba(0,0,0,.5);
+    color:#fff;font:14px/1.3 monospace;padding:6px 10px;border-radius:4px;}
+  #closeBtn{position:absolute;top:20px;right:20px;z-index:3;width:44px;height:44px;
+    border:none;border-radius:50%;font-size:28px;color:#fff;
+    background:rgba(0,0,0,.55);}
+  `;
 
-      {/* HUD & close */}
-      <pre id="testBox">{testTxt}</pre>
-      <button id="closeBtn" onClick={onClose}>×</button>
-    </div>
+  return (
+    <>
+      <style>{style}</style>
+
+      <div id="camera-cover">
+        <video ref={videoRef} autoPlay playsInline />
+        <canvas ref={canvasRef} style={{display:'none'}} />
+
+        {maskReady && (
+          <div id="mask-layer" className={flash?'flash':''}/>
+        )}
+
+        <button id="closeBtn" onClick={onClose}>✕</button>
+
+        <div id="testBox">
+          Bordes: {debug.b}<br/>
+          Dentro: {debug.inside}<br/>
+          Fuera: {debug.out}<br/>
+          Fill%: {debug.pct}
+        </div>
+      </div>
+    </>
   );
 }
