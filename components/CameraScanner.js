@@ -7,6 +7,12 @@ export default function CameraScanner({ onCapture, onClose }) {
   const streamRef  = useRef(null);
   const [stats, setStats] = useState({ total: 0, inside: 0, outside: 0 });
   const [flash,  setFlash] = useState(false);
+  /*  Ajustes rápidos  */
+const MIN_EDGES_TOTAL   = 8000;
+const MIN_EDGES_INSIDE  = 4000;
+const MIN_RATIO_INSIDE  = 0.45;
+const MIN_FILL_INSIDE   = 0.18;   // 18 %
+
 
   /* ---------- iniciar cámara ---------- */
   useEffect(() => {
@@ -66,30 +72,49 @@ export default function CameraScanner({ onCapture, onClose }) {
       const mCtx = maskCanvas.getContext("2d");
       mCtx.drawImage(svgImg, 0, 0, maskCanvas.width, maskCanvas.height);
       const maskData = mCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height).data;
+/******** 4-5. contar y decidir disparo ********/
+let insideEdges = 0, totalEdges = 0, satPixels = 0, maskPixels = 0;
+for (let y = 0; y < canvas.height; y += 1) {
+  for (let x = 0; x < canvas.width; x += 1) {
+    const idx = (y * canvas.width + x) * 4;
+    const edge = edges.data[idx] !== 0;
+    if (edge) totalEdges++;
 
-      /* 4. contar pixels ---------------------- */
-      let inside = 0, outside = 0, total = 0;
-      for (let i = 0; i < edges.data.length; i += 4) {
-        if (edges.data[i] !== 0) {            // blanco = borde
-          total++;
-          const alpha = maskData[i + 3];      // máscara opaca dentro
-          if (alpha > 0) inside++; else outside++;
-        }
-      }
-      setStats({ total, inside, outside });
+    // máscara alfa
+    const alpha = maskData[idx + 3];
+    if (alpha > 0) {                 // punto está dentro del SVG
+      maskPixels++;
+      if (edge) insideEdges++;
 
-      /* 5. disparar foto si coincide ---------- */
-      const OK  = total > 8000 &&
-                  inside > 2500 &&
-                  inside / total > 0.40;      // ~40 % bordes dentro
+      // saturación: usamos R/G/B para descartar gris liso
+      const r = src.data[idx], g = src.data[idx+1], b = src.data[idx+2];
+      const max = Math.max(r,g,b), min = Math.min(r,g,b);
+      if (max - min > 25) satPixels++;   // 25 ≈ umbral de saturación
+    }
+  }
+}
+const ratioInside = totalEdges ? insideEdges / totalEdges : 0;
+const fillInside  = maskPixels ? satPixels  / maskPixels  : 0;
 
-      if (OK) {
-        if (!flash) {                         // evita múltiples disparos
-          setFlash(true);
-          setTimeout(() => setFlash(false), 150);
-          takePhoto();
-        }
-      }
+setStats({
+  total: totalEdges,
+  inside: insideEdges,
+  outside: totalEdges - insideEdges,
+  fill: fillInside.toFixed(2)
+});
+
+/* criterio */
+const ok =
+  totalEdges  > MIN_EDGES_TOTAL   &&
+  insideEdges > MIN_EDGES_INSIDE  &&
+  ratioInside > MIN_RATIO_INSIDE  &&
+  fillInside  > MIN_FILL_INSIDE;
+
+if (ok && !flash) {
+  setFlash(true); setTimeout(() => setFlash(false),150);
+  takePhoto();
+}
+
 
       /* limpiar */
       src.delete(); edges.delete();
@@ -127,6 +152,7 @@ export default function CameraScanner({ onCapture, onClose }) {
         Bordes:&nbsp; {stats.total}<br/>
         Dentro:&nbsp; {stats.inside}<br/>
         Fuera:&nbsp;&nbsp; {stats.outside}
+        Fill%:&nbsp; {Math.round(stats.fill*100)}
       </div>
 
       {/* canvas hidden para OpenCV */}
