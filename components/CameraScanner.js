@@ -1,162 +1,166 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from "react";
 
 export default function CameraScanner({ onCapture, onClose }) {
-  /* ───── referencias ───── */
-  const videoRef = useRef(null);
-  const stream   = useRef(null);
-  const dbgBox   = useRef(null);
+  /* ---------- refs & estado ---------- */
+  const videoRef   = useRef(null);
+  const canvasRef  = useRef(null);          // para procesado
+  const streamRef  = useRef(null);
+  const [stats, setStats] = useState({ total: 0, inside: 0, outside: 0 });
+  const [flash,  setFlash] = useState(false);
 
-  /* ───── openCV listo ───── */
-  const [cvReady, setCvReady] = useState(false);
-  useEffect(() => {
-    if (window.cv) { setCvReady(true); return; }          // ya cargado
-    const s = document.createElement('script');
-    s.src = 'https://docs.opencv.org/4.x/opencv.js';
-    s.onload = () => setCvReady(true);
-    document.body.appendChild(s);
-  }, []);
-
-  /* ───── abrir cámara ───── */
+  /* ---------- iniciar cámara ---------- */
   useEffect(() => {
     (async () => {
-      try {
-        const st = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal:'environment' }, width:1280, height:720 }
-        });
-        stream.current = st;
-        if (videoRef.current) videoRef.current.srcObject = st;
-      } catch (e) {
-        alert('No se pudo abrir la cámara');
-        onClose();
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: "environment" },
+          width:  { ideal: 1280 },
+          height: { ideal: 720  }
+        }
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
       }
+      startLoop();               // comienza análisis
     })();
-    return () => stream.current?.getTracks().forEach(t=>t.stop());
-  }, [onClose]);
 
-  /* ───── detección ───── */
-  useEffect(() => {
-    if (!cvReady) return;
+    /* limpiar al desmontar */
+    return () => {
+      if (streamRef.current)
+        streamRef.current.getTracks().forEach(t => t.stop());
+    };
+  }, []);
 
+  /* ---------- bucle de análisis ---------- */
+  const startLoop = () => {
     const video  = videoRef.current;
-    const canv   = document.createElement('canvas');
-    const ctx    = canv.getContext('2d');
+    const canvas = canvasRef.current;
+    const ctx    = canvas.getContext("2d");
 
-    const loop   = () => {
-      if (!video || video.readyState < 2) { requestAnimationFrame(loop); return; }
+    const svgImg = new Image();
+    svgImg.src   = "/plantilla_silueta.svg";   // misma ruta
+    svgImg.onload = () => loop();              // inicia cuando cargue
 
-      /* capturamos frame */
-      const { videoWidth:w, videoHeight:h } = video;
-      canv.width = w; canv.height = h;
-      ctx.drawImage(video,0,0,w,h);
+    const loop = () => {
+      if (!video || video.readyState < 2) return requestAnimationFrame(loop);
 
-      /* Canny */
-      const src = cv.imread(canv);                               // eslint-disable-line no-undef
-      const gray = new cv.Mat();
-      cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+      /* 1. pinta frame en canvas -------------- */
+      canvas.width  = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      /* 2. Canny + contorno ------------------- */
+      const src = cv.imread(canvas);
+      cv.cvtColor(src, src, cv.COLOR_RGBA2GRAY);
+      cv.GaussianBlur(src, src, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
       const edges = new cv.Mat();
-      cv.Canny(gray, edges, 50, 150);
-      gray.delete(); src.delete();
+      cv.Canny(src, edges, 40, 100);           // umbrales suaves
 
-      /* bounding-box aproximado de la silueta (60 vw × 70 vh) */
-      const boxW = w * 0.60;
-      const boxH = h * 0.70;
-      const boxX = (w - boxW)/2;
-      const boxY = (h - boxH)/2;
+      /* 3. contorno silueta → Path2D ---------- */
+      // Usamos el <img> del SVG y lo dibujamos sobre un off-screen canvas
+      const maskCanvas = document.createElement("canvas");
+      maskCanvas.width  = canvas.width;
+      maskCanvas.height = canvas.height;
+      const mCtx = maskCanvas.getContext("2d");
+      mCtx.drawImage(svgImg, 0, 0, maskCanvas.width, maskCanvas.height);
+      const maskData = mCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height).data;
 
-      let total=0, inside=0;
-      for (let y=0; y<edges.rows; y++){
-        for (let x=0; x<edges.cols; x++){
-          if (edges.ucharPtr(y,x)[0]!==0){
-            total++;
-            if (x>=boxX && x<=boxX+boxW && y>=boxY && y<=boxY+boxH) inside++;
-          }
+      /* 4. contar pixels ---------------------- */
+      let inside = 0, outside = 0, total = 0;
+      for (let i = 0; i < edges.data.length; i += 4) {
+        if (edges.data[i] !== 0) {            // blanco = borde
+          total++;
+          const alpha = maskData[i + 3];      // máscara opaca dentro
+          if (alpha > 0) inside++; else outside++;
         }
       }
-      edges.delete();
+      setStats({ total, inside, outside });
 
-      const outside = total - inside;
-      if (dbgBox.current){
-        dbgBox.current.innerText =
-`TEST INFO
-Bordes:  ${total}
-Dentro:   ${inside}
-Fuera:    ${outside}`;
+      /* 5. disparar foto si coincide ---------- */
+      const OK  = total > 8000 &&
+                  inside > 2500 &&
+                  inside / total > 0.40;      // ~40 % bordes dentro
+
+      if (OK) {
+        if (!flash) {                         // evita múltiples disparos
+          setFlash(true);
+          setTimeout(() => setFlash(false), 150);
+          takePhoto();
+        }
       }
 
-      /* regla de disparo */
-      if (total>2500 && inside/total > 0.70){
-        // flash verde
-        document.body.classList.add('flash-green');
-        setTimeout(()=>document.body.classList.remove('flash-green'),140);
+      /* limpiar */
+      src.delete(); edges.delete();
 
-        /* foto */
-        canv.toBlob(blob => {
-          onCapture(blob);
-        }, 'image/jpeg', 0.9);
-        return; // detener loop
-      }
       requestAnimationFrame(loop);
     };
-    requestAnimationFrame(loop);
-  }, [cvReady, onCapture]);
+  };
 
-  /* ───── vista ───── */
+  /* ---------- capturar ---------- */
+  const takePhoto = () => {
+    // frame actual → blob
+    const canvas = document.createElement("canvas");
+    const v  = videoRef.current;
+    canvas.width  = v.videoWidth;
+    canvas.height = v.videoHeight;
+    canvas.getContext("2d").drawImage(v, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob(blob => {
+      onCapture(blob);     // envía al padre
+      onClose();           // cierra modal
+    }, "image/jpeg", 0.9);
+  };
+
+  /* ---------- UI ---------- */
   return (
-    <div className="cam-modal">
-      <video ref={videoRef} autoPlay playsInline muted className="cam-video"/>
+    <div className="camera-modal">
+      {/* vídeo */}
+      <video ref={videoRef} className="camera-video" playsInline muted />
 
-      {/* máscara oscura con agujero */}
-      <div className="mask-layer" />
+      {/* overlay con máscara */}
+      <div className={`overlay-mask ${flash ? "flash" : ""}`} />
 
-      {/* silueta visible */}
-      <img src="/plantilla_silueta.svg" alt="silueta" className="silueta-img"/>
+      {/* TEST INFO */}
+      <div className="test-box">
+        <strong>TEST INFO</strong><br/>
+        Bordes:&nbsp; {stats.total}<br/>
+        Dentro:&nbsp; {stats.inside}<br/>
+        Fuera:&nbsp;&nbsp; {stats.outside}
+      </div>
 
-      {/* debug */}
-      <pre ref={dbgBox} className="debug-box"/>
+      {/* canvas hidden para OpenCV */}
+      <canvas ref={canvasRef} style={{ display:"none" }} />
 
       {/* cerrar */}
       <button className="close-btn" onClick={onClose}>✕</button>
 
-      {/* ───── CSS in-component ───── */}
-      <style jsx global>{`
-        .cam-modal{position:fixed;inset:0;z-index:99999;background:#000;overflow:hidden;}
-        .cam-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
-
-        /* agujero con mask-composite */
-        .mask-layer{
-          position:absolute;inset:0;background:rgba(0,0,0,.6);
-          -webkit-mask:url('/plantilla_silueta.svg') center/60vw no-repeat;
-                  mask:url('/plantilla_silueta.svg') center/60vw no-repeat;
-          -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
-          -webkit-mask-composite:destination-out;mask-composite:exclude;
-          pointer-events:none;
+      {/* === estilos in-file === */}
+      <style jsx>{`
+        .camera-modal{
+          position:fixed;inset:0;background:#000;z-index:9999;
+          display:flex;justify-content:center;align-items:center;
         }
-
-        /* contorno guía */
-        .silueta-img{
-          position:absolute;top:50%;left:50%;
-          width:60vw;max-width:380px;transform:translate(-50%,-50%);
-          opacity:.85;pointer-events:none;
+        .camera-video{width:100%;height:100%;object-fit:cover;}
+        .overlay-mask{
+          position:absolute;inset:0;
+          background:rgba(0,0,0,.55);       /* sombra fuera */
+          -webkit-mask: url('/plantilla_silueta.svg') no-repeat 50% 50% / contain;
+          mask:         url('/plantilla_silueta.svg') no-repeat 50% 50% / contain;
+          pointer-events:none;transition:background-color .15s;
         }
-
+        .overlay-mask.flash{background:rgba(0,255,0,.3);}
+        .test-box{
+          position:absolute;top:28px;left:32px;
+          background:rgba(0,0,0,.6);color:#fff;
+          font-family:monospace;font-size:15px;
+          padding:8px 11px;border-radius:3px;
+        }
         .close-btn{
-          position:absolute;top:18px;right:18px;z-index:10001;
-          width:42px;height:42px;border-radius:50%;
-          background:rgba(0,0,0,.45);border:1px solid #fff;
-          color:#fff;font-size:24px;line-height:38px;text-align:center;
-          cursor:pointer;
-        }
-        .debug-box{
-          position:absolute;top:18px;left:18px;z-index:10001;
-          background:rgba(0,0,0,.55);color:#fff;font-size:13px;
-          padding:6px 10px;border-radius:4px;line-height:1.25;
-          pointer-events:none;
-        }
-
-        /* destello verde al detectar */
-        .flash-green .mask-layer{
-          background:rgba(0,128,0,.55);
-          transition:background 120ms;
+          position:absolute;top:28px;right:28px;
+          width:46px;height:46px;border-radius:50%;
+          background:rgba(0,0,0,.55);color:#fff;border:none;
+          font-size:28px;line-height:46px;cursor:pointer;
         }
       `}</style>
     </div>
