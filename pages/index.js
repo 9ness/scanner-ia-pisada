@@ -57,20 +57,17 @@ export default function Home() {
   const [modoCamara, setModoCamara] = useState(false);   // ⬅️ NUEVO ESTADO
 
 const handleCameraCapture = (blob) => {
-  // 1) Creamos el File y lo asignamos al input
   const file = new File([blob], "captura.jpg", { type: "image/jpeg" });
   const dt = new DataTransfer();
   dt.items.add(file);
   fileInputRef.current.files = dt.files;
 
-  // 2) Retardamos un poco para que React vea el cambio en el input
   setTimeout(() => {
     handleFileChange({ target: fileInputRef.current });
-  }, 100);
-
-  // 3) Cerramos la cámara
-  setModoCamara(false);
+    setModoCamara(false);   // <- solo aquí
+  }, 150);
 };
+
 
 
   // Estado para bloquear render de UI principal antes de restaurar:
