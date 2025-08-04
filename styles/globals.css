@@ -1610,42 +1610,58 @@ padding-left: 0rem !important;
   width: 90%;
 }
 
-/* — Cámara — */
-#camera-cover {
-  position: fixed; inset: 0; z-index: 9999;
-  display: flex; justify-content: center; align-items: center;
-  overflow: hidden;
+/* ——— contenedor pantalla completa ——— */
+#camera-cover{
+  position:fixed; inset:0;
+  z-index:9999;
+  background:#000;              /* negro mientras carga vídeo */
+  display:flex; justify-content:center; align-items:center;
+  overflow:hidden;
+  touch-action:none;
 }
 
-/* vídeo a pantalla completa */
-#camera-cover video { position:absolute; inset:0;
-  width:100%; height:100%; object-fit:cover; }
+/* vídeo */
+#camera-cover video{
+  position:absolute; inset:0;
+  width:100%; height:100%;
+  object-fit:cover;
+}
 
-/* ── MÁSCARA  ─────────────────────────────── */
+/* ——— capa de oscurecido (fuera de la silueta) ——— */
 #mask-layer{
   position:absolute; inset:0; pointer-events:none;
-  background:#000;                   /* color que oscurece  */
-  opacity:.55;                       /* qué tan oscuro fuera */
-  /*  recorta la silueta (mask)  */
-  mask: url('/plantilla_silueta.svg') center/70% no-repeat;
+  background:#000;                /* color del oscurecido */
+  opacity:.55;                    /* intensidad */
+
+  /* máscara (estándar y -webkit-) */
+  mask:         url('/plantilla_silueta.svg') center/70% no-repeat;
   -webkit-mask: url('/plantilla_silueta.svg') center/70% no-repeat;
+  transition:background .18s, opacity .18s;
 }
 
-/* flash verde cuando disparamos */
+/* destello verde cuando hay match */
 #mask-layer.flash{
-  background:#00ff00; opacity:.35; transition:opacity .15s;
+  background:#10bf53;
+  opacity:.38;
 }
 
-/* info */
-#testBox{
-  position:absolute;top:20px;left:20px;z-index:2;
-  background:rgba(0,0,0,.55);color:white;font:14px/1.25 monospace;
-  padding:6px 10px;border-radius:3px;
-}
+/* ——— botón cerrar ——— */
 #closeBtn{
-  position:absolute;top:20px;right:20px;z-index:2;
-  width:44px;height:44px;border:none;border-radius:50%;
-  background:rgba(0,0,0,.55);color:#fff;font-size:28px;
+  position:absolute; top:20px; right:20px; z-index:2;
+  width:44px; height:44px;
+  border:none; border-radius:50%;
+  background:rgba(0,0,0,.55);
+  color:#fff; font-size:28px; line-height:44px;
+  display:flex; justify-content:center; align-items:center;
+}
+
+/* ——— caja TEST ——— */
+#testBox{
+  position:absolute; top:20px; left:20px; z-index:2;
+  background:rgba(0,0,0,.55);
+  color:#fff; font:14px/17px monospace;
+  padding:6px 10px; border-radius:4px;
+  white-space:pre;
 }
 
 
