@@ -1,120 +1,137 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from "react";
 
 export default function CameraScanner({ onCapture, onClose }) {
   const videoRef   = useRef(null);
-  const canvasRef  = useRef(null);
   const streamRef  = useRef(null);
-  const [maskReady,setMaskReady] = useState(false);
-  const [flash,setFlash] = useState(false);
-  const [debug,setDebug] = useState({b:0, inside:0, out:0, pct:0});
+  const [ready, setReady] = useState(false);      // cámara estabilizada
+  const [lockCnt, setLockCnt] = useState(0);      // detecciones consecutivas
 
-  /* ============ cargar SVG antes de mostrar máscara ============ */
-  useEffect(()=>{
-    const img=new Image();
-    img.src='/plantilla_silueta.svg';
-    img.onload = ()=> setMaskReady(true);
-  },[]);
-
-  /* ============ abrir cámara ============ */
-  useEffect(()=>{
-    (async()=>{
-      try{
-        const s = await navigator.mediaDevices.getUserMedia({
-          video:{ facingMode:{ideal:'environment'} }
+  /* ───── Arrancar cámara ─────────────────────────────── */
+  useEffect(() => {
+    (async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 } }
         });
-        streamRef.current=s;
-        if(videoRef.current){
-          videoRef.current.srcObject=s;
-        }
-      }catch(e){ console.error('cam error',e); }
+        videoRef.current.srcObject = stream;
+        streamRef.current = stream;
+        /* esperamos 1 s para que auto-exposición y foco se asienten */
+        setTimeout(() => setReady(true), 1000);
+      } catch (e) {
+        alert("No se pudo abrir la cámara");
+        onClose();
+      }
     })();
-    return ()=> streamRef.current?.getTracks().forEach(t=>t.stop());
-  },[]);
+    /* cleanup */
+    return () => streamRef.current?.getTracks().forEach(t => t.stop());
+  }, []);
 
-  /* ============ detección sencilla ============ */
-  useEffect(()=>{
-    if(!maskReady) return;
+  /* ───── Detección cada 400 ms ───────────────────────── */
+  useEffect(() => {
+    if (!ready) return;
+    const video = videoRef.current;
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+
+    const svgMask = document.getElementById("plantilla-mask");  // el path
+    const maskPath = new Path2D(svgMask?.getAttribute("d") || "");
+
+    const W = video.videoWidth;
+    const H = video.videoHeight;
+    canvas.width = W;  canvas.height = H;
+
+    const tick = () => {
+      if (!video || video.readyState < 2) return req();  // frame no listo
+
+      ctx.drawImage(video, 0, 0, W, H);
+      const imgData = ctx.getImageData(0, 0, W, H).data;
+
+      let inCnt = 0, outCnt = 0, edgeCnt = 0;
+      const step = 4 * 4; // muestreo 4px
+
+      for (let y = 0; y < H; y += 4) {
+        for (let x = 0; x < W; x += 4) {
+          const i = (y * W + x) * 4;
+          const lum  = imgData[i] + imgData[i+1] + imgData[i+2];
+          const lum2 = imgData[i+step] + imgData[i+step+1] + imgData[i+step+2];
+          if (Math.abs(lum - lum2) > 80) {            // borde simple
+            edgeCnt++;
+            (ctx.isPointInPath(maskPath, x, y) ? inCnt : outCnt)++;
+          }
+        }
+      }
+
+      const fillPct    = inCnt  / (edgeCnt || 1) * 100;
+      const outsidePct = outCnt / (edgeCnt || 1) * 100;
+
+      // Mostrar info
+      document.getElementById("dbg").textContent =
+        `Bordes: ${edgeCnt}\nDentro: ${inCnt}\nFuera: ${outCnt}\nFill%: ${fillPct.toFixed(1)}`;
+
+      const ok = fillPct > 15 && outsidePct < 4;
+
+      setLockCnt(c => {
+        const next = ok ? c + 1 : 0;
+        if (next >= 3) takePhoto();
+        return next;
+      });
+
+      req();
+    };
+    const req = () => setTimeout(tick, 400);
+    req();
+  }, [ready]);
+
+  /* ───── Capturar frame y devolverlo al padre ────────── */
+  const takePhoto = () => {
     const v = videoRef.current;
-    const c = canvasRef.current;
-    const ctx=c.getContext('2d');
-
-    const loop = ()=>{
-      if(!v.videoWidth){ requestAnimationFrame(loop); return; }
-
-      c.width=v.videoWidth; c.height=v.videoHeight;
-      ctx.drawImage(v,0,0,c.width,c.height);
-
-      // leer algunos píxeles dentro de una elipse central (aprox)
-      const imgData = ctx.getImageData(c.width*0.4,c.height*0.2,
-                                       c.width*0.2,c.height*0.6).data;
-      let bright=0;
-      for(let i=0;i<imgData.length;i+=4){  // R,G,B
-        const y = 0.2126*imgData[i]+0.7152*imgData[i+1]+0.0722*imgData[i+2];
-        if(y>80) bright++;                 // umbral sencillísimo
-      }
-      const pct   = Math.round(100*bright/(imgData.length/4));
-
-      setDebug({b:imgData.length/4,inside:bright,out:imgData.length/4-bright,pct});
-
-      if(pct>8){                //  --- disparo si 8 % de zona central brillante
-        snapshot();             //  (ajusta el 8 según tus pruebas)
-        return;                 //  sale del loop
-      }
-      requestAnimationFrame(loop);
-    };
-    requestAnimationFrame(loop);
-
-    const snapshot=()=>{
-      setFlash(true);
-      setTimeout(()=>setFlash(false),150);
-
-      const snap=document.createElement('canvas');
-      snap.width=c.width; snap.height=c.height;
-      snap.getContext('2d').drawImage(v,0,0,c.width,c.height);
-      snap.toBlob(b=> onCapture && onCapture(b),'image/jpeg',0.9);
-    };
-  },[maskReady]);
-
-  /* ============ estilos in-component ============ */
-  const style=`
-  #camera-cover{position:fixed;inset:0;z-index:9999;display:flex;
-    justify-content:center;align-items:center;background:#000;}
-  #camera-cover video{position:absolute;inset:0;width:100%;height:100%;
-    object-fit:cover;}
-  #mask-layer{position:absolute;inset:0;pointer-events:none;
-    background:#000;opacity:.55;
-    mask:url('/plantilla_silueta.svg') center/70% no-repeat;
-    -webkit-mask:url('/plantilla_silueta.svg') center/70% no-repeat;
-    transition:background .15s;}
-  #mask-layer.flash{background:#00e000;opacity:.35;}
-  #testBox{position:absolute;top:20px;left:20px;z-index:3;background:rgba(0,0,0,.5);
-    color:#fff;font:14px/1.3 monospace;padding:6px 10px;border-radius:4px;}
-  #closeBtn{position:absolute;top:20px;right:20px;z-index:3;width:44px;height:44px;
-    border:none;border-radius:50%;font-size:28px;color:#fff;
-    background:rgba(0,0,0,.55);}
-  `;
+    const canvas = document.createElement("canvas");
+    canvas.width = v.videoWidth;
+    canvas.height = v.videoHeight;
+    canvas.getContext("2d").drawImage(v, 0, 0);
+    canvas.toBlob((blob) => {
+      if (blob) onCapture(blob);
+    }, "image/jpeg", 0.8);
+  };
 
   return (
-    <>
-      <style>{style}</style>
+    <div className="cam-wrapper">
+      <video ref={videoRef} autoPlay playsInline className="cam-video" />
+      {/* Máscara SVG fija */}
+      <svg className="mask-svg" viewBox="0 0 1365.333 1365.333">
+        <defs>
+          <mask id="hole">
+            {/* exterior negro (oculta) */}
+            <rect width="100%" height="100%" fill="black" />
+            {/* interior blanco (se ve) */}
+            <path id="plantilla-mask"
+                  d="M669.33329,1261.0846c49.3713-9.3258 85.28282-53.7974 100.46952-124.418 ...."
+                  fill="white" />
+          </mask>
+        </defs>
+        <rect width="100%" height="100%" fill="rgba(0,0,0,0.55)" mask="url(#hole)" />
+        {/* contorno visible para guiar */}
+        <use href="#plantilla-mask" fill="none" stroke="white" strokeWidth="3" />
+      </svg>
 
-      <div id="camera-cover">
-        <video ref={videoRef} autoPlay playsInline />
-        <canvas ref={canvasRef} style={{display:'none'}} />
+      {/* Botón cerrar */}
+      <button className="cls-btn" onClick={onClose}>✕</button>
 
-        {maskReady && (
-          <div id="mask-layer" className={flash?'flash':''}/>
-        )}
+      {/* Debug */}
+      <pre id="dbg" className="dbg" />
 
-        <button id="closeBtn" onClick={onClose}>✕</button>
-
-        <div id="testBox">
-          Bordes: {debug.b}<br/>
-          Dentro: {debug.inside}<br/>
-          Fuera: {debug.out}<br/>
-          Fill%: {debug.pct}
-        </div>
-      </div>
-    </>
+      {/* estilos */}
+      <style jsx>{`
+        .cam-wrapper{
+          position:fixed;inset:0;z-index:9999;background:#000;display:flex;justify-content:center;align-items:center;
+        }
+        .cam-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
+        .mask-svg{position:absolute;inset:0;width:100%;height:100%;}
+        .cls-btn{position:absolute;top:16px;right:16px;border:none;background:rgba(0,0,0,.6);
+                 color:#fff;font-size:24px;width:44px;height:44px;border-radius:50%;cursor:pointer;}
+        .dbg{position:absolute;top:16px;left:16px;background:rgba(0,0,0,.55);color:#fff;
+             padding:6px 10px;font-size:13px;white-space:pre-line;border-radius:4px;}
+      `}</style>
+    </div>
   );
 }
