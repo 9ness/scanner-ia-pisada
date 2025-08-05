@@ -113,9 +113,9 @@ export default function CameraScanner({ onCapture, onClose }) {
 
       // 2º Cierra la cámara/modal SÓLO DESPUÉS (así React actualiza bien el estado del padre)
       setTimeout(() => {
-        setCaptured(false);
-        onClose();
-      }, 350); // Deja la notificación un poco y cierra modal
+  setCaptured(false);
+}, 350); // solo oculta el mensaje
+
     }
   }, "image/jpeg", 0.8);
 };
