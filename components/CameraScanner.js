@@ -100,25 +100,39 @@ export default function CameraScanner({ onCapture, onClose }) {
   // 3) Captura y envía al padre
   const takePhoto = () => {
   const v = videoRef.current;
-  const c = document.createElement("canvas");
-  c.width = v.videoWidth;
-  c.height = v.videoHeight;
-  c.getContext("2d").drawImage(v, 0, 0);
-  c.toBlob(blob => {
-    if (blob) {
-      setCaptured(true);
+  if (!v || !v.videoWidth || !v.videoHeight) return;
 
-      // 1º Llama a onCapture (esto actualiza el estado en el padre)
-      onCapture(blob);
+  const canvas = document.createElement("canvas");
+  canvas.width = v.videoWidth;
+  canvas.height = v.videoHeight;
 
-      // 2º Cierra la cámara/modal SÓLO DESPUÉS (así React actualiza bien el estado del padre)
-      setTimeout(() => {
-  setCaptured(false);
-}, 350); // solo oculta el mensaje
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
 
-    }
-  }, "image/jpeg", 0.8);
+  const tempImg = new window.Image();
+  tempImg.onload = () => {
+    const compressCanvas = document.createElement("canvas");
+    const MAX_WIDTH = 1200;
+    const scale = MAX_WIDTH / tempImg.width;
+    compressCanvas.width = MAX_WIDTH;
+    compressCanvas.height = tempImg.height * scale;
+
+    const compressCtx = compressCanvas.getContext("2d");
+    compressCtx.drawImage(tempImg, 0, 0, compressCanvas.width, compressCanvas.height);
+
+    compressCanvas.toBlob((compressedBlob) => {
+      if (compressedBlob) {
+        setCaptured(true); // muestra el aviso 📸
+        onCapture(compressedBlob); // lo enviamos ya comprimido
+        setTimeout(() => setCaptured(false), 350);
+      }
+    }, "image/jpeg", 0.7);
+  };
+
+  // Captura en DataURL para procesarla como si fuera un archivo
+  tempImg.src = canvas.toDataURL("image/jpeg", 0.95);
 };
+
 
 
   return (
