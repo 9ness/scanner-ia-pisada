@@ -58,16 +58,15 @@ export default function Home() {
 
 // — NUEVO —  aseguramos que solo se use una vez
 const handleCameraCapture = (blob) => {
-  // (1) cerramos modal (el hijo ya lo hace, pero por si acaso)
-  setModoCamara(false);
+  setModoCamara(false);          // 1) aseguramos cierre
 
-  // (2) convertimos blob → File y lo inyectamos en el input
-  const file = new File([blob], "captura.jpg", { type: "image/jpeg" });
+  /* 2) convertimos a File y simulamos selección */
+  const file = new File([blob], 'captura.jpg', { type: 'image/jpeg' });
   const dt   = new DataTransfer();
   dt.items.add(file);
   fileInputRef.current.files = dt.files;
 
-  // (3) disparamos tu flujo normal
+  /* 3) lanzamos el flujo habitual */
   handleFileChange({ target: fileInputRef.current });
 };
 
