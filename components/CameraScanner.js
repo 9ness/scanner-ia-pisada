@@ -8,10 +8,8 @@ export default function CameraScanner({ onCapture, onClose }) {
   const capturingRef = useRef(false);
   const [ready, setReady]       = useState(false);
   const [maskD, setMaskD]       = useState(null);
-  const [lockCnt, setLockCnt]   = useState(0);
   const [captured, setCaptured] = useState(false);
   const [coincidencia, setCoincidencia] = useState(0);
-
 
   // 0) Carga el SVG de la silueta
   useEffect(() => {
@@ -35,7 +33,7 @@ export default function CameraScanner({ onCapture, onClose }) {
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
         videoRef.current.addEventListener("loadedmetadata", () => setReady(true), { once: true });
-      } catch {
+      } catch (err) {
         alert("No se pudo abrir la cámara");
         onClose();
       }
@@ -44,113 +42,117 @@ export default function CameraScanner({ onCapture, onClose }) {
   }, [onClose]);
 
   // 2) Loop de detección cada 400ms
- // ─── 2. Detección cada 400 ms ────────────────────────────────────────────
-useEffect(() => {
-  if (!ready || !maskD) return;
+  useEffect(() => {
+    if (!ready || !maskD) return;
 
-  const video = videoRef.current;
-  const W = video.videoWidth;
-  const H = video.videoHeight;
-  const canvas = document.createElement("canvas");
-  canvas.width = W;
-  canvas.height = H;
-  const ctx = canvas.getContext("2d");
+    const video = videoRef.current;
+    const W = video.videoWidth;
+    const H = video.videoHeight;
+    const canvas = document.createElement("canvas");
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext("2d");
 
-  // Escalar Path2D del SVG al tamaño real del vídeo
-  const vb = { width: 1365.333, height: 1365.333 };
-  const scaleX = W / vb.width;
-  const scaleY = H / vb.height;
-  const rawPath = new Path2D(maskD);
-  const maskPath = new Path2D();
-  maskPath.addPath(rawPath, new DOMMatrix().scale(scaleX, scaleY));
+    // Escalar Path2D del SVG al tamaño real del vídeo
+    const vb = { width: 1365.333, height: 1365.333 };
+    const scaleX = W / vb.width;
+    const scaleY = H / vb.height;
+    const rawPath = new Path2D(maskD);
+    const maskPath = new Path2D();
+    maskPath.addPath(rawPath, new DOMMatrix().scale(scaleX, scaleY));
 
-  let timeoutId = null;
-  const tick = () => {
-    if (video.readyState < 2) {
-      timeoutId = setTimeout(tick, 400);
-      return;
-    }
+    let timeoutId = null;
+    const tick = () => {
+      if (video.readyState < 2) {
+        timeoutId = setTimeout(tick, 400);
+        return;
+      }
 
-    ctx.drawImage(video, 0, 0, W, H);
-    const data = ctx.getImageData(0, 0, W, H).data;
-    let inCnt = 0, outCnt = 0, edgeCnt = 0;
+      ctx.drawImage(video, 0, 0, W, H);
+      const data = ctx.getImageData(0, 0, W, H).data;
+      let inCnt = 0, outCnt = 0, edgeCnt = 0;
 
-    // Recorrer cada 2 píxeles (más preciso)
-    for (let y = 0; y < H; y += 2) {
-      for (let x = 0; x < W; x += 2) {
-        const i = (y * W + x) * 4;
-        const lum = data[i] + data[i+1] + data[i+2];
-        const lum2 = data[i + 8] + data[i + 9] + data[i + 10];
-        if (Math.abs(lum - lum2) > 70) { // Detecta borde
-          edgeCnt++;
-          if (ctx.isPointInPath(maskPath, x, y)) inCnt++;
-          else outCnt++;
+      // Recorrer cada 2 píxeles (más preciso)
+      for (let y = 0; y < H; y += 2) {
+        for (let x = 0; x < W; x += 2) {
+          const i = (y * W + x) * 4;
+          const lum = data[i] + data[i+1] + data[i+2];
+          const lum2 = data[i + 8] + data[i + 9] + data[i + 10];
+          if (Math.abs(lum - lum2) > 70) { // Detecta borde
+            edgeCnt++;
+            if (ctx.isPointInPath(maskPath, x, y)) inCnt++;
+            else outCnt++;
+          }
         }
       }
-    }
 
-    const fillPct = (inCnt / (edgeCnt || 1)) * 100;
-    const outsidePct = (outCnt / (edgeCnt || 1)) * 100;
+      const fillPct = (inCnt / (edgeCnt || 1)) * 100;
+      const outsidePct = (outCnt / (edgeCnt || 1)) * 100;
 
-    // Visual feedback para usuario
-    setCoincidencia(fillPct);
+      // Visual feedback para usuario
+      setCoincidencia(fillPct);
 
-    document.getElementById("dbg").textContent =
-      `Bordes: ${edgeCnt}\nDentro: ${inCnt}\nFuera: ${outCnt}\nFill%: ${fillPct.toFixed(1)}%`;
+      const dbg = document.getElementById("dbg");
+      if (dbg) {
+        dbg.textContent =
+          `Bordes: ${edgeCnt}\nDentro: ${inCnt}\nFuera: ${outCnt}\nFill%: ${fillPct.toFixed(1)}%`;
+      }
 
-    // Solo dispara si la coincidencia es alta y pocos bordes fuera
-    if (fillPct > 75 && outsidePct < 6 && edgeCnt > 500) {
-      setTimeout(() => {
-        takePhoto();
-      }, 120); // Pequeño delay para que vea el verde
-      return; // ¡OJO! NO más ticks hasta que salga de la cámara
-    }
+      // Solo dispara si la coincidencia es alta y pocos bordes fuera
+      if (fillPct > 75 && outsidePct < 6 && edgeCnt > 500) {
+        setTimeout(() => {
+          takePhoto();
+        }, 120); // Pequeño delay para que vea el verde
+        return; // ¡OJO! NO más ticks hasta que salga de la cámara
+      }
 
-    timeoutId = setTimeout(tick, 400);
+      timeoutId = setTimeout(tick, 400);
+    };
+
+    tick();
+    return () => clearTimeout(timeoutId);
+  }, [ready, maskD, onCapture]);
+
+  const takePhoto = () => {
+    const v = videoRef.current;
+    const c = document.createElement("canvas");
+    c.width = v.videoWidth;
+    c.height = v.videoHeight;
+    c.getContext("2d").drawImage(v, 0, 0);
+    c.toBlob(blob => {
+      if (blob) {
+        setCaptured(true);
+        setTimeout(() => setCaptured(false), 800);
+        onCapture(blob);   // SOLO llama a onCapture (el padre se encarga de cerrar el modal)
+      }
+    }, "image/jpeg", 0.8);
   };
-
-  tick();
-  return () => clearTimeout(timeoutId);
-}, [metadataReady, maskD, onCapture]);
-
-
-const takePhoto = () => {
-  const v = videoRef.current;
-  const c = document.createElement("canvas");
-  c.width = v.videoWidth;
-  c.height = v.videoHeight;
-  c.getContext("2d").drawImage(v, 0, 0);
-  c.toBlob(blob => {
-    if (blob) {
-      setCaptured(true);
-      setTimeout(() => setCaptured(false), 800);
-      onCapture(blob);   // SOLO llama a onCapture (el padre se encarga de cerrar el modal)
-    }
-  }, "image/jpeg", 0.8);
-};
 
   return (
     <div className="cam-wrapper">
-      <video ref={videoRef} autoPlay playsInline className="cam-video" />
+      {/* Loader mientras se abre la cámara */}
+      {!ready && (
+        <div style={{color:'#fff',textAlign:'center',marginTop:'40%'}}>Cargando cámara...</div>
+      )}
+      <video ref={videoRef} autoPlay playsInline className="cam-video" style={{display: ready ? 'block' : 'none'}} />
 
       {/* Barra de coincidencia visual */}
-<div style={{
-  width: '80%',
-  height: '12px',
-  background: '#444',
-  borderRadius: '6px',
-  margin: '14px auto',
-  overflow: 'hidden',
-  boxShadow: '0 0 5px #111',
-}}>
-  <div style={{
-    width: `${Math.min(coincidencia, 100)}%`,
-    height: '100%',
-    background: coincidencia > 75 ? '#10cf48' : '#f2c522',
-    transition: 'width 0.2s, background 0.2s'
-  }} />
-</div>
-
+      <div style={{
+        width: '80%',
+        height: '12px',
+        background: '#444',
+        borderRadius: '6px',
+        margin: '14px auto',
+        overflow: 'hidden',
+        boxShadow: '0 0 5px #111',
+      }}>
+        <div style={{
+          width: `${Math.min(coincidencia, 100)}%`,
+          height: '100%',
+          background: coincidencia > 75 ? '#10cf48' : '#f2c522',
+          transition: 'width 0.2s, background 0.2s'
+        }} />
+      </div>
 
       {maskD && (
         <svg className="mask-svg" viewBox="0 0 1365.333 1365.333" preserveAspectRatio="xMidYMid slice">
