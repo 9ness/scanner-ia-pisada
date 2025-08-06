@@ -56,25 +56,24 @@ export default function Home() {
 
   const [modoCamara, setModoCamara] = useState(false);   // ⬅️ NUEVO ESTADO
 
+// Al principio del componente Home:
 const handleCameraCapture = (blob) => {
-  // 1. Creamos el File y lo asignamos al input
+  // 1. Resetear el input para evitar problemas si suben varias veces
+  fileInputRef.current.value = null;
+
+  // 2. Crear el archivo y simular subida
   const file = new File([blob], "captura.jpg", { type: "image/jpeg" });
   const dt = new DataTransfer();
   dt.items.add(file);
-
-  // 2. Limpiamos el input file antes de poner el nuevo archivo
-  fileInputRef.current.value = "";
-
-  // 3. Asignamos el archivo
   fileInputRef.current.files = dt.files;
 
-  // 4. Llamamos a handleFileChange (con pequeño timeout para asegurar el render)
+  // 3. Procesar la imagen igual que si fuera una subida manual
   setTimeout(() => {
     handleFileChange({ target: fileInputRef.current });
-    // 5. Cerramos la cámara solo después
-    setModoCamara(false);
+    setModoCamara(false);   // <- Cierra el modal SOLO después de procesar el archivo
   }, 100);
 };
+
 
   // Estado para bloquear render de UI principal antes de restaurar:
   const [isHydrated, setIsHydrated] = useState(!persistenciaActiva);

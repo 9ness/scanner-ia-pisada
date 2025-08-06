@@ -10,6 +10,8 @@ export default function CameraScanner({ onCapture, onClose }) {
   const [maskD, setMaskD]       = useState(null);
   const [lockCnt, setLockCnt]   = useState(0);
   const [captured, setCaptured] = useState(false);
+  const [coincidencia, setCoincidencia] = useState(0);
+
 
   // 0) Carga el SVG de la silueta
   useEffect(() => {
@@ -42,102 +44,113 @@ export default function CameraScanner({ onCapture, onClose }) {
   }, [onClose]);
 
   // 2) Loop de detección cada 400ms
-  useEffect(() => {
-    if (!ready || !maskD) return;
+ // ─── 2. Detección cada 400 ms ────────────────────────────────────────────
+useEffect(() => {
+  if (!metadataReady || !maskD) return;
 
-    const video = videoRef.current;
-    const W = video.videoWidth, H = video.videoHeight;
-    const canvas = document.createElement("canvas");
-    canvas.width = W; canvas.height = H;
-    const ctx = canvas.getContext("2d");
+  const video = videoRef.current;
+  const W = video.videoWidth;
+  const H = video.videoHeight;
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d");
 
-    // Prepara máscara escalada
-    const vb = { width: 1365.333, height: 1365.333 };
-    const scaleX = W / vb.width, scaleY = H / vb.height;
-    const rawPath = new Path2D(maskD);
-    const maskPath = new Path2D();
-    maskPath.addPath(rawPath, new DOMMatrix().scale(scaleX, scaleY));
+  // Escalar Path2D del SVG al tamaño real del vídeo
+  const vb = { width: 1365.333, height: 1365.333 };
+  const scaleX = W / vb.width;
+  const scaleY = H / vb.height;
+  const rawPath = new Path2D(maskD);
+  const maskPath = new Path2D();
+  maskPath.addPath(rawPath, new DOMMatrix().scale(scaleX, scaleY));
 
-    let id;
-    const tick = () => {
-      if (video.readyState < 2) {
-        id = setTimeout(tick, 400);
-        return;
-      }
-      ctx.drawImage(video, 0, 0, W, H);
-      const data = ctx.getImageData(0, 0, W, H).data;
-      let inCnt = 0, outCnt = 0, edgeCnt = 0;
-      for (let y = 0; y < H; y += 4) {
-        for (let x = 0; x < W; x += 4) {
-          const i = (y * W + x) * 4;
-          const lum1 = data[i] + data[i+1] + data[i+2];
-          const lum2 = data[i+16] + data[i+17] + data[i+18];
-          if (Math.abs(lum1 - lum2) > 80) {
-            edgeCnt++;
-            if (ctx.isPointInPath(maskPath, x, y)) inCnt++;
-            else outCnt++;
-          }
+  let timeoutId = null;
+  const tick = () => {
+    if (video.readyState < 2) {
+      timeoutId = setTimeout(tick, 400);
+      return;
+    }
+
+    ctx.drawImage(video, 0, 0, W, H);
+    const data = ctx.getImageData(0, 0, W, H).data;
+    let inCnt = 0, outCnt = 0, edgeCnt = 0;
+
+    // Recorrer cada 2 píxeles (más preciso)
+    for (let y = 0; y < H; y += 2) {
+      for (let x = 0; x < W; x += 2) {
+        const i = (y * W + x) * 4;
+        const lum = data[i] + data[i+1] + data[i+2];
+        const lum2 = data[i + 8] + data[i + 9] + data[i + 10];
+        if (Math.abs(lum - lum2) > 70) { // Detecta borde
+          edgeCnt++;
+          if (ctx.isPointInPath(maskPath, x, y)) inCnt++;
+          else outCnt++;
         }
       }
-      const fillPct = inCnt / (edgeCnt || 1) * 100;
-      const outsidePct = outCnt / (edgeCnt || 1) * 100;
-      document.getElementById("dbg").textContent =
-        `Bordes: ${edgeCnt}\nDentro: ${inCnt}\nFuera: ${outCnt}\nFill%: ${fillPct.toFixed(1)}`;
+    }
 
-      const ok = fillPct > 15 && outsidePct < 4;
-      setLockCnt(c => {
-        const next = ok ? c + 1 : 0;
-        if (next >= 3) takePhoto();
-        return next;
-      });
+    const fillPct = (inCnt / (edgeCnt || 1)) * 100;
+    const outsidePct = (outCnt / (edgeCnt || 1)) * 100;
 
-      id = setTimeout(tick, 400);
-    };
-    tick();
-    return () => clearTimeout(id);
-  }, [ready, maskD]);
+    // Visual feedback para usuario
+    setCoincidencia(fillPct);
 
-  // 3) Captura y envía al padre
-  const takePhoto = () => {
-  const v = videoRef.current;
-  if (!v || !v.videoWidth || !v.videoHeight) return;
+    document.getElementById("dbg").textContent =
+      `Bordes: ${edgeCnt}\nDentro: ${inCnt}\nFuera: ${outCnt}\nFill%: ${fillPct.toFixed(1)}%`;
 
-  const canvas = document.createElement("canvas");
-  canvas.width = v.videoWidth;
-  canvas.height = v.videoHeight;
+    // Solo dispara si la coincidencia es alta y pocos bordes fuera
+    if (fillPct > 75 && outsidePct < 6 && edgeCnt > 500) {
+      setTimeout(() => {
+        takePhoto();
+      }, 120); // Pequeño delay para que vea el verde
+      return; // ¡OJO! NO más ticks hasta que salga de la cámara
+    }
 
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
-
-  const tempImg = new window.Image();
-  tempImg.onload = () => {
-    const compressCanvas = document.createElement("canvas");
-    const MAX_WIDTH = 1200;
-    const scale = MAX_WIDTH / tempImg.width;
-    compressCanvas.width = MAX_WIDTH;
-    compressCanvas.height = tempImg.height * scale;
-
-    const compressCtx = compressCanvas.getContext("2d");
-    compressCtx.drawImage(tempImg, 0, 0, compressCanvas.width, compressCanvas.height);
-
-    compressCanvas.toBlob((compressedBlob) => {
-      if (compressedBlob) {
-        setCaptured(true); // muestra el aviso 📸
-        onCapture(compressedBlob); // lo enviamos ya comprimido
-        setTimeout(() => setCaptured(false), 350);
-      }
-    }, "image/jpeg", 0.7);
+    timeoutId = setTimeout(tick, 400);
   };
 
-  // Captura en DataURL para procesarla como si fuera un archivo
-  tempImg.src = canvas.toDataURL("image/jpeg", 0.95);
+  tick();
+  return () => clearTimeout(timeoutId);
+}, [metadataReady, maskD, onCapture]);
+
+
+const takePhoto = () => {
+  const v = videoRef.current;
+  const c = document.createElement("canvas");
+  c.width = v.videoWidth;
+  c.height = v.videoHeight;
+  c.getContext("2d").drawImage(v, 0, 0);
+  c.toBlob(blob => {
+    if (blob) {
+      setCaptured(true);
+      setTimeout(() => setCaptured(false), 800);
+      onCapture(blob);   // SOLO llama a onCapture (el padre se encarga de cerrar el modal)
+    }
+  }, "image/jpeg", 0.8);
 };
-
-
 
   return (
     <div className="cam-wrapper">
       <video ref={videoRef} autoPlay playsInline className="cam-video" />
+
+      {/* Barra de coincidencia visual */}
+<div style={{
+  width: '80%',
+  height: '12px',
+  background: '#444',
+  borderRadius: '6px',
+  margin: '14px auto',
+  overflow: 'hidden',
+  boxShadow: '0 0 5px #111',
+}}>
+  <div style={{
+    width: `${Math.min(coincidencia, 100)}%`,
+    height: '100%',
+    background: coincidencia > 75 ? '#10cf48' : '#f2c522',
+    transition: 'width 0.2s, background 0.2s'
+  }} />
+</div>
+
 
       {maskD && (
         <svg className="mask-svg" viewBox="0 0 1365.333 1365.333" preserveAspectRatio="xMidYMid slice">
