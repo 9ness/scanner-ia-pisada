@@ -1,15 +1,15 @@
-// src/components/CameraScanner.js
-
 import { useEffect, useRef, useState } from "react";
 
 export default function CameraScanner({ onCapture, onClose }) {
   const videoRef     = useRef(null);
   const streamRef    = useRef(null);
-  const capturingRef = useRef(false);
   const [ready, setReady]       = useState(false);
   const [maskD, setMaskD]       = useState(null);
   const [captured, setCaptured] = useState(false);
   const [coincidencia, setCoincidencia] = useState(0);
+
+  // FLAG para evitar capturas múltiples:
+  const hasCapturedRef = useRef(false);
 
   // 0) Carga el SVG de la silueta
   useEffect(() => {
@@ -43,6 +43,8 @@ export default function CameraScanner({ onCapture, onClose }) {
 
   // 2) Loop de detección cada 400ms
   useEffect(() => {
+    hasCapturedRef.current = false; // ← resetea el flag cada vez que abres cámara
+
     if (!ready || !maskD) return;
 
     const video = videoRef.current;
@@ -53,7 +55,6 @@ export default function CameraScanner({ onCapture, onClose }) {
     canvas.height = H;
     const ctx = canvas.getContext("2d");
 
-    // Escalar Path2D del SVG al tamaño real del vídeo
     const vb = { width: 1365.333, height: 1365.333 };
     const scaleX = W / vb.width;
     const scaleY = H / vb.height;
@@ -63,6 +64,8 @@ export default function CameraScanner({ onCapture, onClose }) {
 
     let timeoutId = null;
     const tick = () => {
+      if (hasCapturedRef.current) return; // ← no hace nada si ya se capturó
+
       if (video.readyState < 2) {
         timeoutId = setTimeout(tick, 400);
         return;
@@ -72,13 +75,12 @@ export default function CameraScanner({ onCapture, onClose }) {
       const data = ctx.getImageData(0, 0, W, H).data;
       let inCnt = 0, outCnt = 0, edgeCnt = 0;
 
-      // Recorrer cada 2 píxeles (más preciso)
       for (let y = 0; y < H; y += 2) {
         for (let x = 0; x < W; x += 2) {
           const i = (y * W + x) * 4;
           const lum = data[i] + data[i+1] + data[i+2];
           const lum2 = data[i + 8] + data[i + 9] + data[i + 10];
-          if (Math.abs(lum - lum2) > 70) { // Detecta borde
+          if (Math.abs(lum - lum2) > 70) {
             edgeCnt++;
             if (ctx.isPointInPath(maskPath, x, y)) inCnt++;
             else outCnt++;
@@ -88,8 +90,6 @@ export default function CameraScanner({ onCapture, onClose }) {
 
       const fillPct = (inCnt / (edgeCnt || 1)) * 100;
       const outsidePct = (outCnt / (edgeCnt || 1)) * 100;
-
-      // Visual feedback para usuario
       setCoincidencia(fillPct);
 
       const dbg = document.getElementById("dbg");
@@ -98,12 +98,12 @@ export default function CameraScanner({ onCapture, onClose }) {
           `Bordes: ${edgeCnt}\nDentro: ${inCnt}\nFuera: ${outCnt}\nFill%: ${fillPct.toFixed(1)}%`;
       }
 
-      // Solo dispara si la coincidencia es alta y pocos bordes fuera
       if (fillPct > 75 && outsidePct < 6 && edgeCnt > 500) {
+        hasCapturedRef.current = true; // BLOQUEA MÁS CAPTURAS
         setTimeout(() => {
           takePhoto();
-        }, 120); // Pequeño delay para que vea el verde
-        return; // ¡OJO! NO más ticks hasta que salga de la cámara
+        }, 120);
+        return;
       }
 
       timeoutId = setTimeout(tick, 400);
@@ -123,20 +123,18 @@ export default function CameraScanner({ onCapture, onClose }) {
       if (blob) {
         setCaptured(true);
         setTimeout(() => setCaptured(false), 800);
-        onCapture(blob);   // SOLO llama a onCapture (el padre se encarga de cerrar el modal)
+        onCapture(blob);
       }
     }, "image/jpeg", 0.8);
   };
 
   return (
     <div className="cam-wrapper">
-      {/* Loader mientras se abre la cámara */}
       {!ready && (
         <div style={{color:'#fff',textAlign:'center',marginTop:'40%'}}>Cargando cámara...</div>
       )}
       <video ref={videoRef} autoPlay playsInline className="cam-video" style={{display: ready ? 'block' : 'none'}} />
 
-      {/* Barra de coincidencia visual */}
       <div style={{
         width: '80%',
         height: '12px',
