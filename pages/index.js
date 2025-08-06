@@ -56,6 +56,11 @@ export default function Home() {
 
   const [modoCamara, setModoCamara] = useState(false);   // ⬅️ NUEVO ESTADO
 
+  const hardReset = () => {
+  localStorage.removeItem('analisisPisada');
+  window.location.reload();
+};
+
 // — NUEVO —  aseguramos que solo se use una vez
 const handleCameraCapture = (blob) => {
   setModoCamara(false);          // 1) aseguramos cierre
@@ -601,7 +606,7 @@ const handleCameraCapture = (blob) => {
               ) : (
                 <>
                   <Plus size={18} style={{ marginRight: '8px' }} />
-                  Seleccionar imagen
+Seleccionar imagen
                 </>
               )}
             </label>
@@ -615,7 +620,8 @@ const handleCameraCapture = (blob) => {
     onClick={() => !modoCamara && setModoCamara(true)}
   >
      <Camera size={18} style={{ marginRight: '8px' }} />
-     Detectar con cámara
+Detectar con cámara
+<span className="badge-nuevo">Nuevo</span>
   </button>
           )}
 
@@ -852,7 +858,7 @@ const handleCameraCapture = (blob) => {
               <button
                 type="button"
                 className="error-retry-btn"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={hardReset}
               >
                 Subir otra imagen
               </button>
@@ -900,10 +906,7 @@ const handleCameraCapture = (blob) => {
 
                   {analisisExpirado && mostrarBotonReinicioExpirado && (
                     <button
-                      onClick={() => {
-                        localStorage.removeItem('analisisPisada');
-                        window.location.reload();
-                      }}
+                      onClick={hardReset}
                       style={{
                         backgroundColor: '#007442',
                         color: '#fff',

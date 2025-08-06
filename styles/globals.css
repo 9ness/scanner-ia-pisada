@@ -345,6 +345,16 @@ input[type='file'] {
   gap: 0.5rem; /* espacio entre icono y texto */
 }
 
+.badge-nuevo{
+    background:#10cf48;
+    color:#fff;
+    font-size:10px;
+    padding:2px 5px;
+    border-radius:4px;
+    margin-left:6px;
+    text-transform:uppercase;
+  }
+
 .custom-file-upload:hover {
   background-color: #ffffff;
 }
