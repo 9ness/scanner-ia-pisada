@@ -58,6 +58,7 @@ export default function Home() {
 
 // Al principio del componente Home:
 const handleCameraCapture = (blob) => {
+  alert("CIERRO MODAL");
   setModoCamara(false);  // <- lo PRIMERO: cierra ya el modal, da igual lo que tarde el resto
 
   // 1. Resetear el input para evitar problemas si suben varias veces
