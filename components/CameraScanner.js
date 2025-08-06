@@ -46,7 +46,7 @@ export default function CameraScanner({ onCapture, onClose }) {
   // 2) Loop de detección cada 400ms
  // ─── 2. Detección cada 400 ms ────────────────────────────────────────────
 useEffect(() => {
-  if (!metadataReady || !maskD) return;
+  if (!ready || !maskD) return;
 
   const video = videoRef.current;
   const W = video.videoWidth;
