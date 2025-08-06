@@ -131,7 +131,7 @@ export default function CameraScanner({ onCapture, onClose }) {
       <video ref={videoRef} autoPlay playsInline className="cam" />
 
       {/* máscara + contorno */}
-      {maskD && (
+      {maskD && ready && (
         <svg className="mask" viewBox="0 0 1365.333 1365.333" preserveAspectRatio="xMidYMid slice">
           <defs>
             <mask id="hole">
