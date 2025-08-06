@@ -4,7 +4,7 @@ export default function CameraScanner({ onCapture, onClose }) {
 
 /* ───── PARAMETROS RÁPIDOS ───────────────────────────────────── */
 const DEBUG   = true;  // ← pon false en prod. (oculta barra y números)
-const FILL_TH = 20;    // % mínimo para disparar la foto automática
+const FILL_TH = 40;    // % mínimo para disparar la foto automática
 
 /* ───── REFS / STATE ─────────────────────────────────────────── */
 const videoRef  = useRef(null);
