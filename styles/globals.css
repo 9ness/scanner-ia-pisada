@@ -327,6 +327,24 @@ input[type='file'] {
   gap: 0.5rem; /* espacio entre icono y texto */
 }
 
+.custom-file-upload2 {
+ width: 100%;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.85rem;
+  font-weight: bold;
+  text-transform: none;
+  border: 1px solid #007442; /* verde */
+  color: white;
+  background-color: #007442;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem; /* espacio entre icono y texto */
+}
+
 .custom-file-upload:hover {
   background-color: #ffffff;
 }

@@ -600,7 +600,7 @@ const handleCameraCapture = (blob) => {
                 </>
               ) : (
                 <>
-                  <Camera size={18} style={{ marginRight: '8px' }} />
+                  <Plus size={18} style={{ marginRight: '8px' }} />
                   Seleccionar imagen
                 </>
               )}
@@ -610,11 +610,12 @@ const handleCameraCapture = (blob) => {
           {showTopLabel && (
   <button
     type="button"
-    className="custom-file-upload"
+    className="custom-file-upload2"
     style={{ marginTop: '10px' }}
     onClick={() => !modoCamara && setModoCamara(true)}
   >
-    📷 Detectar con cámara
+     <Camera size={18} style={{ marginRight: '8px' }} />
+     Detectar con cámara
   </button>
           )}
 
