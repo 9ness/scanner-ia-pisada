@@ -1,18 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 
 export default function CameraScanner({ onCapture, onClose }) {
+  /********** Ajustes rápidos **********/
+  const DEBUG = true;          // ← pon false en producción (barra + números)
+  const FILL_TH = 30;          // % mínimo para disparar (bájalo para test)
+
+  /********** Refs y estado **********/
   const videoRef  = useRef(null);
   const streamRef = useRef(null);
+  const doneRef   = useRef(false);          // evita dobles capturas
 
-  const [ready, setReady]         = useState(false);
-  const [maskD, setMaskD]         = useState(null);
-  const [fillPct, setFillPct]     = useState(0);
-  const [flash, setFlash]         = useState(false);
+  const [ready,     setReady]     = useState(false);  // cámara lista
+  const [maskD,     setMaskD]     = useState(null);   // path del SVG
+  const [fillPct,   setFillPct]   = useState(0);      // % dentro-silueta
+  const [flash,     setFlash]     = useState(false);  // flash visual
 
-  /** bandera global: impide dobles loops / dobles fotos */
-  const doneRef = useRef(false);
-
-  /* ───── 1· Cargar silueta ───────────────────────────── */
+  /********** 1· Cargar silueta una vez **********/
   useEffect(() => {
     fetch("/plantilla_silueta.svg")
       .then(r => r.text())
@@ -24,26 +27,30 @@ export default function CameraScanner({ onCapture, onClose }) {
       });
   }, []);
 
-  /* ───── 2· Abrir cámara ─────────────────────────────── */
+  /********** 2· Abrir cámara **********/
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const s = await navigator.mediaDevices.getUserMedia({
+        const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: "environment", width: { ideal: 1280 } }
         });
-        if (cancelled) return s.getTracks().forEach(t => t.stop());
-        streamRef.current = s;
-        videoRef.current.srcObject = s;
+        if (cancelled) {
+          stream.getTracks().forEach(t => t.stop());
+          return;
+        }
+        streamRef.current = stream;
+        videoRef.current.srcObject = stream;
         videoRef.current.onloadedmetadata = () => setReady(true);
       } catch {
-        alert("No se pudo acceder a la cámara"); onClose();
+        alert("No se pudo acceder a la cámara");
+        onClose();
       }
     })();
     return () => { cancelled = true; };
   }, [onClose]);
 
-  /* ───── 3· Loop detección ───────────────────────────── */
+  /********** 3· Loop de detección **********/
   useEffect(() => {
     if (!ready || !maskD || doneRef.current) return;
 
@@ -53,42 +60,43 @@ export default function CameraScanner({ onCapture, onClose }) {
     if (!W || !H) return;
 
     const can = document.createElement("canvas");
-    const ctx = can.getContext("2d");
     can.width = W;  can.height = H;
+    const ctx = can.getContext("2d");
 
-    /* escalar path al tamaño del vídeo */
     const vb = 1365.333;
     const scale = new DOMMatrix().scale(W / vb, H / vb);
-    const mask  = new Path2D();       mask.addPath(new Path2D(maskD), scale);
+    const maskPath = new Path2D();
+    maskPath.addPath(new Path2D(maskD), scale);
 
     let alive = true;
     const step = () => {
       if (!alive || doneRef.current) return;
 
       ctx.drawImage(v, 0, 0, W, H);
-      const d = ctx.getImageData(0, 0, W, H).data;
+      const data = ctx.getImageData(0, 0, W, H).data;
 
-      let inCnt = 0, edgeCnt = 0, outCnt = 0;
+      let inCnt = 0, outCnt = 0, edgeCnt = 0;
       for (let y = 0; y < H; y += 2) {
         for (let x = 0; x < W; x += 2) {
-          const i = (y * W + x) * 4;
-          const l1 = d[i]+d[i+1]+d[i+2];
-          const l2 = d[i+8]+d[i+9]+d[i+10];
+          const idx  = (y * W + x) * 4;
+          const l1   = data[idx] + data[idx+1] + data[idx+2];
+          const l2   = data[idx+8] + data[idx+9] + data[idx+10];
           if (Math.abs(l1 - l2) > 70) {
             edgeCnt++;
-            ctx.isPointInPath(mask, x, y) ? inCnt++ : outCnt++;
+            ctx.isPointInPath(maskPath, x, y) ? inCnt++ : outCnt++;
           }
         }
       }
       const pct = (inCnt / (edgeCnt || 1)) * 100;
       setFillPct(pct);
 
-      /* DEBUG */
-      const dbg = document.getElementById("dbg");
-      if (dbg)
-        dbg.textContent = `Bordes: ${edgeCnt}\nDentro: ${inCnt}\nFuera: ${outCnt}\nFill%:  ${pct.toFixed(1)}`;
+      if (DEBUG) {
+        const dbg = document.getElementById("dbg");
+        if (dbg) dbg.textContent =
+          `Bordes: ${edgeCnt}\nDentro: ${inCnt}\nFuera: ${outCnt}\nFill%: ${pct.toFixed(1)}`;
+      }
 
-      if (pct > 20 && edgeCnt > 100 && !doneRef.current) {
+      if (pct > FILL_TH && edgeCnt > 250 && !doneRef.current) {
         doneRef.current = true;
         shoot();
         return;
@@ -100,10 +108,11 @@ export default function CameraScanner({ onCapture, onClose }) {
     return () => { alive = false; };
   }, [ready, maskD]);
 
-  /* ───── 4· Capturar ─────────────────────────────────── */
+  /********** 4· Captura **********/
   const shoot = () => {
+    // flash visual
     setFlash(true);
-    setTimeout(() => setFlash(false), 600);
+    setTimeout(() => setFlash(false), 500);
 
     const v = videoRef.current;
     const c = document.createElement("canvas");
@@ -113,73 +122,85 @@ export default function CameraScanner({ onCapture, onClose }) {
 
     c.toBlob(blob => {
       streamRef.current?.getTracks().forEach(t => t.stop());
-      onCapture(blob);   // <- entrega
-      onClose();         // <- cierra
+      onCapture(blob);   // entrega al padre
+      onClose();         // cierra modal
     }, "image/jpeg", 0.85);
   };
 
-  /* ───── 5· Close manual ─────────────────────────────── */
+  /********** 5· Cerrar manual **********/
   const handleClose = () => {
     doneRef.current = true;
     streamRef.current?.getTracks().forEach(t => t.stop());
     onClose();
   };
 
-  /* ───── JSX ─────────────────────────────────────────── */
+  /********** JSX **********/
   return (
     <div className="wrap">
       <video ref={videoRef} autoPlay playsInline className="cam" />
 
-      {/* máscara + contorno */}
-      {maskD && ready && (
-        <svg className="mask" viewBox="0 0 1365.333 1365.333" preserveAspectRatio="xMidYMid slice">
-          <defs>
-            <mask id="hole">
-              <rect width="100%" height="100%" fill="#fff" />
-              <path d={maskD} fill="#000" />
-            </mask>
-          </defs>
-          <rect width="100%" height="100%" fill="rgba(0,0,0,0.55)" mask="url(#hole)" />
-          <path d={maskD} fill="none" stroke="#fff" strokeWidth="3" />
-        </svg>
+      {/* Solo mostramos elementos cuando la cámara ya está lista */}
+      {ready && maskD && (
+        <>
+          {/* máscara + contorno */}
+          <svg className="mask" viewBox="0 0 1365.333 1365.333" preserveAspectRatio="xMidYMid slice">
+            <defs>
+              <mask id="hole">
+                <rect width="100%" height="100%" fill="#fff" />
+                <path d={maskD} fill="#000" />
+              </mask>
+            </defs>
+            <rect width="100%" height="100%" fill="rgba(0,0,0,0.55)" mask="url(#hole)" />
+            <path d={maskD} fill="none" stroke="#fff" strokeWidth="3" />
+          </svg>
+
+          {/* barra progreso (solo debug) */}
+          {DEBUG && (
+            <div className="barBox">
+              <div
+                className="bar"
+                style={{
+                  width: `${Math.min(fillPct, 100)}%`,
+                  background: fillPct > 75 ? "#10cf48" : "#f2c522"
+                }}
+              />
+            </div>
+          )}
+
+          {/* DEBUG textbox */}
+          {DEBUG && <pre id="dbg" className="dbg" />}
+        </>
       )}
-
-      {/* barra progreso */}
-      <div className="barBox">
-        <div
-          className="bar"
-          style={{
-            width: `${Math.min(fillPct, 100)}%`,
-            background: fillPct > 75 ? "#10cf48" : "#f2c522"
-          }}
-        />
-      </div>
-
-      {/* DEBUG textbox */}
-      <pre id="dbg" className="dbg" />
 
       {/* flash */}
       {flash && <div className="flash">📸 Captura</div>}
 
-      <button className="cls" onClick={handleClose}>✕</button>
+      {/* botón cerrar (solo tras ready para no verse antes) */}
+      {ready && (
+        <button className="cls" onClick={handleClose}>✕</button>
+      )}
 
       <style jsx>{`
         .wrap {position:fixed;inset:0;z-index:9999;}
         .cam  {position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
+
         .mask {position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
 
         .barBox{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);
                 width:80%;height:12px;background:#444;border-radius:6px;overflow:hidden}
-        .bar{height:100%;transition:width .2s}
+        .bar{height:100%;transition:width .25s}
 
-        .cls{position:absolute;top:16px;right:16px;width:44px;height:44px;border:none;
-             border-radius:50%;background:rgba(0,0,0,.6);color:#fff;font-size:24px;cursor:pointer}
+        .cls{position:absolute;top:16px;right:16px;width:48px;height:48px;border:none;
+             border-radius:50%;background:#035c3b;color:#fff;display:flex;
+             align-items:center;justify-content:center;font-size:28px;
+             line-height:1;cursor:pointer}
 
         .dbg{position:absolute;top:16px;left:16px;background:rgba(0,0,0,.55);
              color:#fff;padding:6px 10px;font-size:13px;border-radius:4px;white-space:pre-line}
 
-        .flash{position:absolute;inset:0;background:rgba(0,0,0,.75);display:flex;
-               align-items:center;justify-content:center;color:#fff;font-size:1.3rem}
+        .flash{position:absolute;inset:0;background:rgba(0,0,0,.78);
+               display:flex;align-items:center;justify-content:center;
+               color:#fff;font-size:1.3rem;pointer-events:none}
       `}</style>
     </div>
   );
