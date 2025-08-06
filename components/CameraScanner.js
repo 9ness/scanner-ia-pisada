@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 export default function CameraScanner({ onCapture, onClose }) {
   /********** Ajustes rápidos **********/
   const DEBUG = true;          // ← pon false en producción (barra + números)
-  const FILL_TH = 15;          // % mínimo para disparar (bájalo para test)
+  const FILL_TH = 20;          // % mínimo para disparar (bájalo para test)
 
   /********** Refs y estado **********/
   const videoRef  = useRef(null);
