@@ -88,7 +88,7 @@ export default function CameraScanner({ onCapture, onClose }) {
       if (dbg)
         dbg.textContent = `Bordes: ${edgeCnt}\nDentro: ${inCnt}\nFuera: ${outCnt}\nFill%:  ${pct.toFixed(1)}`;
 
-      if (pct > 30 && edgeCnt > 150 && !doneRef.current) {
+      if (pct > 20 && edgeCnt > 100 && !doneRef.current) {
         doneRef.current = true;
         shoot();
         return;
