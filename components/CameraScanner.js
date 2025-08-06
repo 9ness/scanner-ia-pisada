@@ -1,17 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 
 export default function CameraScanner({ onCapture, onClose }) {
-  const videoRef     = useRef(null);
-  const streamRef    = useRef(null);
-  const [ready, setReady]       = useState(false);
-  const [maskD, setMaskD]       = useState(null);
-  const [captured, setCaptured] = useState(false);
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const [ready, setReady] = useState(false);
+  const [maskD, setMaskD] = useState(null);
   const [coincidencia, setCoincidencia] = useState(0);
+  const [captured, setCaptured] = useState(false);
 
-  // FLAG para evitar capturas múltiples:
-  const hasCapturedRef = useRef(false);
+  // Flag para evitar dobles capturas y doble desmontaje
+  const doneRef = useRef(false);
 
-  // 0) Carga el SVG de la silueta
+  // 1. Carga la silueta SVG una vez
   useEffect(() => {
     fetch("/plantilla_silueta.svg")
       .then(r => r.text())
@@ -23,38 +23,50 @@ export default function CameraScanner({ onCapture, onClose }) {
       .catch(() => console.warn("No se pudo cargar la silueta"));
   }, []);
 
-  // 1) Arranca la cámara y espera metadata
+  // 2. Arranca la cámara
   useEffect(() => {
+    let cancelled = false;
     (async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: "environment", width: { ideal: 1280 } }
         });
+        if (cancelled) {
+          // Si desmonta justo antes de llegar aquí, no hagas nada
+          stream.getTracks().forEach(t => t.stop());
+          return;
+        }
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
-        videoRef.current.addEventListener("loadedmetadata", () => setReady(true), { once: true });
-      } catch (err) {
+        videoRef.current.onloadedmetadata = () => setReady(true);
+      } catch {
         alert("No se pudo abrir la cámara");
         onClose();
       }
     })();
-    return () => streamRef.current?.getTracks().forEach(t => t.stop());
+    return () => {
+      cancelled = true;
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => t.stop());
+      }
+    };
   }, [onClose]);
 
-  // 2) Loop de detección cada 400ms
+  // 3. Loop de detección y captura
   useEffect(() => {
-    hasCapturedRef.current = false; // ← resetea el flag cada vez que abres cámara
-
-    if (!ready || !maskD) return;
+    if (!ready || !maskD || doneRef.current) return;
 
     const video = videoRef.current;
     const W = video.videoWidth;
     const H = video.videoHeight;
+    if (!W || !H) return;
+
     const canvas = document.createElement("canvas");
     canvas.width = W;
     canvas.height = H;
     const ctx = canvas.getContext("2d");
 
+    // Escalar Path2D del SVG al tamaño real del vídeo
     const vb = { width: 1365.333, height: 1365.333 };
     const scaleX = W / vb.width;
     const scaleY = H / vb.height;
@@ -62,14 +74,9 @@ export default function CameraScanner({ onCapture, onClose }) {
     const maskPath = new Path2D();
     maskPath.addPath(rawPath, new DOMMatrix().scale(scaleX, scaleY));
 
-    let timeoutId = null;
-    const tick = () => {
-      if (hasCapturedRef.current) return; // ← no hace nada si ya se capturó
-
-      if (video.readyState < 2) {
-        timeoutId = setTimeout(tick, 400);
-        return;
-      }
+    let running = true;
+    function tick() {
+      if (!running || doneRef.current) return;
 
       ctx.drawImage(video, 0, 0, W, H);
       const data = ctx.getImageData(0, 0, W, H).data;
@@ -89,59 +96,62 @@ export default function CameraScanner({ onCapture, onClose }) {
       }
 
       const fillPct = (inCnt / (edgeCnt || 1)) * 100;
-      const outsidePct = (outCnt / (edgeCnt || 1)) * 100;
       setCoincidencia(fillPct);
 
-      const dbg = document.getElementById("dbg");
-      if (dbg) {
-        dbg.textContent =
+      // Notifica visualmente
+      if (document.getElementById("dbg")) {
+        document.getElementById("dbg").textContent =
           `Bordes: ${edgeCnt}\nDentro: ${inCnt}\nFuera: ${outCnt}\nFill%: ${fillPct.toFixed(1)}%`;
       }
 
-      if (fillPct > 75 && outsidePct < 6 && edgeCnt > 500) {
-        hasCapturedRef.current = true; // BLOQUEA MÁS CAPTURAS
+      // Lógica de captura
+      if (fillPct > 75 && edgeCnt > 500 && !doneRef.current) {
+        doneRef.current = true;
+        // Captura foto y cierra
+        setCaptured(true);
+        setTimeout(() => setCaptured(false), 700);
         setTimeout(() => {
           takePhoto();
-        }, 120);
+        }, 250);
         return;
       }
 
-      timeoutId = setTimeout(tick, 400);
-    };
+      setTimeout(tick, 400);
+    }
 
     tick();
-    return () => clearTimeout(timeoutId);
+
+    return () => { running = false; };
   }, [ready, maskD, onCapture]);
 
-  useEffect(() => {
-    return () => { capturingRef.current = false; };
-  }, []);
+  // 4. Función para sacar la foto y cerrar
+  const takePhoto = () => {
+    const v = videoRef.current;
+    const c = document.createElement("canvas");
+    c.width = v.videoWidth;
+    c.height = v.videoHeight;
+    c.getContext("2d").drawImage(v, 0, 0);
+    c.toBlob(blob => {
+      if (blob) {
+        onCapture(blob); // El padre debe cerrar el modal
+      }
+    }, "image/jpeg", 0.8);
+  };
 
-const takePhoto = () => {
-  if (capturingRef.current) return; // Evita doble disparo
-  capturingRef.current = true;
-  const v = videoRef.current;
-  const c = document.createElement("canvas");
-  c.width = v.videoWidth;
-  c.height = v.videoHeight;
-  c.getContext("2d").drawImage(v, 0, 0);
-  c.toBlob(blob => {
-    if (blob) {
-      setCaptured(true);
-      setTimeout(() => setCaptured(false), 800);
-      onCapture(blob);
+  // 5. Al cerrar, resetea el flag y limpia stream
+  const handleClose = () => {
+    doneRef.current = true;
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
     }
-  }, "image/jpeg", 0.8);
-};
-
+    onClose();
+  };
 
   return (
     <div className="cam-wrapper">
-      {!ready && (
-        <div style={{color:'#fff',textAlign:'center',marginTop:'40%'}}>Cargando cámara...</div>
-      )}
-      <video ref={videoRef} autoPlay playsInline className="cam-video" style={{display: ready ? 'block' : 'none'}} />
+      <video ref={videoRef} autoPlay playsInline className="cam-video" />
 
+      {/* Barra coincidencia */}
       <div style={{
         width: '80%',
         height: '12px',
@@ -172,13 +182,11 @@ const takePhoto = () => {
         </svg>
       )}
 
-      <button className="cls-btn" onClick={onClose}>✕</button>
+      <button className="cls-btn" onClick={handleClose}>✕</button>
       <pre id="dbg" className="dbg" />
-
       {captured && (
         <div className="capture-notice">📸 Captura realizada</div>
       )}
-
       <style jsx>{`
         .cam-wrapper {position:fixed;inset:0;z-index:9999;}
         .cam-video {position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
