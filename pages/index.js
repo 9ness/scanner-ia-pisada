@@ -58,6 +58,8 @@ export default function Home() {
 
 // Al principio del componente Home:
 const handleCameraCapture = (blob) => {
+  setModoCamara(false);  // <- lo PRIMERO: cierra ya el modal, da igual lo que tarde el resto
+
   // 1. Resetear el input para evitar problemas si suben varias veces
   fileInputRef.current.value = null;
 
@@ -70,9 +72,9 @@ const handleCameraCapture = (blob) => {
   // 3. Procesar la imagen igual que si fuera una subida manual
   setTimeout(() => {
     handleFileChange({ target: fileInputRef.current });
-    setModoCamara(false);   // <- Cierra el modal SOLO después de procesar el archivo
   }, 100);
 };
+
 
 
   // Estado para bloquear render de UI principal antes de restaurar:
