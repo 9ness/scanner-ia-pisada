@@ -114,6 +114,7 @@ export default function CameraScanner({ onCapture, onClose }) {
   }, [ready, maskD, onCapture]);
 
   const takePhoto = () => {
+    alert("ENTRA EN ONCAPTURE")
     const v = videoRef.current;
     const c = document.createElement("canvas");
     c.width = v.videoWidth;
@@ -123,6 +124,7 @@ export default function CameraScanner({ onCapture, onClose }) {
       if (blob) {
         setCaptured(true);
         setTimeout(() => setCaptured(false), 800);
+        alert("ENTRA EN ONCAPTURE BLOB");
         onCapture(blob);
       }
     }, "image/jpeg", 0.8);

@@ -57,24 +57,23 @@ export default function Home() {
   const [modoCamara, setModoCamara] = useState(false);   // ⬅️ NUEVO ESTADO
 
 // Al principio del componente Home:
+const isCameraActiveRef = useRef(false);
+
 const handleCameraCapture = (blob) => {
-  alert("CIERRO MODAL");
-  setModoCamara(false);  // <- lo PRIMERO: cierra ya el modal, da igual lo que tarde el resto
+  if (!isCameraActiveRef.current) return;
+  isCameraActiveRef.current = false;
+  setModoCamara(false);
 
-  // 1. Resetear el input para evitar problemas si suben varias veces
   fileInputRef.current.value = null;
-
-  // 2. Crear el archivo y simular subida
   const file = new File([blob], "captura.jpg", { type: "image/jpeg" });
   const dt = new DataTransfer();
   dt.items.add(file);
   fileInputRef.current.files = dt.files;
-
-  // 3. Procesar la imagen igual que si fuera una subida manual
   setTimeout(() => {
     handleFileChange({ target: fileInputRef.current });
   }, 100);
 };
+
 
 
 
