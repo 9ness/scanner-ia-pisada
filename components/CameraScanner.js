@@ -1,203 +1,176 @@
 import { useEffect, useRef, useState } from "react";
 
 export default function CameraScanner({ onCapture, onClose }) {
-  const videoRef = useRef(null);
-  const streamRef = useRef(null);
-  const [ready, setReady] = useState(false);
-  const [maskD, setMaskD] = useState(null);
-  const [coincidencia, setCoincidencia] = useState(0);
-  const [captured, setCaptured] = useState(false);
+  const videoRef   = useRef(null);
+  const streamRef  = useRef(null);
+  const [ready, setReady]           = useState(false);
+  const [maskD, setMaskD]           = useState(null);
+  const [coincidencia, setCoinc]    = useState(0);
+  const [showFlash, setShowFlash]   = useState(false);
 
-  // Flag para evitar dobles capturas y doble desmontaje
+  /* bandera global: evita disparos y desmontes dobles */
   const doneRef = useRef(false);
 
-  // 1. Carga la silueta SVG una vez
+  /* ───── 1. Cargar SVG una vez ───────────────────────────── */
   useEffect(() => {
     fetch("/plantilla_silueta.svg")
       .then(r => r.text())
-      .then(svg => {
-        const doc = new DOMParser().parseFromString(svg, "image/svg+xml");
-        const p = doc.querySelector("path");
-        if (p) setMaskD(p.getAttribute("d"));
-      })
-      .catch(() => console.warn("No se pudo cargar la silueta"));
+      .then(txt => {
+        const d = new DOMParser().parseFromString(txt, "image/svg+xml")
+                   .querySelector("path")?.getAttribute("d");
+        if (d) setMaskD(d);
+      });
   }, []);
 
-  // 2. Arranca la cámara
+  /* ───── 2. Abrir cámara ─────────────────────────────────── */
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
+        const s = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: "environment", width: { ideal: 1280 } }
         });
-        if (cancelled) {
-          // Si desmonta justo antes de llegar aquí, no hagas nada
-          stream.getTracks().forEach(t => t.stop());
-          return;
-        }
-        videoRef.current.srcObject = stream;
-        streamRef.current = stream;
+        if (cancelled) return s.getTracks().forEach(t => t.stop());
+        streamRef.current           = s;
+        videoRef.current.srcObject  = s;
         videoRef.current.onloadedmetadata = () => setReady(true);
       } catch {
-        alert("No se pudo abrir la cámara");
+        alert("No se pudo acceder a la cámara");
         onClose();
       }
     })();
     return () => {
       cancelled = true;
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(t => t.stop());
-      }
+      streamRef.current?.getTracks().forEach(t => t.stop());
     };
   }, [onClose]);
 
-  // 3. Loop de detección y captura
+  /* ───── 3. Detección + disparo ──────────────────────────── */
   useEffect(() => {
     if (!ready || !maskD || doneRef.current) return;
 
-    const video = videoRef.current;
-    const W = video.videoWidth;
-    const H = video.videoHeight;
+    const v = videoRef.current;
+    const W = v.videoWidth;
+    const H = v.videoHeight;
     if (!W || !H) return;
 
-    const canvas = document.createElement("canvas");
-    canvas.width = W;
-    canvas.height = H;
-    const ctx = canvas.getContext("2d");
+    const can = document.createElement("canvas");
+    can.width = W;
+    can.height = H;
+    const ctx  = can.getContext("2d");
 
-    // Escalar Path2D del SVG al tamaño real del vídeo
-    const vb = { width: 1365.333, height: 1365.333 };
-    const scaleX = W / vb.width;
-    const scaleY = H / vb.height;
-    const rawPath = new Path2D(maskD);
-    const maskPath = new Path2D();
-    maskPath.addPath(rawPath, new DOMMatrix().scale(scaleX, scaleY));
+    const vb = { w: 1365.333, h: 1365.333 };
+    const sx = W / vb.w;
+    const sy = H / vb.h;
+    const p0 = new Path2D(maskD);
+    const mask = new Path2D();
+    mask.addPath(p0, new DOMMatrix().scale(sx, sy));
 
-    let running = true;
-    function tick() {
-      if (!running || doneRef.current) return;
+    let run = true;
+    function loop() {
+      if (!run || doneRef.current) return;
 
-      ctx.drawImage(video, 0, 0, W, H);
-      const data = ctx.getImageData(0, 0, W, H).data;
-      let inCnt = 0, outCnt = 0, edgeCnt = 0;
+      ctx.drawImage(v, 0, 0, W, H);
+      const d = ctx.getImageData(0, 0, W, H).data;
+      let inCnt = 0, edgeCnt = 0;
 
       for (let y = 0; y < H; y += 2) {
         for (let x = 0; x < W; x += 2) {
-          const i = (y * W + x) * 4;
-          const lum = data[i] + data[i+1] + data[i+2];
-          const lum2 = data[i + 8] + data[i + 9] + data[i + 10];
-          if (Math.abs(lum - lum2) > 70) {
+          const i = (y * W + x) * 4,
+                l1 = d[i] + d[i+1] + d[i+2],
+                l2 = d[i+8] + d[i+9] + d[i+10];
+          if (Math.abs(l1 - l2) > 70) {
             edgeCnt++;
-            if (ctx.isPointInPath(maskPath, x, y)) inCnt++;
-            else outCnt++;
+            if (ctx.isPointInPath(mask, x, y)) inCnt++;
           }
         }
       }
+      const fill = (inCnt / (edgeCnt || 1)) * 100;
+      setCoinc(fill);
 
-      const fillPct = (inCnt / (edgeCnt || 1)) * 100;
-      setCoincidencia(fillPct);
-
-      // Notifica visualmente
-      if (document.getElementById("dbg")) {
-        document.getElementById("dbg").textContent =
-          `Bordes: ${edgeCnt}\nDentro: ${inCnt}\nFuera: ${outCnt}\nFill%: ${fillPct.toFixed(1)}%`;
-      }
-
-      // Lógica de captura
-      if (fillPct > 75 && edgeCnt > 500 && !doneRef.current) {
+      if (fill > 75 && edgeCnt > 500 && !doneRef.current) {
         doneRef.current = true;
-        // Captura foto y cierra
-        setCaptured(true);
-        setTimeout(() => setCaptured(false), 700);
-        setTimeout(() => {
-          takePhoto();
-        }, 250);
+        flashAndShoot();
         return;
       }
-
-      setTimeout(tick, 400);
+      setTimeout(loop, 400);
     }
+    loop();
+    return () => { run = false; };
+  }, [ready, maskD]);
 
-    tick();
+  /* ───── 4. Capturar y cerrar ────────────────────────────── */
+  const flashAndShoot = () => {
+    setShowFlash(true);
+    setTimeout(() => setShowFlash(false), 700);
 
-    return () => { running = false; };
-  }, [ready, maskD, onCapture]);
-
-  // 4. Función para sacar la foto y cerrar
-  const takePhoto = () => {
     const v = videoRef.current;
     const c = document.createElement("canvas");
-    c.width = v.videoWidth;
+    c.width  = v.videoWidth;
     c.height = v.videoHeight;
     c.getContext("2d").drawImage(v, 0, 0);
+
     c.toBlob(blob => {
-      if (blob) {
-        onCapture(blob); // El padre debe cerrar el modal
-      }
-    }, "image/jpeg", 0.8);
+      if (!blob) return;
+      onCapture(blob);   // entrega al padre
+      onClose();         // cierra inmediatamente
+    }, "image/jpeg", 0.85);
   };
 
-  // 5. Al cerrar, resetea el flag y limpia stream
   const handleClose = () => {
     doneRef.current = true;
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(t => t.stop());
-    }
+    streamRef.current?.getTracks().forEach(t => t.stop());
     onClose();
   };
 
+  /* ───── JSX ─────────────────────────────────────────────── */
   return (
-    <div className="cam-wrapper">
-      <video ref={videoRef} autoPlay playsInline className="cam-video" />
+    <div className="cam-wrap">
+      <video ref={videoRef} autoPlay playsInline className="cam" />
 
-      {/* Barra coincidencia */}
-      <div style={{
-        width: '80%',
-        height: '12px',
-        background: '#444',
-        borderRadius: '6px',
-        margin: '14px auto',
-        overflow: 'hidden',
-        boxShadow: '0 0 5px #111',
-      }}>
-        <div style={{
-          width: `${Math.min(coincidencia, 100)}%`,
-          height: '100%',
-          background: coincidencia > 75 ? '#10cf48' : '#f2c522',
-          transition: 'width 0.2s, background 0.2s'
-        }} />
+      {/* Barra de porcentaje */}
+      <div className="bar-shell">
+        <div
+          className="bar"
+          style={{
+            width: `${Math.min(coincidencia, 100)}%`,
+            background: coincidencia > 75 ? "#10cf48" : "#f2c522"
+          }}
+        />
       </div>
 
+      {/* Máscara */}
       {maskD && (
-        <svg className="mask-svg" viewBox="0 0 1365.333 1365.333" preserveAspectRatio="xMidYMid slice">
+        <svg className="mask" viewBox="0 0 1365.333 1365.333" preserveAspectRatio="xMidYMid slice">
           <defs>
             <mask id="hole">
-              <rect width="100%" height="100%" fill="white" />
-              <path d={maskD} fill="black" />
+              <rect width="100%" height="100%" fill="#fff" />
+              <path d={maskD} fill="#000" />
             </mask>
           </defs>
           <rect width="100%" height="100%" fill="rgba(0,0,0,0.55)" mask="url(#hole)" />
-          <path d={maskD} fill="none" stroke="white" strokeWidth="3" />
+          <path d={maskD} fill="none" stroke="#fff" strokeWidth="3" />
         </svg>
       )}
 
-      <button className="cls-btn" onClick={handleClose}>✕</button>
-      <pre id="dbg" className="dbg" />
-      {captured && (
-        <div className="capture-notice">📸 Captura realizada</div>
-      )}
+      {/* Botón cerrar */}
+      <button className="close" onClick={handleClose}>✕</button>
+
+      {/* Flash de captura */}
+      {showFlash && <div className="flash">📸 Captura</div>}
+
+      {/* estilos in-component */}
       <style jsx>{`
-        .cam-wrapper {position:fixed;inset:0;z-index:9999;}
-        .cam-video {position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
-        .mask-svg {position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
-        .cls-btn {position:absolute;top:16px;right:16px;border:none;background:rgba(0,0,0,0.6);
-                  color:#fff;font-size:24px;width:44px;height:44px;border-radius:50%;cursor:pointer;}
-        .dbg {position:absolute;top:16px;left:16px;background:rgba(0,0,0,0.55);color:#fff;
-              padding:6px 10px;font-size:13px;white-space:pre-line;border-radius:4px;}
-        .capture-notice {position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-                         background:rgba(0,0,0,0.7);color:#fff;padding:1rem 1.5rem;
-                         border-radius:8px;font-size:1.2rem;pointer-events:none;}
+        .cam-wrap {position:fixed;inset:0;z-index:9999;}
+        .cam {position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
+        .mask {position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
+        .bar-shell{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);
+                   width:80%;height:12px;background:#444;border-radius:6px;overflow:hidden}
+        .bar{height:100%;transition:width .2s}
+        .close{position:absolute;top:16px;right:16px;border:none;background:rgba(0,0,0,.6);
+               color:#fff;width:44px;height:44px;border-radius:50%;font-size:24px;cursor:pointer}
+        .flash{position:absolute;inset:0;background:rgba(0,0,0,.7);color:#fff;
+               display:flex;align-items:center;justify-content:center;font-size:1.4rem}
       `}</style>
     </div>
   );
