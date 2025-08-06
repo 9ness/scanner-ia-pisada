@@ -113,6 +113,10 @@ export default function CameraScanner({ onCapture, onClose }) {
     return () => clearTimeout(timeoutId);
   }, [ready, maskD, onCapture]);
 
+  useEffect(() => {
+    return () => { capturingRef.current = false; };
+  }, []);
+
 const takePhoto = () => {
   if (capturingRef.current) return; // Evita doble disparo
   capturingRef.current = true;
