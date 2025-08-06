@@ -57,24 +57,25 @@ export default function Home() {
   const [modoCamara, setModoCamara] = useState(false);   // ⬅️ NUEVO ESTADO
 
 // Al principio del componente Home:
-const isCameraActiveRef = useRef(false);
-
 const handleCameraCapture = (blob) => {
-  if (!isCameraActiveRef.current) return;
-  isCameraActiveRef.current = false;
+  // Bloquea la cámara inmediatamente para que no pueda abrir de nuevo
   setModoCamara(false);
 
-  fileInputRef.current.value = null;
-  const file = new File([blob], "captura.jpg", { type: "image/jpeg" });
-  const dt = new DataTransfer();
-  dt.items.add(file);
-  fileInputRef.current.files = dt.files;
+  // Asegúrate de esperar a que el modal cierre ANTES de disparar el resto
   setTimeout(() => {
-    handleFileChange({ target: fileInputRef.current });
-  }, 100);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = null; // limpia input
+
+      const file = new File([blob], "captura.jpg", { type: "image/jpeg" });
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      fileInputRef.current.files = dt.files;
+
+      // Dispara el flujo normal de cambio de archivo
+      handleFileChange({ target: fileInputRef.current });
+    }
+  }, 300); // Dale tiempo a React para desmontar el modal antes de continuar
 };
-
-
 
 
   // Estado para bloquear render de UI principal antes de restaurar:
@@ -615,13 +616,13 @@ const handleCameraCapture = (blob) => {
 
           {showTopLabel && (
             <button
-              type="button"
-              className="custom-file-upload"
-              style={{ marginTop: '10px' }}
-              onClick={() => setModoCamara(true)}
-            >
-              📷 Detectar con cámara
-            </button>
+  type="button"
+  className="custom-file-upload"
+  style={{ marginTop: '10px' }}
+  onClick={() => { if (!modoCamara) setModoCamara(true); }}
+>
+  📷 Detectar con cámara
+</button>
           )}
 
           <input

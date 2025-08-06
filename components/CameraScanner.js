@@ -113,22 +113,23 @@ export default function CameraScanner({ onCapture, onClose }) {
     return () => clearTimeout(timeoutId);
   }, [ready, maskD, onCapture]);
 
-  const takePhoto = () => {
-    alert("ENTRA EN ONCAPTURE")
-    const v = videoRef.current;
-    const c = document.createElement("canvas");
-    c.width = v.videoWidth;
-    c.height = v.videoHeight;
-    c.getContext("2d").drawImage(v, 0, 0);
-    c.toBlob(blob => {
-      if (blob) {
-        setCaptured(true);
-        setTimeout(() => setCaptured(false), 800);
-        alert("ENTRA EN ONCAPTURE BLOB");
-        onCapture(blob);
-      }
-    }, "image/jpeg", 0.8);
-  };
+const takePhoto = () => {
+  if (capturingRef.current) return; // Evita doble disparo
+  capturingRef.current = true;
+  const v = videoRef.current;
+  const c = document.createElement("canvas");
+  c.width = v.videoWidth;
+  c.height = v.videoHeight;
+  c.getContext("2d").drawImage(v, 0, 0);
+  c.toBlob(blob => {
+    if (blob) {
+      setCaptured(true);
+      setTimeout(() => setCaptured(false), 800);
+      onCapture(blob);
+    }
+  }, "image/jpeg", 0.8);
+};
+
 
   return (
     <div className="cam-wrapper">
