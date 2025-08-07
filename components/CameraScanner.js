@@ -3,15 +3,15 @@ import { useEffect, useRef, useState } from "react";
 
 export default function CameraScanner({ onCapture, onClose }) {
 
-  /* ───── AJUSTES RÁPIDOS ───────────────────────────── */
+  /* ───── AJUSTES RÁPIDOS ─────────────────────────── */
   const DEBUG    = true;   // ← pon false en producción
-  const FILL_TH  = 55;     // % mín. de BORDES que deben coincidir
-  const AREA_TH  = 60;     // % mín. de SUPERFICIE luminosa en silueta
-  const EDGE_MIN = 250;    // bordes totales mínimos (nitidez)
-  const LUMA_MIN = 120;    // rango válido de luminancia
-  const LUMA_MAX = 600;    // descarta negro puro o blanco quemado
+  const FILL_TH  = 55;     // % mín. bordes
+  const AREA_TH  = 60;     // % mín. superficie válida
+  const EDGE_MIN = 250;    // bordes mínimos
+  const LUMA_MIN = 120;    // rango de luminancia válido
+  const LUMA_MAX = 600;
 
-  /* ───── REFS / STATE ─────────────────────────────── */
+  /* ───── REFS / STATE ────────────────────────────── */
   const videoRef  = useRef(null);
   const streamRef = useRef(null);
   const doneRef   = useRef(false);
@@ -21,8 +21,9 @@ export default function CameraScanner({ onCapture, onClose }) {
   const [fillEdges,  setFillEdges]  = useState(0);
   const [fillArea,   setFillArea]   = useState(0);
   const [flash,      setFlash]      = useState(false);
+  const [cover,      setCover]      = useState(true);  // overlay inicial
 
-  /* ───── 1· Cargar silueta (una sola vez) ─────────── */
+  /* ───── 1· Cargar silueta ───────────────────────── */
   useEffect(() => {
     fetch("/plantilla_silueta.svg")
       .then(r => r.text())
@@ -34,7 +35,7 @@ export default function CameraScanner({ onCapture, onClose }) {
       });
   }, []);
 
-  /* ───── 2· Abrir cámara ──────────────────────────── */
+  /* ───── 2· Abrir cámara ────────────────────────── */
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -46,9 +47,14 @@ export default function CameraScanner({ onCapture, onClose }) {
           stream.getTracks().forEach(t => t.stop());
           return;
         }
-        streamRef.current = stream;
+        streamRef.current       = stream;
         videoRef.current.srcObject = stream;
-        videoRef.current.onloadedmetadata = () => setReady(true);
+
+        videoRef.current.onloadedmetadata = () => {
+          /* Cámara lista → quitamos overlay con fade */
+          setReady(true);
+          setTimeout(() => setCover(false), 300); // mismo retraso que antes
+        };
       } catch {
         alert("No se pudo acceder a la cámara");
         onClose();
@@ -81,7 +87,7 @@ export default function CameraScanner({ onCapture, onClose }) {
       ctx.drawImage(v, 0, 0, W, H);
       const px = ctx.getImageData(0, 0, W, H).data;
 
-      /* --- MÉTRICA 1: BORDES --- */
+      /* —— Métrica bordes —— */
       let inEdg=0, edgeCnt=0;
       for (let y = 0; y < H; y += 2) {
         for (let x = 0; x < W; x += 2) {
@@ -96,7 +102,7 @@ export default function CameraScanner({ onCapture, onClose }) {
       }
       const pctEdges = (inEdg / (edgeCnt || 1)) * 100;
 
-      /* --- MÉTRICA 2: SUPERFICIE LUMINOSA --- */
+      /* —— Métrica superficie —— */
       let inMask = 0, validLum = 0;
       for (let y = 0; y < H; y += 3) {
         for (let x = 0; x < W; x += 3) {
@@ -112,22 +118,21 @@ export default function CameraScanner({ onCapture, onClose }) {
       setFillEdges(pctEdges);
       setFillArea(pctArea);
 
-      /* --- DEBUG info --- */
+      /* DEBUG info */
       if (DEBUG) {
         const dbg = document.getElementById("dbg");
         if (dbg) dbg.textContent =
           `Edges: ${edgeCnt}\nFillEdg%: ${pctEdges.toFixed(1)}\nFillArea%: ${pctArea.toFixed(1)}`;
       }
 
-      /* --- DISPARO --- */
+      /* Disparo */
       if (
         pctEdges > FILL_TH &&
         pctArea  > AREA_TH &&
         edgeCnt   > EDGE_MIN
       ) {
         doneRef.current = true;
-        shoot();
-        return;
+        shoot(); return;
       }
       setTimeout(step, 350);
     })();
@@ -159,13 +164,19 @@ export default function CameraScanner({ onCapture, onClose }) {
     onClose();
   };
 
-  /* ───── JSX ─────────────────────────────────────── */
+  /* ───── JSX ────────────────────────────────────── */
   return (
     <div className="wrap">
+      {/* Overlay negro + spinner (fade-out al ready) */}
+      <div className={`cover ${cover ? "" : "hide"}`}>
+        <div className="spinner" />
+      </div>
+
       <video ref={videoRef} autoPlay playsInline className="cam" />
 
       {ready && maskD && (
         <>
+          {/* silueta + contorno */}
           <svg className="mask" viewBox="0 0 1365.333 1365.333"
                preserveAspectRatio="xMidYMid slice">
             <defs>
@@ -188,8 +199,7 @@ export default function CameraScanner({ onCapture, onClose }) {
                     width: `${Math.min(fillEdges, fillArea, 100)}%`,
                     background:
                       fillEdges > FILL_TH && fillArea > AREA_TH
-                        ? "#10cf48"
-                        : "#f2c522"
+                        ? "#10cf48" : "#f2c522"
                   }}
                 />
               </div>
@@ -206,19 +216,33 @@ export default function CameraScanner({ onCapture, onClose }) {
       {/* —— estilos —— */}
       <style jsx>{`
         .wrap{position:fixed;inset:0;z-index:9999;}
+
+        /* Overlay apertura */
+        .cover{position:absolute;inset:0;background:#000;display:flex;
+               align-items:center;justify-content:center;opacity:1;
+               transition:opacity .45s ease;}
+        .cover.hide{opacity:0;pointer-events:none;}
+        .spinner{width:46px;height:46px;border:4px solid #fff;
+                 border-top-color:transparent;border-radius:50%;
+                 animation:spin .9s linear infinite;}
+        @keyframes spin{to{transform:rotate(360deg);}}
+
         .cam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
         .mask{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
 
-        .barBox{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);
-                width:80%;height:12px;background:#444;border-radius:6px;overflow:hidden}
+        .barBox{position:absolute;bottom:16px;left:50%;
+                transform:translateX(-50%);width:80%;height:12px;
+                background:#444;border-radius:6px;overflow:hidden;}
         .bar{height:100%;transition:width .25s;}
 
         .dbg{position:absolute;top:16px;left:16px;background:rgba(0,0,0,.55);
-             color:#fff;padding:6px 10px;font-size:13px;border-radius:4px;white-space:pre-line;}
+             color:#fff;padding:6px 10px;font-size:13px;border-radius:4px;
+             white-space:pre-line;}
 
-        .cls{position:absolute;top:16px;right:16px;width:48px;height:48px;border:none;
-             border-radius:50%;background:#035c3b;color:#fff;display:flex;
-             align-items:center;justify-content:center;font-size:28px;cursor:pointer;}
+        .cls{position:absolute;top:16px;right:16px;width:48px;height:48px;
+             border:none;border-radius:50%;background:#035c3b;color:#fff;
+             display:flex;align-items:center;justify-content:center;
+             font-size:28px;cursor:pointer;}
 
         .flash{position:absolute;inset:0;background:rgba(0,0,0,.78);
                display:flex;align-items:center;justify-content:center;
