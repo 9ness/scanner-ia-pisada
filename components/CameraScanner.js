@@ -5,11 +5,12 @@ export default function CameraScanner({ onCapture, onClose }) {
 
   /* ───── AJUSTES RÁPIDOS ─────────────────────────── */
   const DEBUG    = true;   // ← pon false en producción
-  const FILL_TH  = 55;     // % mín. bordes
-  const AREA_TH  = 60;     // % mín. superficie válida
-  const EDGE_MIN = 250;    // bordes mínimos
+  const FILL_TH  = 35;     // % mín. bordes
+  const AREA_TH  = 30;     // % mín. superficie válida
+  const EDGE_MIN = 300;    // bordes mínimos
   const LUMA_MIN = 120;    // rango de luminancia válido
   const LUMA_MAX = 600;
+  const consecutiveOk = 3
 
   /* ───── REFS / STATE ────────────────────────────── */
   const videoRef  = useRef(null);
@@ -64,81 +65,92 @@ export default function CameraScanner({ onCapture, onClose }) {
   }, [onClose]);
 
   /* ───── 3· Loop detección ───────────────────────── */
-  useEffect(() => {
-    if (!ready || !maskD || doneRef.current) return;
+useEffect(() => {
+  if (!ready || !maskD || doneRef.current) return;
 
-    const v = videoRef.current;
-    const W = v.videoWidth;
-    const H = v.videoHeight;
-    if (!W || !H) return;
+  const v = videoRef.current;
+  const W = v.videoWidth;
+  const H = v.videoHeight;
+  if (!W || !H) return;
 
-    const canvas = document.createElement("canvas");
-    canvas.width = W; canvas.height = H;
-    const ctx = canvas.getContext("2d");
+  const canvas = document.createElement("canvas");
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext("2d");
 
-    const vb = 1365.333;
-    const path = new Path2D();
-    path.addPath(new Path2D(maskD), new DOMMatrix().scale(W / vb, H / vb));
+  const vb = 1365.333;
+  const path = new Path2D();
+  path.addPath(new Path2D(maskD), new DOMMatrix().scale(W / vb, H / vb));
 
-    let alive = true;
-    (function step() {
-      if (!alive || doneRef.current) return;
+  let alive = true;
+  let consecutiveOk = 0;           // ← contador global al loop
 
-      ctx.drawImage(v, 0, 0, W, H);
-      const px = ctx.getImageData(0, 0, W, H).data;
+  (function step() {
+    if (!alive || doneRef.current) return;
 
-      /* —— Métrica bordes —— */
-      let inEdg=0, edgeCnt=0;
-      for (let y = 0; y < H; y += 2) {
-        for (let x = 0; x < W; x += 2) {
-          const i  = (y * W + x) * 4;
-          const l1 = px[i] + px[i+1] + px[i+2];
-          const l2 = px[i+8] + px[i+9] + px[i+10];
-          if (Math.abs(l1 - l2) > 70) {
-            edgeCnt++;
-            if (ctx.isPointInPath(path, x, y)) inEdg++;
-          }
+    ctx.drawImage(v, 0, 0, W, H);
+    const px = ctx.getImageData(0, 0, W, H).data;
+
+    /* —— Métrica bordes —— */
+    let inEdg = 0, edgeCnt = 0;
+    for (let y = 0; y < H; y += 2) {
+      for (let x = 0; x < W; x += 2) {
+        const i  = (y * W + x) * 4;
+        const l1 = px[i] + px[i+1] + px[i+2];
+        const l2 = px[i+8] + px[i+9] + px[i+10];
+        if (Math.abs(l1 - l2) > 70) {
+          edgeCnt++;
+          if (ctx.isPointInPath(path, x, y)) inEdg++;
         }
       }
-      const pctEdges = (inEdg / (edgeCnt || 1)) * 100;
+    }
+    const pctEdges = (inEdg / (edgeCnt || 1)) * 100;
 
-      /* —— Métrica superficie —— */
-      let inMask = 0, validLum = 0;
-      for (let y = 0; y < H; y += 3) {
-        for (let x = 0; x < W; x += 3) {
-          if (!ctx.isPointInPath(path, x, y)) continue;
-          inMask++;
-          const j = (y * W + x) * 4;
-          const lum = px[j] + px[j+1] + px[j+2];
-          if (lum > LUMA_MIN && lum < LUMA_MAX) validLum++;
-        }
+    /* —— Métrica superficie —— */
+    let inMask = 0, validLum = 0;
+    for (let y = 0; y < H; y += 3) {
+      for (let x = 0; x < W; x += 3) {
+        if (!ctx.isPointInPath(path, x, y)) continue;
+        inMask++;
+        const j = (y * W + x) * 4;
+        const lum = px[j] + px[j+1] + px[j+2];
+        if (lum > LUMA_MIN && lum < LUMA_MAX) validLum++;
       }
-      const pctArea = (validLum / (inMask || 1)) * 100;
+    }
+    const pctArea = (validLum / (inMask || 1)) * 100;
 
-      setFillEdges(pctEdges);
-      setFillArea(pctArea);
+    setFillEdges(pctEdges);
+    setFillArea(pctArea);
 
-      /* DEBUG info */
-      if (DEBUG) {
-        const dbg = document.getElementById("dbg");
-        if (dbg) dbg.textContent =
-          `Edges: ${edgeCnt}\nFillEdg%: ${pctEdges.toFixed(1)}\nFillArea%: ${pctArea.toFixed(1)}`;
-      }
+    /* DEBUG info */
+    if (DEBUG) {
+      const dbg = document.getElementById("dbg");
+      if (dbg) dbg.textContent =
+        `Edges: ${edgeCnt}\nFillEdg%: ${pctEdges.toFixed(1)}\nFillArea%: ${pctArea.toFixed(1)}`;
+    }
 
-      /* Disparo */
-      if (
-        pctEdges > FILL_TH &&
-        pctArea  > AREA_TH &&
-        edgeCnt   > EDGE_MIN
-      ) {
+    /* ---- Nueva lógica robusta de disparo ---- */
+    const ok =
+      pctEdges > FILL_TH &&
+      pctArea  > AREA_TH &&
+      edgeCnt  > EDGE_MIN;
+
+    if (ok) {
+      consecutiveOk++;
+      if (consecutiveOk >= 3 && !doneRef.current) {  // 3 fotogramas seguidos (~1 s)
         doneRef.current = true;
-        shoot(); return;
+        shoot();
+        return;
       }
-      setTimeout(step, 350);
-    })();
+    } else {
+      consecutiveOk = 0;  // se resetea si falla 1 fotograma
+    }
 
-    return () => { alive = false; };
-  }, [ready, maskD]);
+    setTimeout(step, 350);
+  })();
+
+  return () => { alive = false; };
+}, [ready, maskD]);
+
 
   /* ───── 4· Captura ─────────────────────────────── */
   const shoot = () => {
