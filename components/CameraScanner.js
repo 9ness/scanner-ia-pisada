@@ -2,12 +2,12 @@ import { useEffect, useRef, useState } from "react";
 
 export default function CameraScanner({ onCapture, onClose }) {
   /* ======== PARÁMETROS ========= */
-  const DEBUG      = false;      // ← false en prod: UI limpia
-  const SHOW_BAR   = false;      // si algún día quieres barra con DEBUG=true
+  const DEBUG      = false;      // ← true para ver datos
+  const SHOW_BAR   = false;      // ← false en producción
   const RENDER_BAR = DEBUG && SHOW_BAR;
 
-  const DS      = 0.50;          // downscale del frame para cálculo
-  const LOOP_MS = 100;           // intervalo del loop
+  const DS      = 0.50;          // downscale para cálculo
+  const LOOP_MS = 100;           // ms entre evaluaciones
 
   // muestreo
   const STEP_TEX  = 3;
@@ -21,15 +21,15 @@ export default function CameraScanner({ onCapture, onClose }) {
   const EDGE_T   = 90;
   const LUMA_MIN = 110;
   const LUMA_MAX = 620;
-  const HUE_NORM = 45;     // ΔHue → 1
-  const SAT_NORM = 0.30;   // ΔSat → 1
+  const HUE_NORM = 45;
+  const SAT_NORM = 0.30;
   const TEX_BASE = 0.9;
   const TEX_SPAN = 0.7;
-  const RSTEP_ABS_NORM = 80;  // media de |ΔL| para score 1.0
+  const RSTEP_ABS_NORM = 80;  // media |ΔL| → score 1.0
 
   // disparo + salvaguardas
   const SHOOT_SCORE = 46;     // 0..100
-  const CONSEC_N    = 2;      // frames válidos seguidos
+  const CONSEC_N    = 2;
   const MIN_EDGES   = 2500;
   const MIN_PIXIN   = 2200;
 
@@ -37,19 +37,16 @@ export default function CameraScanner({ onCapture, onClose }) {
   const videoRef  = useRef(null);
   const streamRef = useRef(null);
   const doneRef   = useRef(false);
-  const armingRef = useRef(false);    // evita disparos múltiples mientras “parpadea” verde
+  const armingRef = useRef(false);
 
   const [ready, setReady] = useState(false);
   const [cover, setCover] = useState(true);
   const [maskD, setMaskD] = useState(null);
-
-  const [score, setScore] = useState(0);   // solo si DEBUG/SHOW_BAR
+  const [score, setScore] = useState(0);
   const [flash, setFlash] = useState(false);
+  const [okOutline, setOkOutline] = useState(false); // borde verde animado
 
-  // NUEVO: contorno verde justo antes de disparar
-  const [okOutline, setOkOutline] = useState(false);
-
-  // util hsv
+  /* ==== util HSV ==== */
   function rgb2hsv(r,g,b){
     const rr=r/255, gg=g/255, bb=b/255;
     const max=Math.max(rr,gg,bb), min=Math.min(rr,gg,bb), d=max-min;
@@ -101,7 +98,7 @@ export default function CameraScanner({ onCapture, onClose }) {
     return () => { cancelled = true; };
   }, [onClose]);
 
-  /* 3) Loop detección */
+  /* 3) Loop detección (tu lógica) */
   useEffect(() => {
     if (!ready || !maskD || doneRef.current) return;
 
@@ -235,36 +232,20 @@ export default function CameraScanner({ onCapture, onClose }) {
 
       if (RENDER_BAR) setScore(S);
 
-      if (DEBUG) {
-        const now = performance.now();
-        if (now - lastDbg > 220) {
-          const dbg=document.getElementById("dbg");
-          if(dbg) dbg.textContent =
-            `EdgesTot: ${edgesTot}\n`+
-            `pixIn:    ${pixIn}\n`+
-            `ΔHue:     ${dHue.toFixed(1)} (score ${(hueScore*100).toFixed(0)})\n`+
-            `ΔSat:     ${dSat.toFixed(2)} (score ${(satScore*100).toFixed(0)})\n`+
-            `TexRatio: ${texRatio.toFixed(2)} (score ${(texScore*100).toFixed(0)})\n`+
-            `RingAbs:  ${ringAbsMean.toFixed(1)}, Cons: ${ringCons.toFixed(2)} (score ${(ringScore*100).toFixed(0)})\n`+
-            `Score%:   ${S.toFixed(1)}\n`+
-            `Consec:   ${consec}/${CONSEC_N}`;
-          lastDbg = now;
-        }
-      }
-
       const ok = (edgesTot>=MIN_EDGES) && (pixIn>=MIN_PIXIN) && (S>=SHOOT_SCORE);
 
       if (ok) {
         consec++;
         if (consec >= CONSEC_N && !doneRef.current && !armingRef.current) {
-          // ➊ “Armo” captura → contorno verde
           armingRef.current = true;
           setOkOutline(true);
-          // ➋ Pequeño retardo para que el usuario vea el verde
+
+          // Dejamos visible el halo verde por ~420ms (2 pulsos) y disparamos
           setTimeout(() => {
-            doneRef.current = true;   // detiene el loop
+            doneRef.current = true;
             shoot();
-          }, 180);
+          }, 420);
+
           return;
         }
       } else {
@@ -279,7 +260,7 @@ export default function CameraScanner({ onCapture, onClose }) {
 
   /* 4) Captura */
   function shoot(){
-    setFlash(true); setTimeout(()=>setFlash(false),420);
+    setFlash(true); setTimeout(()=>setFlash(false), 420);
     const v=videoRef.current;
     const c=document.createElement("canvas");
     c.width=v.videoWidth; c.height=v.videoHeight;
@@ -308,14 +289,61 @@ export default function CameraScanner({ onCapture, onClose }) {
         <>
           <svg className="mask" viewBox="0 0 1365.333 1365.333" preserveAspectRatio="xMidYMid slice">
             <defs>
+              {/* Agujero para ver la cámara */}
               <mask id="hole"><rect width="100%" height="100%" fill="#fff"/><path d={maskD} fill="#000"/></mask>
+
+              {/* Glow fuerte con colorización explícita */}
+              <filter id="megaGlow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur1"/>
+                <feGaussianBlur in="SourceGraphic" stdDeviation="12" result="blur2"/>
+                <feMerge result="merged">
+                  <feMergeNode in="blur2"/>
+                  <feMergeNode in="blur1"/>
+                </feMerge>
+                {/* Colorizamos la capa de blur a verde */}
+                <feFlood floodColor="#7CFFA8" floodOpacity="1" result="flood"/>
+                <feComposite in="flood" in2="merged" operator="in" result="glowColor"/>
+                <feMerge>
+                  <feMergeNode in="glowColor"/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+
+              {/* Glow suave como capa adicional */}
+              <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="g1"/>
+                <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="g2"/>
+                <feMerge>
+                  <feMergeNode in="g2"/>
+                  <feMergeNode in="g1"/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
             </defs>
+
             <rect width="100%" height="100%" fill="rgba(0,0,0,0.55)" mask="url(#hole)"/>
+
+            {/* Capa de halo grande detrás */}
+            {okOutline && (
+              <path
+                d={maskD}
+                className="pulseGlow"
+                fill="none"
+                stroke="#7CFFA8"
+                strokeWidth="16"
+                opacity="0.85"
+                filter="url(#megaGlow)"
+              />
+            )}
+
+            {/* Trazo principal (blanco/verde con pulso + resplandor) */}
             <path
               d={maskD}
+              className={okOutline ? "pulseStroke" : ""}
               fill="none"
-              stroke={okOutline ? "#10cf48" : "#fff"}  // ← verde justo antes de disparar
-              strokeWidth="3"
+              stroke={okOutline ? "#7CFFA8" : "#fff"}
+              strokeWidth={okOutline ? "5" : "3"}
+              filter={okOutline ? "url(#softGlow)" : "none"}
             />
           </svg>
 
@@ -340,6 +368,25 @@ export default function CameraScanner({ onCapture, onClose }) {
         @keyframes spin{to{transform:rotate(360deg)}}
         .cam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
         .mask{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+
+        /* Pulso del borde (trazo principal) */
+        .pulseStroke {
+          animation: pulseStrokeAnim 0.22s ease-in-out 2 alternate both;
+        }
+        @keyframes pulseStrokeAnim {
+          0%   { stroke-width: 5; opacity: 0.94; }
+          100% { stroke-width: 8; opacity: 1.00; }
+        }
+
+        /* Pulso del glow trasero (halo grande) */
+        .pulseGlow {
+          animation: pulseGlowAnim 0.22s ease-in-out 2 alternate both;
+        }
+        @keyframes pulseGlowAnim {
+          0%   { stroke-width: 16; opacity: 0.85; }
+          100% { stroke-width: 22; opacity: 1.00; }
+        }
+
         .barBox{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);width:80%;height:12px;background:#444;border-radius:6px;overflow:hidden}
         .bar{height:100%;transition:width .15s}
         .cls{position:absolute;top:16px;right:16px;width:48px;height:48px;border:none;border-radius:50%;background:#035c3b;color:#fff;display:flex;align-items:center;justify-content:center;font-size:28px;cursor:pointer}

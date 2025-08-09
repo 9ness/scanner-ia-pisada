@@ -550,7 +550,7 @@ const handleCameraCapture = (blob) => {
           style={resetOcultoVersion ? { cursor: 'pointer' } : {}}
         >
           <strong data-text="VivaCore">VivaLens AI</strong>
-          <span className="ver">3.1</span>
+          <span className="ver">4</span>
         </span>
         <div className="stats-bar">
 
