@@ -1,41 +1,49 @@
 import { useEffect, useRef, useState } from "react";
 
 export default function CameraScanner({ onCapture, onClose }) {
-  /* ==== Ajustes rápidos (DS y umbrales) ==== */
-  const DEBUG         = true;      // false en prod
-  const DS            = 0.50;      // downscale del frame (0.5 = 50%)
-  const LOOP_MS       = 180;       // intervalo del loop
+  /* ===== Parámetros ===== */
+  const DEBUG    = true;   // false en producción
+  const DS       = 0.50;   // downscale del frame para cálculo
+  const LOOP_MS  = 140;    // periodo del loop (ms)
 
-  // Aro y umbrales (calibrados para DS=0.5)
-  const STROKE_W_PCT  = 0.015;     // ancho aro relativo al lado menor
-  const STROKE_TH     = 6.5;       // % bordes en aro respecto a edges totales
-  const AREA_TH       = 85;        // % luminancia válida dentro de la silueta
-  const NEAR_MIN      = 180;       // mínimos bordes en aro y por dentro
-  const EDGES_TOT_MIN = 6000;      // bordes totales mínimos (escena)
+  // Sampling
+  const STEP_E = 2;        // paso muestreo para bordes
+  const STEP_A = 3;        // paso muestreo para color / textura
 
-  // Ratio “dentro/fuera” del aro aceptable (alrededor de 1)
-  const IO_LOW        = 0.75;
-  const IO_HIGH       = 1.35;
+  // Aro de comparación
+  const STROKE_W_PCT = 0.016;  // grosor del aro exterior (1.6% del lado menor)
 
-  // Binarización simple de luminancia y borde
-  const LUMA_MIN      = 120;
-  const LUMA_MAX      = 600;
-  const EDGE_T        = 90;
+  // Detección de bordes / luminancia
+  const EDGE_T   = 90;
+  const LUMA_MIN = 110;
+  const LUMA_MAX = 620;
 
-  const CONSEC_FRAMES = 3;         // anti-parpadeo
+  // Normalizaciones para Score
+  const COLOR_NORM = 85;      // ΔRGB para llegar a 1.0 (≈ contraste de color “claro”)
+  const TEX_RATIO_BASE = 0.9; // partimos de 0.9 → si out/in > 0.9 empieza a sumar
+  const TEX_RATIO_SPAN = 0.7; // (ratio - base)/span → [0..1]
 
-  /* ==== Refs / State ==== */
+  const AREA_BASE = 82;       // % ocupación válida a partir del cual empieza a sumar
+  const AREA_SPAN = 12;
+
+  // Salvaguardas + disparo
+  const NEED_EDGES_MIN  = 2800;  // escena con bordes mínimos
+  const NEED_PIXIN_MIN  = 1600;  // píxeles muestreados válidos dentro
+  const SHOOT_SCORE     = 72;    // umbral de disparo (0..100)
+  const CONSEC_FRAMES   = 3;     // nº de frames seguidos para disparar
+
+  /* ===== Refs/estado ===== */
   const videoRef  = useRef(null);
   const streamRef = useRef(null);
   const doneRef   = useRef(false);
 
-  const [ready,   setReady]   = useState(false);
-  const [cover,   setCover]   = useState(true);
-  const [maskD,   setMaskD]   = useState(null);
-  const [barPct,  setBarPct]  = useState(0);
-  const [flash,   setFlash]   = useState(false);
+  const [ready,  setReady]  = useState(false);
+  const [cover,  setCover]  = useState(true);
+  const [maskD,  setMaskD]  = useState(null);
+  const [score,  setScore]  = useState(0);
+  const [flash,  setFlash]  = useState(false);
 
-  /* 1) Carga silueta */
+  /* 1) Silueta */
   useEffect(() => {
     fetch("/plantilla_silueta.svg")
       .then(r => r.text())
@@ -47,7 +55,7 @@ export default function CameraScanner({ onCapture, onClose }) {
       });
   }, []);
 
-  /* 2) Abrir cámara + overlay */
+  /* 2) Abrir cámara */
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -60,7 +68,7 @@ export default function CameraScanner({ onCapture, onClose }) {
         videoRef.current.srcObject = s;
         videoRef.current.onloadedmetadata = () => {
           setReady(true);
-          setTimeout(() => setCover(false), 280);
+          setTimeout(() => setCover(false), 260);
         };
       } catch {
         alert("No se pudo abrir la cámara");
@@ -70,7 +78,7 @@ export default function CameraScanner({ onCapture, onClose }) {
     return () => { cancelled = true; };
   }, [onClose]);
 
-  /* 3) Loop detección */
+  /* 3) Loop detección – Score por Color + Textura */
   useEffect(() => {
     if (!ready || !maskD || doneRef.current) return;
 
@@ -83,7 +91,8 @@ export default function CameraScanner({ onCapture, onClose }) {
     canvas.width = W;  canvas.height = H;
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
 
-    const vb = 1365.333;
+    // Path escalado
+    const vb   = 1365.333;
     const path = new Path2D();
     path.addPath(new Path2D(maskD), new DOMMatrix().scale(W / vb, H / vb));
 
@@ -96,78 +105,107 @@ export default function CameraScanner({ onCapture, onClose }) {
       if (!alive || doneRef.current) return;
 
       ctx.drawImage(v, 0, 0, W, H);
-      const px = ctx.getImageData(0, 0, W, H).data;
+      const data = ctx.getImageData(0, 0, W, H).data;
 
-      // --- BORDES ---
-      let edgesTot = 0, nearIn = 0, nearOut = 0;
-      ctx.save();
-      ctx.lineWidth = strokeW;
-
-      for (let y = 0; y < H; y += 2) {
+      /* --- BORDES totales (ruido general de la escena) --- */
+      let edgesTot = 0;
+      for (let y = 0; y < H; y += STEP_E) {
         const base = (y * W) << 2;
-        for (let x = 0; x < W - 2; x += 2) {
+        for (let x = 0; x < W - 2; x += STEP_E) {
           const i  = base + (x << 2);
-          const l1 = px[i] + px[i+1] + px[i+2];
-          const l2 = px[i+8] + px[i+9] + px[i+10];
-          const diff = l1 - l2;
-          if (diff > EDGE_T || -diff > EDGE_T) {
-            edgesTot++;
-            if (ctx.isPointInStroke(path, x, y)) {
-              if (ctx.isPointInPath(path, x, y)) nearIn++;
-              else nearOut++;
+          const l1 = data[i] + data[i+1] + data[i+2];
+          const l2 = data[i+8] + data[i+9] + data[i+10];
+          const dif = l1 - l2;
+          if (dif > EDGE_T || -dif > EDGE_T) edgesTot++;
+        }
+      }
+
+      /* --- Medidas de color + textura dentro vs. anillo exterior --- */
+      let inR=0, inG=0, inB=0, nIn=0, gradIn=0;
+      let outR=0,outG=0,outB=0, nOut=0, gradOut=0;
+
+      ctx.save(); ctx.lineWidth = strokeW;
+
+      for (let y = 0; y < H; y += STEP_A) {
+        const base = (y * W) << 2;
+        for (let x = 0; x < W; x += STEP_A) {
+          const i  = base + (x << 2);
+          const r  = data[i], g = data[i+1], b = data[i+2];
+          const lum = r + g + b;
+
+          // Gradiente simple (diferencia con derecha+abajo si existen)
+          let grad = 0;
+          if (x < W - STEP_A) {
+            const j = base + ((x + STEP_A) << 2);
+            const lumR = data[j] + data[j+1] + data[j+2];
+            grad += Math.abs(lum - lumR);
+          }
+          if (y < H - STEP_A) {
+            const k = ((y + STEP_A) * W << 2) + (x << 2);
+            const lumD = data[k] + data[k+1] + data[k+2];
+            grad += Math.abs(lum - lumD);
+          }
+
+          const inStroke = ctx.isPointInStroke(path, x, y);
+          const inPath   = ctx.isPointInPath(path, x, y);
+
+          if (inPath && !inStroke) {                       // interior “limpio”
+            if (lum > LUMA_MIN && lum < LUMA_MAX) {
+              inR += r; inG += g; inB += b; gradIn += grad; nIn++;
             }
+          } else if (inStroke && !inPath) {                // aro externo
+            outR += r; outG += g; outB += b; gradOut += grad; nOut++;
           }
         }
       }
       ctx.restore();
 
-      const strokePct = ((nearIn + nearOut) / Math.max(1, edgesTot)) * 100;
-      const ioRatio   = nearOut ? (nearIn / nearOut) : 999;
+      const pixIn = nIn;
+      const areaPct = pixIn ? 100 : 0;   // si no hay interior útil, no sumamos área
 
-      // --- ÁREA ---
-      let pixIn = 0, validLum = 0;
-      for (let y = 0; y < H; y += 3) {
-        const base = (y * W) << 2;
-        for (let x = 0; x < W; x += 3) {
-          if (!ctx.isPointInPath(path, x, y)) continue;
-          pixIn++;
-          const j = base + (x << 2);
-          const lum = px[j] + px[j+1] + px[j+2];
-          if (lum > LUMA_MIN && lum < LUMA_MAX) validLum++;
-        }
-      }
-      const areaPct = (validLum / Math.max(1, pixIn)) * 100;
+      // Medias
+      const mInR = nIn ? inR / nIn : 0, mInG = nIn ? inG / nIn : 0, mInB = nIn ? inB / nIn : 0;
+      const mOutR = nOut ? outR / nOut : 0, mOutG = nOut ? outG / nOut : 0, mOutB = nOut ? outB / nOut : 0;
 
-      setBarPct(strokePct);
+      // Diferencia de color (euclídea en RGB)
+      const dR = mInR - mOutR, dG = mInG - mOutG, dB = mInB - mOutB;
+      const colorDiff = Math.sqrt(dR*dR + dG*dG + dB*dB);
+      const colorScore = Math.min(1, colorDiff / COLOR_NORM); // 0..1
+
+      // Relación de textura: fuera vs. dentro
+      const gIn  = nIn  ? gradIn / nIn  : 1;
+      const gOut = nOut ? gradOut / nOut : 1;
+      const texRatio   = gOut / Math.max(1e-3, gIn);         // >1 si fuera hay más textura
+      const texScore   = Math.max(0, Math.min(1, (texRatio - TEX_RATIO_BASE) / TEX_RATIO_SPAN));
+
+      // Ocupación del interior (si el interior es muy “quemado” o negro no suma)
+      const areaScore  = Math.max(0, Math.min(1, ( (pixIn / Math.max(1, NEED_PIXIN_MIN)) * 100 - AREA_BASE) / AREA_SPAN ));
+
+      // Score final (peso color + textura + un poco de área)
+      const S = (0.50 * colorScore + 0.40 * texScore + 0.10 * areaScore) * 100;
+
+      setScore(S);
 
       if (DEBUG) {
         const dbg = document.getElementById("dbg");
-        if (dbg) {
-          dbg.textContent =
-            `EdgesTot: ${edgesTot}\n` +
-            `NearIn:   ${nearIn}\n` +
-            `NearOut:  ${nearOut}\n` +
-            `Stroke%:  ${strokePct.toFixed(1)}\n` +
-            `Area%:    ${areaPct.toFixed(1)}\n` +
-            `IO_Ratio: ${ioRatio.toFixed(2)}\n` +
-            `Consec:   ${consecutiveOk}/${CONSEC_FRAMES}`;
-        }
+        if (dbg) dbg.textContent =
+          `EdgesTot: ${edgesTot}\n` +
+          `pixIn:    ${pixIn}\n` +
+          `ΔColor:   ${colorDiff.toFixed(1)} (score ${(colorScore*100).toFixed(0)})\n` +
+          `TexRatio: ${texRatio.toFixed(2)} (score ${(texScore*100).toFixed(0)})\n` +
+          `Score%:   ${S.toFixed(1)}\n` +
+          `Consec:   ${consecutiveOk}/${CONSEC_FRAMES}`;
       }
 
-      // --- Condición combinada ---
-      const ok =
-        edgesTot   >= EDGES_TOT_MIN &&
-        strokePct  >= STROKE_TH    &&
-        areaPct    >= AREA_TH      &&
-        nearIn     >= NEAR_MIN     &&
-        ioRatio    >= IO_LOW       &&
-        ioRatio    <= IO_HIGH;
+      const okFrame =
+        edgesTot   >= NEED_EDGES_MIN &&
+        pixIn      >= NEED_PIXIN_MIN &&
+        S          >= SHOOT_SCORE;
 
-      if (ok) {
+      if (okFrame) {
         consecutiveOk++;
         if (consecutiveOk >= CONSEC_FRAMES && !doneRef.current) {
-          doneRef.current = true;
-          shoot(); return;
+          doneRef.current = true; shoot(); return;
         }
       } else {
         consecutiveOk = 0;
@@ -179,7 +217,7 @@ export default function CameraScanner({ onCapture, onClose }) {
     return () => { alive = false; };
   }, [ready, maskD]);
 
-  /* 4) Captura */
+  /* 4) Capturar */
   function shoot() {
     setFlash(true);
     setTimeout(() => setFlash(false), 420);
@@ -201,23 +239,16 @@ export default function CameraScanner({ onCapture, onClose }) {
     onClose();
   }
 
-  /* ==== UI ==== */
   return (
     <div className="wrap">
-      <div className={`cover ${cover ? "" : "hide"}`}>
-        <div className="spinner" />
-      </div>
-
+      <div className={`cover ${cover ? "" : "hide"}`}><div className="spinner" /></div>
       <video ref={videoRef} autoPlay playsInline className="cam" />
 
       {ready && maskD && (
         <>
           <svg className="mask" viewBox="0 0 1365.333 1365.333" preserveAspectRatio="xMidYMid slice">
             <defs>
-              <mask id="hole">
-                <rect width="100%" height="100%" fill="#fff" />
-                <path d={maskD} fill="#000" />
-              </mask>
+              <mask id="hole"><rect width="100%" height="100%" fill="#fff" /><path d={maskD} fill="#000" /></mask>
             </defs>
             <rect width="100%" height="100%" fill="rgba(0,0,0,0.55)" mask="url(#hole)" />
             <path d={maskD} fill="none" stroke="#fff" strokeWidth="3" />
@@ -226,10 +257,9 @@ export default function CameraScanner({ onCapture, onClose }) {
           {DEBUG && (
             <>
               <div className="barBox">
-                <div
-                  className="bar"
-                  style={{ width: `${Math.min(barPct, 100)}%`, background: barPct > 75 ? "#10cf48" : "#f2c522" }}
-                />
+                <div className="bar"
+                  style={{ width: `${Math.min(score, 100)}%`,
+                           background: score > 75 ? "#10cf48" : "#f2c522" }} />
               </div>
               <pre id="dbg" className="dbg" />
             </>
