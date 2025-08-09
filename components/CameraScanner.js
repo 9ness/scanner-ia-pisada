@@ -12,7 +12,7 @@ export default function CameraScanner({ onCapture, onClose }) {
   const STEP_RING = 4;
 
   // aro del contorno
-  const STROKE_W_PCT = 0.018;
+  const STROKE_W_PCT = 0.020;
 
   // límites y normalizaciones
   const EDGE_T   = 90;
@@ -25,10 +25,10 @@ export default function CameraScanner({ onCapture, onClose }) {
   const RSTEP_ABS_NORM = 80;  // media de |ΔL| para score 1.0
 
   // disparo + salvaguardas
-  const SHOOT_SCORE = 62;     // 0..100
-  const CONSEC_N    = 3;
+  const SHOOT_SCORE = 46;     // 0..100
+  const CONSEC_N    = 2;
   const MIN_EDGES   = 2500;
-  const MIN_PIXIN   = 1600;
+  const MIN_PIXIN   = 2200;
 
   /* ======== REFS / ESTADO ======== */
   const videoRef  = useRef(null);
