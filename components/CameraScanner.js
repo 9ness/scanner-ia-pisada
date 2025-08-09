@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 export default function CameraScanner({ onCapture, onClose }) {
   /* ======== PARÁMETROS ========= */
-  const DEBUG   = true;        // false en prod
+  const DEBUG   = false;        // false en prod
   const DS      = 0.50;        // downscale del frame para cálculo
   const LOOP_MS = 100;         // intervalo del loop
 
