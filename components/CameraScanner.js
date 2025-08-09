@@ -2,9 +2,12 @@ import { useEffect, useRef, useState } from "react";
 
 export default function CameraScanner({ onCapture, onClose }) {
   /* ======== PARÁMETROS ========= */
-  const DEBUG   = false;        // false en prod
-  const DS      = 0.50;        // downscale del frame para cálculo
-  const LOOP_MS = 100;         // intervalo del loop
+  const DEBUG      = false;      // ← false en prod: UI limpia
+  const SHOW_BAR   = false;      // si algún día quieres barra con DEBUG=true
+  const RENDER_BAR = DEBUG && SHOW_BAR;
+
+  const DS      = 0.50;          // downscale del frame para cálculo
+  const LOOP_MS = 100;           // intervalo del loop
 
   // muestreo
   const STEP_TEX  = 3;
@@ -26,7 +29,7 @@ export default function CameraScanner({ onCapture, onClose }) {
 
   // disparo + salvaguardas
   const SHOOT_SCORE = 46;     // 0..100
-  const CONSEC_N    = 2;
+  const CONSEC_N    = 2;      // frames válidos seguidos
   const MIN_EDGES   = 2500;
   const MIN_PIXIN   = 2200;
 
@@ -34,12 +37,17 @@ export default function CameraScanner({ onCapture, onClose }) {
   const videoRef  = useRef(null);
   const streamRef = useRef(null);
   const doneRef   = useRef(false);
+  const armingRef = useRef(false);    // evita disparos múltiples mientras “parpadea” verde
 
   const [ready, setReady] = useState(false);
   const [cover, setCover] = useState(true);
   const [maskD, setMaskD] = useState(null);
-  const [score, setScore] = useState(0);
+
+  const [score, setScore] = useState(0);   // solo si DEBUG/SHOW_BAR
   const [flash, setFlash] = useState(false);
+
+  // NUEVO: contorno verde justo antes de disparar
+  const [okOutline, setOkOutline] = useState(false);
 
   // util hsv
   function rgb2hsv(r,g,b){
@@ -114,6 +122,7 @@ export default function CameraScanner({ onCapture, onClose }) {
     let alive  = true;
     let consec = 0;
     let frame  = 0;
+    let lastDbg = 0;
 
     (function step(){
       if(!alive || doneRef.current) return;
@@ -121,7 +130,7 @@ export default function CameraScanner({ onCapture, onClose }) {
       ctx.drawImage(v,0,0,W,H);
       const data = ctx.getImageData(0,0,W,H).data;
 
-      // ==== 1) Bordes globales
+      // 1) Bordes globales
       let edgesTot=0;
       for(let y=0;y<H;y+=STEP_EDG){
         const base=(y*W)<<2;
@@ -134,7 +143,7 @@ export default function CameraScanner({ onCapture, onClose }) {
         }
       }
 
-      // ==== 2) Color/tex: interior y aro-exterior
+      // 2) Color/tex: interior y aro-exterior
       let nIn=0, nOut=0, pixIn=0;
       let hueIn=0, satIn=0, hueOut=0, satOut=0;
       let gIn=0, gOut=0;
@@ -190,7 +199,7 @@ export default function CameraScanner({ onCapture, onClose }) {
       const texRatio = gOutMean / Math.max(1e-3, gInMean);
       const texScore = Math.max(0, Math.min(1, (texRatio - TEX_BASE)/TEX_SPAN));
 
-      // ==== 3) RING STEP + consistencia de signo
+      // 3) RING STEP + consistencia
       let stepAbsSum=0, stepCnt=0, signSum=0;
       ctx.save(); ctx.lineWidth=strokeW;
       for(let y=0;y<H;y+=STEP_RING){
@@ -222,27 +231,45 @@ export default function CameraScanner({ onCapture, onClose }) {
       const ringCons    = stepCnt ? Math.abs(signSum)/stepCnt : 0;
       const ringScore   = Math.min(1, ringAbsMean/RSTEP_ABS_NORM)*0.7 + ringCons*0.3;
 
-      // ==== Score final (peso al ring)
       const S = (0.65*ringScore + 0.20*(0.65*hueScore + 0.35*satScore) + 0.15*texScore) * 100;
-      setScore(S);
 
-      // throttle del debug (cada 4 frames)
-      if(DEBUG && (frame++ % 4 === 0)){
-        const dbg=document.getElementById("dbg");
-        if(dbg) dbg.textContent =
-          `EdgesTot: ${edgesTot}\n`+
-          `pixIn:    ${pixIn}\n`+
-          `ΔHue:     ${dHue.toFixed(1)} (score ${(hueScore*100).toFixed(0)})\n`+
-          `ΔSat:     ${dSat.toFixed(2)} (score ${(satScore*100).toFixed(0)})\n`+
-          `TexRatio: ${texRatio.toFixed(2)} (score ${(texScore*100).toFixed(0)})\n`+
-          `RingAbs:  ${ringAbsMean.toFixed(1)}, Cons: ${ringCons.toFixed(2)} (score ${(ringScore*100).toFixed(0)})\n`+
-          `Score%:   ${S.toFixed(1)}\n`+
-          `Consec:   ${consec}/${CONSEC_N}`;
+      if (RENDER_BAR) setScore(S);
+
+      if (DEBUG) {
+        const now = performance.now();
+        if (now - lastDbg > 220) {
+          const dbg=document.getElementById("dbg");
+          if(dbg) dbg.textContent =
+            `EdgesTot: ${edgesTot}\n`+
+            `pixIn:    ${pixIn}\n`+
+            `ΔHue:     ${dHue.toFixed(1)} (score ${(hueScore*100).toFixed(0)})\n`+
+            `ΔSat:     ${dSat.toFixed(2)} (score ${(satScore*100).toFixed(0)})\n`+
+            `TexRatio: ${texRatio.toFixed(2)} (score ${(texScore*100).toFixed(0)})\n`+
+            `RingAbs:  ${ringAbsMean.toFixed(1)}, Cons: ${ringCons.toFixed(2)} (score ${(ringScore*100).toFixed(0)})\n`+
+            `Score%:   ${S.toFixed(1)}\n`+
+            `Consec:   ${consec}/${CONSEC_N}`;
+          lastDbg = now;
+        }
       }
 
       const ok = (edgesTot>=MIN_EDGES) && (pixIn>=MIN_PIXIN) && (S>=SHOOT_SCORE);
-      if(ok){ consec++; if(consec>=CONSEC_N && !doneRef.current){ doneRef.current=true; shoot(); return; } }
-      else    consec=0;
+
+      if (ok) {
+        consec++;
+        if (consec >= CONSEC_N && !doneRef.current && !armingRef.current) {
+          // ➊ “Armo” captura → contorno verde
+          armingRef.current = true;
+          setOkOutline(true);
+          // ➋ Pequeño retardo para que el usuario vea el verde
+          setTimeout(() => {
+            doneRef.current = true;   // detiene el loop
+            shoot();
+          }, 180);
+          return;
+        }
+      } else {
+        consec = 0;
+      }
 
       setTimeout(step, LOOP_MS);
     })();
@@ -265,7 +292,9 @@ export default function CameraScanner({ onCapture, onClose }) {
 
   /* 5) Cerrar */
   function handleClose(){
-    doneRef.current=true;
+    doneRef.current = true;
+    armingRef.current = false;
+    setOkOutline(false);
     streamRef.current?.getTracks().forEach(t=>t.stop());
     onClose();
   }
@@ -282,17 +311,21 @@ export default function CameraScanner({ onCapture, onClose }) {
               <mask id="hole"><rect width="100%" height="100%" fill="#fff"/><path d={maskD} fill="#000"/></mask>
             </defs>
             <rect width="100%" height="100%" fill="rgba(0,0,0,0.55)" mask="url(#hole)"/>
-            <path d={maskD} fill="none" stroke="#fff" strokeWidth="3"/>
+            <path
+              d={maskD}
+              fill="none"
+              stroke={okOutline ? "#10cf48" : "#fff"}  // ← verde justo antes de disparar
+              strokeWidth="3"
+            />
           </svg>
 
-          {DEBUG && (
-            <>
-              <div className="barBox">
-                <div className="bar" style={{ width: `${Math.min(score,100)}%`, background: score>75 ? "#10cf48" : "#f2c522" }}/>
-              </div>
-              <pre id="dbg" className="dbg"/>
-            </>
+          {RENDER_BAR && (
+            <div className="barBox">
+              <div className="bar" style={{ width: `${Math.min(score,100)}%`, background: score>75 ? "#10cf48" : "#f2c522" }}/>
+            </div>
           )}
+          {DEBUG && <pre id="dbg" className="dbg"/>}
+
           <button className="cls" onClick={handleClose}>✕</button>
         </>
       )}

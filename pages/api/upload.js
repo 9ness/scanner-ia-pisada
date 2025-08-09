@@ -56,22 +56,20 @@ export default async function handler(req, res) {
 
       const originalBuffer = await fs.readFile(file.filepath);
 
-      // ── CAMBIO mínimo: robustez a sombras/orientación ──────────────────────────
+      // Robustez a sombras/orientación (mínimos)
       const resizedBuffer = await sharp(originalBuffer)
         .rotate()                                  // respeta orientación EXIF
         .normalize()                               // mejora contraste en sombras
-        .resize({ width: 512 })                    // mantenemos tu tamaño original
+        .resize({ width: 512 })                    // mantenemos tu tamaño
         .jpeg({ quality: 70, mozjpeg: true })      // mismo quality, con mozjpeg
         .toBuffer();
 
       const t0 = Date.now();
-
       const base64Image = resizedBuffer.toString('base64');
 
-      // ── CAMBIO mínimo: modelo + temperature + system anti-sombras ─────────────
+      // Llamada a OpenAI con o4-mini (sin temperature)
       const response = await openai.chat.completions.create({
-        model: 'o4-mini',                 // antes: 'gpt-4.1-mini'
-        temperature: 0.2,                 // más cumplimiento de formato
+        model: 'gpt-4.1-mini',
         messages: [
           {
             role: 'system',
@@ -86,16 +84,14 @@ export default async function handler(req, res) {
               { type: 'text', text: prompt },
               {
                 type: 'image_url',
-                image_url: {
-                  url: `data:image/jpeg;base64,${base64Image}`,
-                },
+                image_url: { url: `data:image/jpeg;base64,${base64Image}` },
               },
             ],
           },
         ],
       });
 
-      // ─── Registramos latencia (máx 50 valores) ───────────────
+      // Métricas
       const latency = Date.now() - t0;             // ms
       await kv.lpush('openai_latencies', latency);
       await kv.ltrim('openai_latencies', 0, 49);
@@ -105,7 +101,7 @@ export default async function handler(req, res) {
       let result = response.choices[0]?.message?.content || '';
       console.log(`[OpenAI (${response.model}) respuesta completa]:`, result);
 
-      // ── CAMBIO mínimo: validación tolerante con acentos/singulares ────────────
+      // Validación tolerante con acentos/singulares
       const zonasValidas = ['dedos', 'dedo', 'metatarsos', 'metatarso', 'arco', 'exterior', 'talón', 'talon'];
       const norm = (s) => s.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
       const contieneZonas = zonasValidas.some((zona) => norm(result).includes(norm(zona)));
