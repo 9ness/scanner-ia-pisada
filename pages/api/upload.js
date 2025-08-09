@@ -1,5 +1,6 @@
 // upload.js
-import analisisPisada from 'prompts/analisisPisadaV1.js';
+//import analisisPisada from 'prompts/analisisPisadaV1.js';
+import analisisPisada from 'prompts/analisisPisadaV1o4.js';
 //import analisisPisada from 'prompts/analisisPisadaV3_4-1-mini.js';
 //import analisisPisada from 'prompts/analisisPisadaV2_1_gpt4o.js';
 import formidable from 'formidable';
@@ -55,18 +56,30 @@ export default async function handler(req, res) {
 
       const originalBuffer = await fs.readFile(file.filepath);
 
+      // ── CAMBIO mínimo: robustez a sombras/orientación ──────────────────────────
       const resizedBuffer = await sharp(originalBuffer)
-        .resize({ width: 512 })
-        .jpeg({ quality: 70 })
+        .rotate()                                  // respeta orientación EXIF
+        .normalize()                               // mejora contraste en sombras
+        .resize({ width: 512 })                    // mantenemos tu tamaño original
+        .jpeg({ quality: 70, mozjpeg: true })      // mismo quality, con mozjpeg
         .toBuffer();
 
       const t0 = Date.now();
 
       const base64Image = resizedBuffer.toString('base64');
 
+      // ── CAMBIO mínimo: modelo + temperature + system anti-sombras ─────────────
       const response = await openai.chat.completions.create({
-        model: 'gpt-4.1-mini',
+        model: 'o4-mini',                 // antes: 'gpt-4.1-mini'
+        temperature: 0.2,                 // más cumplimiento de formato
         messages: [
+          {
+            role: 'system',
+            content:
+              'Sigue EXACTAMENTE el formato pedido por el usuario. ' +
+              'No descartes por sombras suaves, brillos o compresión. ' +
+              'Si hay duda pero parece real, analiza igual y reduce "confianza".'
+          },
           {
             role: 'user',
             content: [
@@ -92,10 +105,10 @@ export default async function handler(req, res) {
       let result = response.choices[0]?.message?.content || '';
       console.log(`[OpenAI (${response.model}) respuesta completa]:`, result);
 
-      const zonasValidas = ['dedos', 'metatarsos', 'exterior', 'arco', 'talón'];
-      const contieneZonas = zonasValidas.some((zona) =>
-        result.toLowerCase().includes(zona)
-      );
+      // ── CAMBIO mínimo: validación tolerante con acentos/singulares ────────────
+      const zonasValidas = ['dedos', 'dedo', 'metatarsos', 'metatarso', 'arco', 'exterior', 'talón', 'talon'];
+      const norm = (s) => s.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+      const contieneZonas = zonasValidas.some((zona) => norm(result).includes(norm(zona)));
 
       if (!contieneZonas) {
         result =
