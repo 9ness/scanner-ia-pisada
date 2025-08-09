@@ -4,19 +4,21 @@ export default function CameraScanner({ onCapture, onClose }) {
   /* ───── Ajustes ───── */
   const DEBUG        = true;     // false en prod
 
-  // UMBRALES
-  const STROKE_TH    = 0.58;     // % en aro-dentro respecto a aro-total (0–1)
-  const AREA_TH      = 40;       // % de ocupación “válida” en la máscara
-  const NEAR_MIN     = 600;      // nº mínimo de bordes en el aro-dentro
-  const NEAR_IO_TH   = 1.4;      // más bordes en el aro-dentro que en el aro-fuera
+ // UMBRALES principales
+const STROKE_TH    = 0.50;   // proporción en aro que cae “dentro” (0..1)
+const AREA_TH      = 85;     // % de ocupación válida dentro de máscara
+const NEAR_MIN     = 800;    // mínimo de bordes en el aro-dentro
+const NEAR_IO_TH   = 1.25;   // nearIn / nearOut
 
-  // Luminancia y bordes
-  const LUMA_MIN     = 120;
-  const LUMA_MAX     = 600;
-  const EDGE_T       = 70;
-  const SAMPLE_STEP  = 2;        // muestreo de bordes
-  const AREA_STEP    = 3;        // muestreo de área
-  const STROKE_W_PCT = 0.050;    // 5% del lado menor → tolerancia al desfase
+// Luminancia y bordes
+const LUMA_MIN     = 120;
+const LUMA_MAX     = 600;
+const EDGE_T       = 110;    // ← subido
+const SAMPLE_STEP  = 2;
+const AREA_STEP    = 3;
+
+// ARO MÁS ESTRECHO
+const STROKE_W_PCT = 0.012;  // 1.2% del lado menor
 
   const CONSEC_FRAMES = 3;       // frames válidos seguidos para disparar
 
