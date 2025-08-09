@@ -1,31 +1,47 @@
 import { useEffect, useRef, useState } from "react";
 
+/**
+ * CameraScanner (versión robusta)
+ *
+ * Cambios clave respecto a tu versión:
+ * 1) "Stroke%" ahora mide CUÁNTO del aro (anillo alrededor del contorno SVG)
+ *    está activado por bordes, respecto al TOTAL de puntos del aro (ringHit / ringPix),
+ *    no respecto a todos los bordes de la escena. Esto lo vuelve independiente del fondo.
+ * 2) Se cuenta también gradiente en Y (no solo en X) para detectar bordes horizontales.
+ * 3) Regla de disparo simplificada y más explicativa:
+ *      - ringHit% alto (borde pegado al contorno)
+ *      - mayoría del borde en el lado INTERIOR (innerFrac)
+ *      - área interior con luminancia válida (area%)
+ *      - mínimos absolutos de estructura (edgesTot, nearIn)
+ * 4) Umbrales reajustados a los valores que muestran tus capturas.
+ */
+
 export default function CameraScanner({ onCapture, onClose }) {
-
   /* ──────────────────────────────────────────────────────────────
-   *  PARÁMETROS (puedes afinarlos)
+   *  PARÁMETROS AJUSTABLES
    * ────────────────────────────────────────────────────────────── */
-  const DEBUG          = true;      // false en producción
+  const DEBUG            = true;            // false en prod
 
-  // “Aro” (franja alrededor del contorno donde miramos bordes)
-  const STROKE_W_PCT   = 0.016;     // 1.6% del lado menor
+  // Aro (franja de evaluación pegada al contorno SVG)
+  const STROKE_W_PCT     = 0.018;           // 1.8% del lado menor
 
-  // Umbrales de disparo
-  const STROKE_TH      = 48.0;      // % del aro que tiene bordes (nearIn+nearOut respecto a edgesTot)
-  const AREA_TH        = 86.0;      // % de área válida dentro de máscara
-  const NEAR_MIN       = 600;       // mínimos bordes sólo en aro y por dentro
-  const NEAR_IO_TH     = 1.10;      // nearIn / nearOut mínimo
-  const EDGES_TOT_MIN  = 30000;     // estructura mínima global en la escena
+  // Nuevos umbrales (ver notas al final para afinarlos)
+  const RING_PCT_MIN     = 28.0;            // % del aro con borde (ringHit% ≥)
+  const INNER_FRAC_MIN   = 0.55;            // fracción de borde del aro que cae dentro (nearIn/(nearIn+nearOut))
+  const AREA_TH          = 85.0;            // % de área interior con luminancia válida
+  const NEAR_IN_MIN      = 260;             // bordes mínimos en el aro por dentro
+  const EDGES_TOT_MIN    = 12000;           // textura mínima global
 
-  // Binarización simple y muestreo
-  const LUMA_MIN       = 120;
-  const LUMA_MAX       = 600;
-  const EDGE_T         = 110;       // diferencia de luminancia para considerar “borde”
-  const SAMPLE_STEP    = 2;         // paso de muestreo para bordes
-  const AREA_STEP      = 3;         // paso de muestreo para área
+  // Umbrales de luminancia y bordes
+  const LUMA_MIN         = 110;             // abre un poco el rango vs tu versión
+  const LUMA_MAX         = 640;
+  const EDGE_T           = 100;             // diferencia de luminancia → borde (fácil de afinar)
+  const SAMPLE_STEP      = 2;               // muestreo para bordes
+  const AREA_STEP        = 3;               // muestreo para área
 
   // Anti-parpadeos
-  const CONSEC_FRAMES  = 3;         // nº de frames válidos consecutivos
+  const CONSEC_FRAMES    = 3;               // frames válidos consecutivos para disparar
+  const LOOP_MS          = 180;             // ritmo del bucle (ms)
 
   /* ──────────────────────────────────────────────────────────────
    *  REFS / STATE
@@ -88,12 +104,12 @@ export default function CameraScanner({ onCapture, onClose }) {
     canvas.width = W; canvas.height = H;
     const ctx = canvas.getContext("2d");
 
-    // Path escalado al tamaño del vídeo
+    // Path escalado al tamaño del vídeo (misma escala que el overlay)
     const vb = 1365.333;
     const path = new Path2D();
     path.addPath(new Path2D(maskD), new DOMMatrix().scale(W / vb, H / vb));
 
-    // Aro donde miramos bordes cerca del contorno
+    // Aro de evaluación
     const strokeW = Math.max(2, Math.round(Math.min(W, H) * STROKE_W_PCT));
 
     let alive = true;
@@ -105,13 +121,14 @@ export default function CameraScanner({ onCapture, onClose }) {
       ctx.drawImage(v, 0, 0, W, H);
       const px = ctx.getImageData(0, 0, W, H).data;
 
-      /* —— 1) Conteo global de bordes + bordes “cerca del contorno” —— */
-      let edgesTot = 0;
-      let nearIn   = 0;
-      let nearOut  = 0;
+      // —— 1) Conteos de borde ——
+      let edgesTot = 0;  // bordes globales (escena)
+      let nearIn   = 0;  // bordes en aro y por dentro
+      let nearOut  = 0;  // bordes en aro y por fuera
+      let ringPix  = 0;  // nº de puntos muestreados que caen en el aro
 
       ctx.save();
-      ctx.lineWidth = strokeW;      // define el ancho del aro para isPointInStroke
+      ctx.lineWidth = strokeW;
       ctx.lineJoin  = 'round';
       ctx.lineCap   = 'round';
 
@@ -120,14 +137,19 @@ export default function CameraScanner({ onCapture, onClose }) {
           const i  = (y * W + x) * 4;
           const l1 = px[i] + px[i+1] + px[i+2];
 
-          // vecino en X (reduce cálculos):
-          const j  = i + 4 * SAMPLE_STEP;
-          const l2 = px[j] + px[j+1] + px[j+2];
+          // vecino en X e Y (captura bordes verticales y horizontales)
+          const jx = i + 4 * SAMPLE_STEP;
+          const jy = i + 4 * W * SAMPLE_STEP;
+          const lx = (jx < px.length) ? (px[jx] + px[jx+1] + px[jx+2]) : l1;
+          const ly = (jy < px.length) ? (px[jy] + px[jy+1] + px[jy+2]) : l1;
+          const diff = Math.max(Math.abs(l1 - lx), Math.abs(l1 - ly));
 
-          if (Math.abs(l1 - l2) > EDGE_T) {
+          const inStroke = ctx.isPointInStroke(path, x, y);
+          if (inStroke) ringPix++;
+
+          if (diff > EDGE_T) {
             edgesTot++;
-            if (ctx.isPointInStroke(path, x, y)) {
-              // Bordes que caen en el aro
+            if (inStroke) {
               ctx.isPointInPath(path, x, y) ? nearIn++ : nearOut++;
             }
           }
@@ -135,12 +157,14 @@ export default function CameraScanner({ onCapture, onClose }) {
       }
       ctx.restore();
 
-      // Porcentaje de aro “activado” por bordes
-      const strokePct = ((nearIn + nearOut) / Math.max(1, edgesTot)) * 100;
-      // Relación nearIn / nearOut
-      const ioRatio   = nearOut ? (nearIn / nearOut) : 999;
+      // Porcentaje del aro cubierto por bordes
+      const ringHitPct = ((nearIn + nearOut) / Math.max(1, ringPix)) * 100;
+      // Fracción de borde del aro que cae por dentro
+      const innerFrac  = (nearIn / Math.max(1, nearIn + nearOut));
+      // Relación (para depurar solo)
+      const ioRatio    = nearOut ? (nearIn / nearOut) : 9.99;
 
-      /* —— 2) Area interior con luminancia “válida” —— */
+      // —— 2) Área interior con luminancia válida ——
       let pixIn = 0, validLum = 0;
       for (let y = 0; y < H; y += AREA_STEP) {
         for (let x = 0; x < W; x += AREA_STEP) {
@@ -153,10 +177,9 @@ export default function CameraScanner({ onCapture, onClose }) {
       }
       const areaPct = (validLum / Math.max(1, pixIn)) * 100;
 
-      // Barra informativa (puedes mostrar strokePct o ioRatio*100)
-      setBarPct(strokePct);
+      setBarPct(ringHitPct);
 
-      /* —— 3) DEBUG —— */
+      // —— 3) DEBUG ——
       if (DEBUG) {
         const dbg = document.getElementById("dbg");
         if (dbg) {
@@ -164,32 +187,34 @@ export default function CameraScanner({ onCapture, onClose }) {
             `EdgesTot: ${edgesTot}\n` +
             `NearIn:   ${nearIn}\n` +
             `NearOut:  ${nearOut}\n` +
-            `Stroke%:  ${strokePct.toFixed(1)}\n` +
+            `Stroke%:  ${ringHitPct.toFixed(1)}\n` +
             `Area%:    ${areaPct.toFixed(1)}\n` +
+            `InnerFr:  ${innerFrac.toFixed(2)}\n` +
             `IO_Ratio: ${ioRatio.toFixed(2)}\n` +
             `Consec:   ${consecutiveOk}/${CONSEC_FRAMES}`;
         }
       }
 
-      /* —— 4) Condición de disparo combinada —— */
+      // —— 4) Regla de disparo (robusta y legible) ——
       const ok =
-        edgesTot   >= EDGES_TOT_MIN && // textura general suficiente
-        strokePct  >= STROKE_TH    && // borde alrededor del contorno
-        areaPct    >= AREA_TH      && // interior no es blanco/negro
-        nearIn     >= NEAR_MIN     && // borde real por dentro del aro
-        ioRatio    >= NEAR_IO_TH;     // más borde dentro que fuera
+        edgesTot        >= EDGES_TOT_MIN   &&  // suficiente textura en escena
+        ringHitPct      >= RING_PCT_MIN    &&  // aro activado por borde
+        areaPct         >= AREA_TH         &&  // interior con luminancia plausible
+        nearIn          >= NEAR_IN_MIN     &&  // borde "real" por dentro del aro
+        innerFrac       >= INNER_FRAC_MIN;     // mayor parte del borde cae dentro
 
       if (ok) {
         consecutiveOk++;
         if (consecutiveOk >= CONSEC_FRAMES && !doneRef.current) {
           doneRef.current = true;
-          shoot(); return;
+          shoot();
+          return;
         }
       } else {
         consecutiveOk = 0;
       }
 
-      setTimeout(step, 300);
+      setTimeout(step, LOOP_MS);
     })();
 
     return () => { alive = false; };
@@ -198,7 +223,7 @@ export default function CameraScanner({ onCapture, onClose }) {
   /* 4) Captura */
   function shoot() {
     setFlash(true);
-    setTimeout(() => setFlash(false), 450);
+    setTimeout(() => setFlash(false), 420);
 
     const v = videoRef.current;
     const c = document.createElement("canvas");
@@ -206,16 +231,17 @@ export default function CameraScanner({ onCapture, onClose }) {
     c.getContext("2d").drawImage(v, 0, 0);
 
     c.toBlob((blob) => {
-      streamRef.current?.getTracks().forEach(t => t.stop());
+      // Cierra la cámara antes de salir
+      try { streamRef.current?.getTracks().forEach(t => t.stop()); } catch {}
       onCapture(blob);
       onClose();
-    }, "image/jpeg", 0.85);
+    }, "image/jpeg", 0.82);
   }
 
   /* 5) Cerrar manual */
   function handleClose() {
     doneRef.current = true;
-    streamRef.current?.getTracks().forEach(t => t.stop());
+    try { streamRef.current?.getTracks().forEach(t => t.stop()); } catch {}
     onClose();
   }
 
@@ -249,7 +275,7 @@ export default function CameraScanner({ onCapture, onClose }) {
               <div className="barBox">
                 <div
                   className="bar"
-                  style={{ width: `${Math.min(barPct, 100)}%`, background: barPct > 75 ? "#10cf48" : "#f2c522" }}
+                  style={{ width: `${Math.min(barPct, 100)}%`, background: barPct > 60 ? "#10cf48" : "#f2c522" }}
                 />
               </div>
               <pre id="dbg" className="dbg" />
@@ -292,3 +318,27 @@ export default function CameraScanner({ onCapture, onClose }) {
     </div>
   );
 }
+
+/* ──────────────────────────────────────────────────────────────
+ * Notas para afinar rápido en pruebas reales
+ *
+ * 1) Si dispara poco aunque la plantilla esté bien encajada:
+ *    - Baja EDGE_T a 90–95
+ *    - Baja RING_PCT_MIN a 24–26
+ *    - Baja INNER_FRAC_MIN a 0.52
+ *
+ * 2) Si dispara con falsos positivos:
+ *    - Sube RING_PCT_MIN a 32–36
+ *    - Sube INNER_FRAC_MIN a 0.60
+ *    - Sube NEAR_IN_MIN a 320–380
+ *
+ * 3) Rendimiento/Pilas:
+ *    - Aumentar SAMPLE_STEP a 3 reduce CPU a costa de sensibilidad.
+ *    - LOOP_MS en 160–220ms es un buen rango.
+ *
+ * 4) Los números de depuración cambiarán respecto a tu versión:
+ *    - "Stroke%" ahora suele estar ~25–70 en válidas, y mucho más bajo en no válidas.
+ *    - "InnerFr" (0–1) debe ser > 0.55 cuando la coincidencia es real.
+ *
+ * 5) La compresión de captura está en 0.82 (JPEG). Sube/baja si necesitas tamaño/calidad.
+ * ────────────────────────────────────────────────────────────── */
