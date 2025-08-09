@@ -1,27 +1,30 @@
 import { useEffect, useRef, useState } from "react";
 
 export default function CameraScanner({ onCapture, onClose }) {
-  // ===== Ajustes rápidos (optimizado) =====
+  /* ==== Ajustes rápidos (DS y umbrales) ==== */
   const DEBUG         = true;      // false en prod
-  const DS            = 0.50;      // downscale (0.5 = 50% tamaño) → GRAN mejora de perf
-  const LOOP_MS       = 180;       // frame interval
+  const DS            = 0.50;      // downscale del frame (0.5 = 50%)
+  const LOOP_MS       = 180;       // intervalo del loop
 
   // Aro y umbrales (calibrados para DS=0.5)
-  const STROKE_W_PCT  = 0.016;     // ancho del aro (contorno) relativo
-  const STROKE_TH     = 45;        // % de bordes en el aro sobre el total de la escena
-  const AREA_TH       = 82;        // % de área válida en el interior
-  const NEAR_MIN      = 250;       // min. bordes en aro por dentro
-  const NEAR_IO_TH    = 1.10;      // nearIn / nearOut
-  const EDGES_TOT_MIN = 8000;      // min. bordes globales (escena)
+  const STROKE_W_PCT  = 0.015;     // ancho aro relativo al lado menor
+  const STROKE_TH     = 6.5;       // % bordes en aro respecto a edges totales
+  const AREA_TH       = 85;        // % luminancia válida dentro de la silueta
+  const NEAR_MIN      = 180;       // mínimos bordes en aro y por dentro
+  const EDGES_TOT_MIN = 6000;      // bordes totales mínimos (escena)
 
-  // Binarización simple
+  // Ratio “dentro/fuera” del aro aceptable (alrededor de 1)
+  const IO_LOW        = 0.75;
+  const IO_HIGH       = 1.35;
+
+  // Binarización simple de luminancia y borde
   const LUMA_MIN      = 120;
   const LUMA_MAX      = 600;
   const EDGE_T        = 90;
 
   const CONSEC_FRAMES = 3;         // anti-parpadeo
 
-  // ===== Refs / State =====
+  /* ==== Refs / State ==== */
   const videoRef  = useRef(null);
   const streamRef = useRef(null);
   const doneRef   = useRef(false);
@@ -32,7 +35,7 @@ export default function CameraScanner({ onCapture, onClose }) {
   const [barPct,  setBarPct]  = useState(0);
   const [flash,   setFlash]   = useState(false);
 
-  // 1) Cargar silueta
+  /* 1) Carga silueta */
   useEffect(() => {
     fetch("/plantilla_silueta.svg")
       .then(r => r.text())
@@ -44,7 +47,7 @@ export default function CameraScanner({ onCapture, onClose }) {
       });
   }, []);
 
-  // 2) Abrir cámara + overlay
+  /* 2) Abrir cámara + overlay */
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -67,7 +70,7 @@ export default function CameraScanner({ onCapture, onClose }) {
     return () => { cancelled = true; };
   }, [onClose]);
 
-  // 3) Loop detección (rápido)
+  /* 3) Loop detección */
   useEffect(() => {
     if (!ready || !maskD || doneRef.current) return;
 
@@ -76,15 +79,13 @@ export default function CameraScanner({ onCapture, onClose }) {
     const H = Math.round(v.videoHeight * DS);
     if (!W || !H) return;
 
-    // Canvas reducido
     const canvas = document.createElement("canvas");
     canvas.width = W;  canvas.height = H;
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
 
-    // Path escalado al canvas reducido
     const vb = 1365.333;
     const path = new Path2D();
-    path.addPath(new Path2D(maskD), new DOMMatrix().scale((W / vb), (H / vb)));
+    path.addPath(new Path2D(maskD), new DOMMatrix().scale(W / vb, H / vb));
 
     const strokeW = Math.max(2, Math.round(Math.min(W, H) * STROKE_W_PCT));
 
@@ -94,27 +95,23 @@ export default function CameraScanner({ onCapture, onClose }) {
     (function step() {
       if (!alive || doneRef.current) return;
 
-      // Dibuja frame reducido
       ctx.drawImage(v, 0, 0, W, H);
       const px = ctx.getImageData(0, 0, W, H).data;
 
+      // --- BORDES ---
       let edgesTot = 0, nearIn = 0, nearOut = 0;
-
       ctx.save();
       ctx.lineWidth = strokeW;
-      ctx.lineJoin  = 'round';
-      ctx.lineCap   = 'round';
 
-      // BORDES (sólo vecino en X)
       for (let y = 0; y < H; y += 2) {
-        let base = (y * W) << 2;         // y*W*4
+        const base = (y * W) << 2;
         for (let x = 0; x < W - 2; x += 2) {
-          const i  = base + (x << 2);    // *4
+          const i  = base + (x << 2);
           const l1 = px[i] + px[i+1] + px[i+2];
-          const l2 = px[i+8] + px[i+9] + px[i+10];   // (x+2)
-          if ((l1 - l2) > EDGE_T || (l2 - l1) > EDGE_T) {
+          const l2 = px[i+8] + px[i+9] + px[i+10];
+          const diff = l1 - l2;
+          if (diff > EDGE_T || -diff > EDGE_T) {
             edgesTot++;
-            // Sólo chequeo caro si estamos en el aro
             if (ctx.isPointInStroke(path, x, y)) {
               if (ctx.isPointInPath(path, x, y)) nearIn++;
               else nearOut++;
@@ -127,10 +124,10 @@ export default function CameraScanner({ onCapture, onClose }) {
       const strokePct = ((nearIn + nearOut) / Math.max(1, edgesTot)) * 100;
       const ioRatio   = nearOut ? (nearIn / nearOut) : 999;
 
-      // ÁREA (muestreo más agresivo)
+      // --- ÁREA ---
       let pixIn = 0, validLum = 0;
       for (let y = 0; y < H; y += 3) {
-        let base = (y * W) << 2;
+        const base = (y * W) << 2;
         for (let x = 0; x < W; x += 3) {
           if (!ctx.isPointInPath(path, x, y)) continue;
           pixIn++;
@@ -157,19 +154,20 @@ export default function CameraScanner({ onCapture, onClose }) {
         }
       }
 
+      // --- Condición combinada ---
       const ok =
         edgesTot   >= EDGES_TOT_MIN &&
         strokePct  >= STROKE_TH    &&
         areaPct    >= AREA_TH      &&
         nearIn     >= NEAR_MIN     &&
-        ioRatio    >= NEAR_IO_TH;
+        ioRatio    >= IO_LOW       &&
+        ioRatio    <= IO_HIGH;
 
       if (ok) {
         consecutiveOk++;
         if (consecutiveOk >= CONSEC_FRAMES && !doneRef.current) {
           doneRef.current = true;
-          shoot();
-          return;
+          shoot(); return;
         }
       } else {
         consecutiveOk = 0;
@@ -181,11 +179,10 @@ export default function CameraScanner({ onCapture, onClose }) {
     return () => { alive = false; };
   }, [ready, maskD]);
 
-  // 4) Captura
+  /* 4) Captura */
   function shoot() {
     setFlash(true);
     setTimeout(() => setFlash(false), 420);
-
     const v = videoRef.current;
     const c = document.createElement("canvas");
     c.width = v.videoWidth; c.height = v.videoHeight;
@@ -197,14 +194,14 @@ export default function CameraScanner({ onCapture, onClose }) {
     }, "image/jpeg", 0.85);
   }
 
-  // 5) Cerrar
+  /* 5) Cerrar */
   function handleClose() {
     doneRef.current = true;
     streamRef.current?.getTracks().forEach(t => t.stop());
     onClose();
   }
 
-  // ===== UI =====
+  /* ==== UI ==== */
   return (
     <div className="wrap">
       <div className={`cover ${cover ? "" : "hide"}`}>
@@ -217,7 +214,10 @@ export default function CameraScanner({ onCapture, onClose }) {
         <>
           <svg className="mask" viewBox="0 0 1365.333 1365.333" preserveAspectRatio="xMidYMid slice">
             <defs>
-              <mask id="hole"><rect width="100%" height="100%" fill="#fff" /><path d={maskD} fill="#000" /></mask>
+              <mask id="hole">
+                <rect width="100%" height="100%" fill="#fff" />
+                <path d={maskD} fill="#000" />
+              </mask>
             </defs>
             <rect width="100%" height="100%" fill="rgba(0,0,0,0.55)" mask="url(#hole)" />
             <path d={maskD} fill="none" stroke="#fff" strokeWidth="3" />
