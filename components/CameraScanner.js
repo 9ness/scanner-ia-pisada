@@ -1,51 +1,50 @@
 import { useEffect, useRef, useState } from "react";
 
 export default function CameraScanner({ onCapture, onClose }) {
-  /* === Parámetros === */
-  const DEBUG   = true;
-  const DS      = 0.58;        // downscale del frame para cálculo
-  const LOOP_MS = 130;
+  /* ======== PARÁMETROS ========= */
+  const DEBUG   = true;        // false en prod
+  const DS      = 0.50;        // downscale del frame para cálculo
+  const LOOP_MS = 100;         // intervalo del loop
 
   // muestreo
-  const STEP_TEX = 3;          // sampling para color/tex
-  const STEP_EDG = 2;          // sampling para bordes globales
-  const STEP_RING = 4;         // sampling para aro (ring step)
+  const STEP_TEX  = 3;
+  const STEP_EDG  = 2;
+  const STEP_RING = 4;
 
   // aro del contorno
-  const STROKE_W_PCT = 0.016;  // grosor relativo del aro
+  const STROKE_W_PCT = 0.018;
 
-  // limites y normalizaciones
+  // límites y normalizaciones
   const EDGE_T   = 90;
   const LUMA_MIN = 110;
   const LUMA_MAX = 620;
-  const HUE_NORM = 45;         // ΔHue (grados) → 1.0
-  const SAT_NORM = 0.30;       // ΔSat (0..1)   → 1.0
-  const TEX_BASE = 0.9;        // inicio para texScore
-  const TEX_SPAN = 0.7;        // (ratio - base)/span
-  const RSTEP_NORM = 120;      // media del salto lum en aro para score 1.0
+  const HUE_NORM = 45;     // ΔHue → 1
+  const SAT_NORM = 0.30;   // ΔSat → 1
+  const TEX_BASE = 0.9;
+  const TEX_SPAN = 0.7;
+  const RSTEP_ABS_NORM = 80;  // media de |ΔL| para score 1.0
 
-  // disparo y salvaguardas
-  const SHOOT_SCORE   = 60;    // 0..100
-  const CONSEC_N      = 3;     // fotogramas seguidos
-  const MIN_EDGES     = 2400;  // bordes globales
-  const MIN_PIXIN     = 1500;  // pixeles válidos dentro
+  // disparo + salvaguardas
+  const SHOOT_SCORE = 62;     // 0..100
+  const CONSEC_N    = 3;
+  const MIN_EDGES   = 2500;
+  const MIN_PIXIN   = 1600;
 
-  /* === Refs/Estado === */
+  /* ======== REFS / ESTADO ======== */
   const videoRef  = useRef(null);
   const streamRef = useRef(null);
   const doneRef   = useRef(false);
 
-  const [ready, setReady]   = useState(false);
-  const [cover, setCover]   = useState(true);
-  const [maskD, setMaskD]   = useState(null);
-  const [score, setScore]   = useState(0);
-  const [flash, setFlash]   = useState(false);
+  const [ready, setReady] = useState(false);
+  const [cover, setCover] = useState(true);
+  const [maskD, setMaskD] = useState(null);
+  const [score, setScore] = useState(0);
+  const [flash, setFlash] = useState(false);
 
-  /* utils */
+  // util hsv
   function rgb2hsv(r,g,b){
     const rr=r/255, gg=g/255, bb=b/255;
-    const max=Math.max(rr,gg,bb), min=Math.min(rr,gg,bb);
-    const d=max-min;
+    const max=Math.max(rr,gg,bb), min=Math.min(rr,gg,bb), d=max-min;
     let h=0, s=max===0?0:d/max, v=max;
     if(d!==0){
       switch(max){
@@ -59,7 +58,7 @@ export default function CameraScanner({ onCapture, onClose }) {
   }
   const hueDist = (a,b)=>{ let d=Math.abs(a-b); return d>180?360-d:d; };
 
-  /* 1) Silueta */
+  /* 1) Cargar silueta */
   useEffect(() => {
     fetch("/plantilla_silueta.svg")
       .then(r => r.text())
@@ -71,7 +70,7 @@ export default function CameraScanner({ onCapture, onClose }) {
       });
   }, []);
 
-  /* 2) Cámara */
+  /* 2) Abrir cámara */
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -79,12 +78,12 @@ export default function CameraScanner({ onCapture, onClose }) {
         const s = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: "environment", width: { ideal: 1280 } }
         });
-        if (cancelled) { s.getTracks().forEach(t=>t.stop()); return; }
+        if (cancelled) { s.getTracks().forEach(t => t.stop()); return; }
         streamRef.current = s;
         videoRef.current.srcObject = s;
         videoRef.current.onloadedmetadata = () => {
           setReady(true);
-          setTimeout(()=>setCover(false), 260);
+          setTimeout(()=>setCover(false), 220);
         };
       } catch {
         alert("No se pudo abrir la cámara");
@@ -112,8 +111,9 @@ export default function CameraScanner({ onCapture, onClose }) {
     path.addPath(new Path2D(maskD), new DOMMatrix().scale(W/vb, H/vb));
     const strokeW = Math.max(2, Math.round(Math.min(W,H)*STROKE_W_PCT));
 
-    let alive = true;
+    let alive  = true;
     let consec = 0;
+    let frame  = 0;
 
     (function step(){
       if(!alive || doneRef.current) return;
@@ -121,7 +121,7 @@ export default function CameraScanner({ onCapture, onClose }) {
       ctx.drawImage(v,0,0,W,H);
       const data = ctx.getImageData(0,0,W,H).data;
 
-      /* bordes globales */
+      // ==== 1) Bordes globales
       let edgesTot=0;
       for(let y=0;y<H;y+=STEP_EDG){
         const base=(y*W)<<2;
@@ -134,13 +134,12 @@ export default function CameraScanner({ onCapture, onClose }) {
         }
       }
 
-      /* color/tex interior y aro exterior */
+      // ==== 2) Color/tex: interior y aro-exterior
       let nIn=0, nOut=0, pixIn=0;
       let hueIn=0, satIn=0, hueOut=0, satOut=0;
       let gIn=0, gOut=0;
 
-      ctx.save(); ctx.lineWidth = strokeW;
-
+      ctx.save(); ctx.lineWidth=strokeW;
       for(let y=0;y<H;y+=STEP_TEX){
         const base=(y*W)<<2;
         for(let x=0;x<W;x+=STEP_TEX){
@@ -167,7 +166,7 @@ export default function CameraScanner({ onCapture, onClose }) {
               const [h,s]=rgb2hsv(r,g,b);
               hueIn+=h; satIn+=s; gIn+=grad;
             }
-          } else if(inStroke && !inPath){
+          }else if(inStroke && !inPath){
             nOut++;
             const [h,s]=rgb2hsv(r,g,b);
             hueOut+=h; satOut+=s; gOut+=grad;
@@ -183,7 +182,6 @@ export default function CameraScanner({ onCapture, onClose }) {
 
       const dHue = hueDist(mHueIn, mHueOut);
       const dSat = Math.abs(mSatIn - mSatOut);
-
       const hueScore = Math.min(1, dHue/HUE_NORM);
       const satScore = Math.min(1, dSat/SAT_NORM);
 
@@ -192,41 +190,44 @@ export default function CameraScanner({ onCapture, onClose }) {
       const texRatio = gOutMean / Math.max(1e-3, gInMean);
       const texScore = Math.max(0, Math.min(1, (texRatio - TEX_BASE)/TEX_SPAN));
 
-      /* --- RING STEP: salto interior ↔ exterior --- */
-      let stepSum=0, stepCnt=0;
-      ctx.save(); ctx.lineWidth = strokeW;
+      // ==== 3) RING STEP + consistencia de signo
+      let stepAbsSum=0, stepCnt=0, signSum=0;
+      ctx.save(); ctx.lineWidth=strokeW;
       for(let y=0;y<H;y+=STEP_RING){
         for(let x=0;x<W;x+=STEP_RING){
           if(!ctx.isPointInStroke(path,x,y)) continue;
-          // buscamos un par cerca (dentro y fuera) para medir el salto
-          let inL = -1, outL = -1;
+          let inL=-1, outL=-1;
           for(let dy=-2; dy<=2; dy++){
             for(let dx=-2; dx<=2; dx++){
               const xx=x+dx, yy=y+dy;
               if(xx<0||yy<0||xx>=W||yy>=H) continue;
               const j=((yy*W+xx)<<2);
-              const lum=data[j]+data[j+1]+data[j+2];
-              if(ctx.isPointInPath(path,xx,yy)) { inL = lum; }
-              else { outL = lum; }
+              const L=data[j]+data[j+1]+data[j+2];
+              if(ctx.isPointInPath(path,xx,yy)){ inL=L; }
+              else { outL=L; }
               if(inL>=0 && outL>=0) break;
             }
             if(inL>=0 && outL>=0) break;
           }
           if(inL>=0 && outL>=0){
-            stepSum += Math.abs(inL - outL);
+            const d = outL - inL;
+            stepAbsSum += Math.abs(d);
+            signSum    += (d>=0?1:-1);
             stepCnt++;
           }
         }
       }
       ctx.restore();
-      const ringMean = stepCnt ? stepSum/stepCnt : 0;
-      const ringScore = Math.min(1, ringMean / RSTEP_NORM);
+      const ringAbsMean = stepCnt ? stepAbsSum/stepCnt : 0;
+      const ringCons    = stepCnt ? Math.abs(signSum)/stepCnt : 0;
+      const ringScore   = Math.min(1, ringAbsMean/RSTEP_ABS_NORM)*0.7 + ringCons*0.3;
 
-      /* Score total */
-      const S = (0.40*ringScore + 0.30*(0.65*hueScore + 0.35*satScore) + 0.30*texScore) * 100;
+      // ==== Score final (peso al ring)
+      const S = (0.65*ringScore + 0.20*(0.65*hueScore + 0.35*satScore) + 0.15*texScore) * 100;
       setScore(S);
 
-      if(DEBUG){
+      // throttle del debug (cada 4 frames)
+      if(DEBUG && (frame++ % 4 === 0)){
         const dbg=document.getElementById("dbg");
         if(dbg) dbg.textContent =
           `EdgesTot: ${edgesTot}\n`+
@@ -234,7 +235,7 @@ export default function CameraScanner({ onCapture, onClose }) {
           `ΔHue:     ${dHue.toFixed(1)} (score ${(hueScore*100).toFixed(0)})\n`+
           `ΔSat:     ${dSat.toFixed(2)} (score ${(satScore*100).toFixed(0)})\n`+
           `TexRatio: ${texRatio.toFixed(2)} (score ${(texScore*100).toFixed(0)})\n`+
-          `RingStep: ${ringMean.toFixed(1)} (score ${(ringScore*100).toFixed(0)})\n`+
+          `RingAbs:  ${ringAbsMean.toFixed(1)}, Cons: ${ringCons.toFixed(2)} (score ${(ringScore*100).toFixed(0)})\n`+
           `Score%:   ${S.toFixed(1)}\n`+
           `Consec:   ${consec}/${CONSEC_N}`;
       }
@@ -300,14 +301,14 @@ export default function CameraScanner({ onCapture, onClose }) {
 
       <style jsx>{`
         .wrap{position:fixed;inset:0;z-index:9999;}
-        .cover{position:absolute;inset:0;background:#000;display:flex;align-items:center;justify-content:center;opacity:1;transition:opacity .35s ease}
+        .cover{position:absolute;inset:0;background:#000;display:flex;align-items:center;justify-content:center;opacity:1;transition:opacity .3s}
         .cover.hide{opacity:0;pointer-events:none}
         .spinner{width:46px;height:46px;border:4px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite}
         @keyframes spin{to{transform:rotate(360deg)}}
         .cam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
         .mask{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
         .barBox{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);width:80%;height:12px;background:#444;border-radius:6px;overflow:hidden}
-        .bar{height:100%;transition:width .18s}
+        .bar{height:100%;transition:width .15s}
         .cls{position:absolute;top:16px;right:16px;width:48px;height:48px;border:none;border-radius:50%;background:#035c3b;color:#fff;display:flex;align-items:center;justify-content:center;font-size:28px;cursor:pointer}
         .dbg{position:absolute;top:16px;left:16px;background:rgba(0,0,0,.55);color:#fff;padding:6px 10px;font-size:13px;border-radius:4px;white-space:pre-line}
         .flash{position:absolute;inset:0;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.3rem;pointer-events:none}
