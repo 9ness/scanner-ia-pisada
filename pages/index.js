@@ -621,7 +621,7 @@ Seleccionar imagen
   >
      <Camera size={18} style={{ marginRight: '8px' }} />
 Detectar con cámara
-<span className="badge-nuevo">Nuevo</span>
+<span className="badge-nuevo">BETA</span>
   </button>
           )}
 
