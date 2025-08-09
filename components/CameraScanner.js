@@ -10,7 +10,7 @@ export default function CameraScanner({ onCapture, onClose }) {
   const EDGE_MIN = 300;    // bordes mínimos
   const LUMA_MIN = 120;    // rango de luminancia válido
   const LUMA_MAX = 600;
-  const consecutiveOk = 3
+  const consecutiveOk = 2
 
   /* ───── REFS / STATE ────────────────────────────── */
   const videoRef  = useRef(null);
@@ -136,7 +136,7 @@ useEffect(() => {
 
     if (ok) {
       consecutiveOk++;
-      if (consecutiveOk >= 3 && !doneRef.current) {  // 3 fotogramas seguidos (~1 s)
+      if (consecutiveOk >= 2 && !doneRef.current) {  // 3 fotogramas seguidos (~1 s)
         doneRef.current = true;
         shoot();
         return;
@@ -150,7 +150,6 @@ useEffect(() => {
 
   return () => { alive = false; };
 }, [ready, maskD]);
-
 
   /* ───── 4· Captura ─────────────────────────────── */
   const shoot = () => {
