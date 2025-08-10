@@ -19,6 +19,7 @@ export default function Home() {
   const mostrarBotonReset = false; // Cambiar a false para ocultarlo
   const resetOcultoVersion = true;   // ← pon en false si no quieres que actúe como botón
   const mostrarBotonReinicioExpirado = true; // ⬅️ Puedes poner en false para ocultar el botón aunque expire
+  const beta = false;
   const [loading, setLoading] = useState(false);
   const [buttonText, setButtonText] = useState('Analizar pisada con IA');
   const [result, setResult] = useState('');
@@ -612,7 +613,7 @@ Seleccionar imagen
             </label>
           )}
 
-          {showTopLabel && (
+          {showTopLabel && beta && (
   <button
     type="button"
     className="custom-file-upload2"
