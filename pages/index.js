@@ -3,7 +3,7 @@ import Image from 'next/image';
 import CustomSelectTalla from 'components/CustomSelectTalla.js';
 import { useState, useRef, useEffect } from 'react';
 import PieSVG from 'components/PieSVG';
-import { Camera, Plus, ScanLine, Lightbulb, CheckCircle, XCircle, Footprints, RefreshCcw, User } from 'lucide-react';
+import { Camera, Plus, ScanLine, Lightbulb, CheckCircle, XCircle, Footprints, RefreshCcw, Gift, User } from 'lucide-react';
 import { motion } from "framer-motion";
 import { useOptimisticProgress } from 'hooks/useOptimisticProgress';
 import useExpiryCountdown from 'hooks/useExpiryCountdown';
@@ -874,66 +874,99 @@ export default function Home() {
             {result && zonasDetectadas.length > 0 && (
               <>
                 <hr className="linea-separadora" />
-                <div className="recomendacion-container">
-                  <span className="recomendacion-texto">Tu plantilla personalizada ya está lista</span><br />
-                  <span className="recomendacion-texto2">
-                    Basado en tu escaneo, esta plantilla es ideal para ti.
-                  </span>
+                <div
+                  style={{
+                    border: '1px solid #cce9dc',
+                    borderRadius: '16px',
+                    background: '#ffffff',
+                    boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
+                    padding: '16px',
+                    marginTop: '12px',
+                    color: '#0d3b2e'
+                  }}
+                >
+                  <h4 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: '#0f5132' }}>
+                    Tu plantilla personalizada ya está lista
+                  </h4>
 
-                  <p
+                  <p style={{ margin: '6px 0 0', color: 'rgba(17,73,56,0.85)' }}>
+                    Basado en tu escaneo, esta plantilla es ideal para ti.
+                  </p>
+
+                  {/* BONUS PDF */}
+                  <div
+                    style={{
+                      marginTop: '12px',
+                      border: '1px solid #8fd3b3',
+                      borderRadius: '14px',
+                      background: '#f0fbf6',
+                      padding: '12px',
+                      display: 'flex',
+                      gap: '8px',
+                      alignItems: 'flex-start'
+                    }}
+                  >
+                    <p style={{ margin: 0, fontSize: '14px', lineHeight: 1.35, color: '#0d3b2e' }}>
+                      <strong>
+                        🎁 Al completar tu compra recibirás <u>GRATIS</u> tu PDF exclusivo y personalizado
+                      </strong>
+                      : análisis más profundo de tu pisada + ejercicios adaptados para mejorar tu rendimiento y prevenir molestias.
+                    </p>
+                  </div>
+
+                  {/* CTA principal */}
+                  <button
                     onClick={() => {
                       if (tipoPisada.toLowerCase().includes('cavo')) {
                         window.open(`https://www.pisadaviva.com/products/plantilla-pie-cavo?variant=${idVarianteCavo}`, '_blank');
                       } else if (tipoPisada.toLowerCase().includes('plano')) {
                         window.open(`https://www.pisadaviva.com/products/plantilla-pie-plano?variant=${idVariantePlano}`, '_blank');
+                      } else {
+                        // fallback por si no matchea (elige la que mejor convierta)
+                        window.open(`https://www.pisadaviva.com/products/plantilla-pie-cavo`, '_blank');
                       }
                     }}
+                    style={{
+                      marginTop: '14px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      width: '100%',
+                      maxWidth: 340,
+                      height: 44,
+                      borderRadius: '12px',
+                      border: 'none',
+                      background: '#198754',
+                      color: '#fff',
+                      fontWeight: 600,
+                      fontSize: '16px',
+                      cursor: 'pointer',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                    }}
+                  >
+                    Ver mi plantilla
+                  </button>
+
+                  {/* Botón de “Nuevo análisis” que ya tenías cuando expira */}
+
+                </div>
+                {analisisExpirado && mostrarBotonReinicioExpirado && (
+                  <p
+                    onClick={hardReset}
                     style={{
                       cursor: 'pointer',
                       color: '#007442',
                       fontSize: '14px',
-                      marginTop: '4px',
-                      marginBottom: '12px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      width: 'fit-content',
-                      textDecoration: 'underline'
+                      marginTop: '12px',      // margen superior
+                      textDecoration: 'underline',
+                      textAlign: 'center',    // centrado
+                      width: '100%'
                     }}
                   >
-                    <span>Ver mi plantilla</span>
-                    <span style={{ fontSize: '10px' }}></span>
+                    <span>Nuevo análisis GRATIS</span>
                   </p>
-
-                  {analisisExpirado && mostrarBotonReinicioExpirado && (
-                    <button
-                      onClick={hardReset}
-                      style={{
-                        backgroundColor: '#007442',
-                        color: '#fff',
-                        padding: '0.6rem 1.5rem',
-                        border: 'none',
-                        borderRadius: '9999px',
-                        cursor: 'pointer',
-                        fontWeight: 'bold',
-                        fontSize: '0.95rem',
-
-                        /* — alineación y centrado — */
-                        display: 'flex',          // bloque de tipo flex
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '0.5rem',            // espacio icono-texto
-                        margin: '1rem auto 0',    // ← centra horizontalmente en la pantalla
-
-                        /* — tamaño — */
-                        width: '100%',            // ocupa ancho disponible en móvil
-                        maxWidth: '300px'         // pero nunca pasa de 300 px
-                      }}
-                    > <RefreshCcw size={18} />
-                      Nuevo análisis GRATIS
-                    </button>
-                  )}
-                </div>
+                )}
               </>
             )}
 
