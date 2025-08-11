@@ -5,9 +5,7 @@ const FRAME_ANCESTORS = [
     "https://www.pisadaviva.com",
     "https://*.myshopify.com",
     "https://admin.shopify.com"
-].join(' ');
-
-const csp = `frame-ancestors ${FRAME_ANCESTORS};`;
+].join(" ");
 
 module.exports = {
     async headers() {
@@ -15,10 +13,10 @@ module.exports = {
             {
                 source: "/:path*",
                 headers: [
-                    // IMPORTANTE: no pongas X-Frame-Options aquí
-                    { key: "Content-Security-Policy", value: csp },
-                ],
-            },
+                    // No pongas X-Frame-Options aquí
+                    { key: "Content-Security-Policy", value: `frame-ancestors ${FRAME_ANCESTORS};` }
+                ]
+            }
         ];
-    },
+    }
 };
