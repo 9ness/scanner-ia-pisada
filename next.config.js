@@ -13,7 +13,7 @@ module.exports = {
             {
                 source: "/:path*",
                 headers: [
-                    // No pongas X-Frame-Options aquí
+                    // Importante: NO añadas X-Frame-Options aquí
                     { key: "Content-Security-Policy", value: `frame-ancestors ${FRAME_ANCESTORS};` }
                 ]
             }
