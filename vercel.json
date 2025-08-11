@@ -10,10 +10,17 @@
     {
       "src": "/api/(.*)",
       "dest": "/api/$1"
-    },
+    }
+  ],
+  "headers": [
     {
-      "src": "/(.*)",
-      "dest": "/index.js"
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "frame-ancestors 'self' https://pisadaviva.com https://www.pisadaviva.com https://*.myshopify.com https://admin.shopify.com"
+        }
+      ]
     }
   ]
 }

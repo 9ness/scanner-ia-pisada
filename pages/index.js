@@ -19,7 +19,7 @@ export default function Home() {
   const mostrarBotonReset = false; // Cambiar a false para ocultarlo
   const resetOcultoVersion = true;   // ← pon en false si no quieres que actúe como botón
   const mostrarBotonReinicioExpirado = true; // ⬅️ Puedes poner en false para ocultar el botón aunque expire
-  const beta = false;
+  const beta = true;
   const [loading, setLoading] = useState(false);
   const [buttonText, setButtonText] = useState('Analizar pisada con IA');
   const [result, setResult] = useState('');
@@ -58,23 +58,23 @@ export default function Home() {
   const [modoCamara, setModoCamara] = useState(false);   // ⬅️ NUEVO ESTADO
 
   const hardReset = () => {
-  localStorage.removeItem('analisisPisada');
-  window.location.reload();
-};
+    localStorage.removeItem('analisisPisada');
+    window.location.reload();
+  };
 
-// — NUEVO —  aseguramos que solo se use una vez
-const handleCameraCapture = (blob) => {
-  setModoCamara(false);          // 1) aseguramos cierre
+  // — NUEVO —  aseguramos que solo se use una vez
+  const handleCameraCapture = (blob) => {
+    setModoCamara(false);          // 1) aseguramos cierre
 
-  /* 2) convertimos a File y simulamos selección */
-  const file = new File([blob], 'captura.jpg', { type: 'image/jpeg' });
-  const dt   = new DataTransfer();
-  dt.items.add(file);
-  fileInputRef.current.files = dt.files;
+    /* 2) convertimos a File y simulamos selección */
+    const file = new File([blob], 'captura.jpg', { type: 'image/jpeg' });
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    fileInputRef.current.files = dt.files;
 
-  /* 3) lanzamos el flujo habitual */
-  handleFileChange({ target: fileInputRef.current });
-};
+    /* 3) lanzamos el flujo habitual */
+    handleFileChange({ target: fileInputRef.current });
+  };
 
 
   // Estado para bloquear render de UI principal antes de restaurar:
@@ -607,23 +607,23 @@ const handleCameraCapture = (blob) => {
               ) : (
                 <>
                   <Plus size={18} style={{ marginRight: '8px' }} />
-Seleccionar imagen
+                  Seleccionar imagen
                 </>
               )}
             </label>
           )}
 
           {showTopLabel && beta && (
-  <button
-    type="button"
-    className="custom-file-upload2"
-    style={{ marginTop: '10px' }}
-    onClick={() => !modoCamara && setModoCamara(true)}
-  >
-     <Camera size={18} style={{ marginRight: '8px' }} />
-Detectar con cámara
-<span className="badge-nuevo">BETA</span>
-  </button>
+            <button
+              type="button"
+              className="custom-file-upload2"
+              style={{ marginTop: '10px' }}
+              onClick={() => !modoCamara && setModoCamara(true)}
+            >
+              <Camera size={18} style={{ marginRight: '8px' }} />
+              Detectar con cámara
+              <span className="badge-nuevo">BETA</span>
+            </button>
           )}
 
           <input
