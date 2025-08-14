@@ -65,6 +65,8 @@ export default function Home() {
   // — NUEVO —  aseguramos que solo se use una vez
   const handleCameraCapture = (blob) => {
     setModoCamara(false);          // 1) aseguramos cierre
+    window.parent?.postMessage({ type: 'pv:camera', open: false }, '*');
+
 
     /* 2) convertimos a File y simulamos selección */
     const file = new File([blob], 'captura.jpg', { type: 'image/jpeg' });
@@ -527,7 +529,10 @@ export default function Home() {
       {modoCamara && (
         <CameraScanner
           onCapture={handleCameraCapture}
-          onClose={() => setModoCamara(false)}
+          onClose={() => {
+            setModoCamara(false);
+            window.parent?.postMessage({ type: 'pv:camera', open: false }, '*');
+          }}
         />
       )}
       <div className="container">
@@ -618,7 +623,17 @@ export default function Home() {
               type="button"
               className="custom-file-upload2"
               style={{ marginTop: '10px' }}
-              onClick={() => !modoCamara && setModoCamara(true)}
+              onClick={() => {
+                if (!modoCamara) {
+                  setModoCamara(true);
+                  const h = document.documentElement.scrollHeight;
+                  window.parent?.postMessage({ type: 'pv:camera', open: true, height: h }, '*');
+                  setTimeout(() => {
+                    const h2 = document.documentElement.scrollHeight;
+                    window.parent?.postMessage({ type: 'pv:camera', open: true, height: h2 }, '*');
+                  }, 150);
+                }
+              }}
             >
               <Camera size={18} style={{ marginRight: '8px' }} />
               Detectar con cámara
