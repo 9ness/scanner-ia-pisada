@@ -248,18 +248,64 @@ export default function Home() {
   }, [persistenciaActiva]);
 
 
+  /* Altura del iframe cuando NO está la cámara */
   useEffect(() => {
+    if (modoCamara) return; // ⬅️ no enviar alturas normales con la cámara abierta
+
+    let rafId = null, t1 = null, t2 = null, mo = null, ro = null;
+
+    const measure = () => Math.max(
+      document.documentElement.scrollHeight,
+      document.body?.scrollHeight || 0,
+      document.documentElement.offsetHeight,
+      document.body?.offsetHeight || 0
+    );
+
     const sendHeight = () => {
-      const height = document.documentElement.scrollHeight;
-      window.parent.postMessage({ type: 'setIframeHeight', height }, '*');
+      const height = measure();
+      window.parent?.postMessage({ type: 'setIframeHeight', height }, '*');
     };
 
-    sendHeight(); // inicial
-    const observer = new MutationObserver(sendHeight); // cuando cambie el DOM
-    observer.observe(document.body, { childList: true, subtree: true });
+    // Arranque estabilizado (primera carga)
+    sendHeight();                               // inmediato
+    rafId = requestAnimationFrame(sendHeight);  // siguiente frame
+    t1 = setTimeout(sendHeight, 150);           // reflujo breve
+    t2 = setTimeout(sendHeight, 600);           // fuentes/imagenes
 
-    return () => observer.disconnect();
-  }, []);
+    // Cambios en el DOM
+    mo = new MutationObserver(() => {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(sendHeight);
+    });
+    mo.observe(document.body, { childList: true, subtree: true, attributes: true });
+
+    // Cambios de tamaño del documento
+    if ('ResizeObserver' in window) {
+      ro = new ResizeObserver(() => {
+        cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(sendHeight);
+      });
+      ro.observe(document.documentElement);
+    }
+
+    // Cambios del viewport (barras navegador/teclado)
+    const onVV = () => sendHeight();
+    window.visualViewport?.addEventListener('resize', onVV);
+
+    // Asegurar tras onload
+    window.addEventListener('load', sendHeight);
+
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      if (t1) clearTimeout(t1);
+      if (t2) clearTimeout(t2);
+      mo && mo.disconnect();
+      ro && ro.disconnect();
+      window.visualViewport?.removeEventListener('resize', onVV);
+      window.removeEventListener('load', sendHeight);
+    };
+  }, [modoCamara]);
+
 
 
   useEffect(() => {
@@ -288,6 +334,37 @@ export default function Home() {
       return () => clearTimeout(timeout);
     }
   }, [result, zonasDetectadas]);
+
+  /* Señal al padre mientras la cámara está abierta: usar altura del viewport visible */
+  useEffect(() => {
+    if (!modoCamara) return;
+
+    const send = () => {
+      const vh = (window.visualViewport?.height ?? window.innerHeight);
+      window.parent?.postMessage({ type: 'pv:camera', open: true, height: vh }, '*');
+    };
+
+    // estabiliza la primera apertura
+    send();
+    const t1 = setTimeout(send, 200);
+    const t2 = setTimeout(send, 600);
+
+    const onResize = () => send();
+    window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', onResize);
+    window.visualViewport?.addEventListener('resize', send);
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('orientationchange', onResize);
+      window.visualViewport?.removeEventListener('resize', send);
+      // avisar cierre
+      window.parent?.postMessage({ type: 'pv:camera', open: false }, '*');
+    };
+  }, [modoCamara]);
+
 
   const compressImage = async (file) => {
     return new Promise((resolve) => {
@@ -626,12 +703,12 @@ export default function Home() {
               onClick={() => {
                 if (!modoCamara) {
                   setModoCamara(true);
-                  const h = document.documentElement.scrollHeight;
-                  window.parent?.postMessage({ type: 'pv:camera', open: true, height: h }, '*');
+                  const vh = (window.visualViewport?.height ?? window.innerHeight);
+                  window.parent?.postMessage({ type: 'pv:camera', open: true, height: vh }, '*');
                   setTimeout(() => {
-                    const h2 = document.documentElement.scrollHeight;
-                    window.parent?.postMessage({ type: 'pv:camera', open: true, height: h2 }, '*');
-                  }, 150);
+                    const vh2 = (window.visualViewport?.height ?? window.innerHeight);
+                    window.parent?.postMessage({ type: 'pv:camera', open: true, height: vh2 }, '*');
+                  }, 220);
                 }
               }}
             >
